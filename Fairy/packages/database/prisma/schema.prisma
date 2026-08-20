@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Mood {
+  HEALING    @map("治愈")
+  PASSIONATE @map("热血")
+  SUSPENSE   @map("悬疑")
+  MELANCHOLY @map("致郁")
+  RELAXED    @map("轻松")
+  ROMANTIC   @map("浪漫")
+}
+
+enum Scene {
+  RAINY_DAY           @map("雨天")
+  INSOMNIA            @map("失眠夜")
+  WEEKEND_AFTERNOON   @map("周末午后")
+  HOME_ALONE          @map("独自在家")
+  DATE_NIGHT          @map("约会夜")
+  COMMUTE             @map("通勤路上")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  role      String   @default("user")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Movie {
+  id          String   @id @default(uuid())
+  title       String   @unique
+  director    String
+  year        Int
+  moods       Mood[]
+  scenes      Scene[]
+  genres      String[]
+  quote       String?
+  stock       Int      @default(0)
+  totalStock  Int      @default(0)
+  coverUrl    String?
+  description String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("movies")
+}

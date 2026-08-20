@@ -1,0 +1,3 @@
+{"file": "AGENTS.md", "reason": "Verify unified response, tests, secret isolation, transactions N/A for CRUD reads"}
+{"file": "docs/requirements/2026-08-19-mvp-scope.md", "reason": "Acceptance criteria AC-1 through AC-8"}
+{"file": ".trellis/tasks/08-19-movie-crud/prd.md", "reason": "Task requirements source of truth"}

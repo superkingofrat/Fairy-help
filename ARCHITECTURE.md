@@ -1,201 +1,224 @@
-# Fairy — Architecture Specification
+# Fairy — 架构规范
 
-**Version:** 1.0  
-**Scope:** Frontend, backend, data layer, and AI/agent orchestration for Fairy AI Agent + video store management platform.
+**版本：** 1.0  
+**范围：** Fairy AI Agent + 录像带门店管理平台的前端、后端、数据层与 AI/Agent 编排。
 
 ---
 
-## 1. Design Philosophy
+## 0. 技术栈
 
-Fairy is an LLM-driven agent that operates real business systems through a closed loop of **intent understanding → profile-aware planning → tool invocation → observation → response generation**. The architecture is optimized for:
-
-- Streaming, characterful conversation as the primary interface.
-- Safe, observable tool execution against real data (inventory, profiles, history).
-- Strong personalization via a unified profile and memory center.
-- Verifiable AI output (e.g., travel destinations validated by a real map API).
-
-The design synthesizes three proven patterns:
-
-| Reference Architecture | Core Idea Borrowed |
+| 分层 | 技术 |
 |---|---|
-| **LangGraph** | Stateful agent loop modeled as explicit states/transitions: classify → plan → call tool → observe → reply. |
-| **Letta (MemGPT)** | A central memory service with bounded working context and persistent long-term records. |
-| **Vercel AI SDK / Anthropic workflows** | Declarative tool schemas, streaming text generation, and workflow-style tool orchestration. |
+| 包管理 / Workspace | pnpm + Turborepo |
+| 前端框架 | React 18 + TypeScript 5 |
+| 前端构建工具 | Vite 5 |
+| 样式 | Tailwind CSS 3 |
+| 前端状态管理 | Zustand 4 |
+| 路由 | React Router 6 |
+| 后端框架 | Node.js 20 + Express 4 |
+| 后端开发运行时 | tsx |
+| 数据库 | PostgreSQL 15+ |
+| ORM | Prisma 5 |
+| AI 供应商 | OpenAI + Anthropic Claude（经 `@fairy/ai-sdk` 统一） |
+| 校验 | Zod |
+| 测试 | Vitest 2 |
+| Lint / 格式化 | ESLint + Prettier |
+| 容器化（可选） | Docker |
 
 ---
 
-## 2. Logical Architecture Layers
+## 1. 设计理念
+
+Fairy 是一个由 LLM 驱动的智能体，通过一个闭环操作真实的业务系统：**意图理解 → 画像感知下的规划 → 工具调用 → 观察 → 响应生成**。架构围绕以下目标优化：
+
+- 以流式、富有个性的对话作为主要交互界面。
+- 对真实数据（库存、画像、历史）进行安全、可观测的工具执行。
+- 通过统一的画像与记忆中心实现强个性化。
+- 可验证的 AI 输出（例如，经真实地图 API 校验的旅行目的地）。
+
+设计综合了三种被验证的模式：
+
+| 参考架构 | 借鉴的核心思想 |
+|---|---|
+| **LangGraph** | 把有状态的智能体循环建模为显式的状态/迁移：分类 → 规划 → 调用工具 → 观察 → 回复。 |
+| **Letta（MemGPT）** | 一个带受限工作上下文与持久长期记录的中心化记忆服务。 |
+| **Vercel AI SDK / Anthropic workflows** | 声明式工具 schema、流式文本生成、workflow 风格的工具编排。 |
+
+---
+
+## 2. 逻辑架构分层
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                        Presentation Layer                            │
-│  React + TypeScript  •  SSE stream consumer  •  CSS avatar  •  Map   │
+│                         表现层（Presentation）                        │
+│  React + TypeScript  •  SSE 流消费  •  CSS 头像  •  地图             │
 └──────────────────────────────────┬──────────────────────────────────┘
                                    │ SSE / REST
 ┌──────────────────────────────────▼──────────────────────────────────┐
-│                         API Gateway Layer                            │
-│  Express  •  Auth middleware  •  Request validation (Zod)  •  Router  │
+│                         API 网关层（API Gateway）                     │
+│  Express  •  Auth 中间件  •  请求校验（Zod）  •  Router               │
 └──────────────────────────────────┬──────────────────────────────────┘
                                    │
 ┌──────────────────────────────────▼──────────────────────────────────┐
-│                       Agent Orchestration Layer                      │
+│                     智能体编排层（Agent Orchestration）               │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────┐  │
-│  │   Intent     │  │   Planner    │  │     Tool Dispatcher      │  │
-│  │  Classifier  │  │              │  │                          │  │
+│  │   意图分类     │  │   规划器      │  │     工具调度器             │  │
+│  │  Intent       │  │  Planner     │  │   Tool Dispatcher        │  │
+│  │ Classifier    │  │              │  │                          │  │
 │  └──────────────┘  └──────────────┘  └──────────────────────────┘  │
 │         │                 │                       │                 │
 │         └─────────────────┼───────────────────────┘                 │
 │                           ▼                                         │
 │                  ┌─────────────────┐                                │
-│                  │   State Loop    │                                │
+│                  │   状态循环        │                                │
 │                  │  observe → reply │                                │
 │                  └─────────────────┘                                │
 └──────────────────────────────────┬──────────────────────────────────┘
                                    │
 ┌──────────────────────────────────▼──────────────────────────────────┐
-│                          Tool Layer                                  │
-│  Movie Recommendation  •  Rental Tool  •  Travel Planner  •  Insight │
+│                            工具层（Tool）                            │
+│  影片推荐  •  租赁工具  •  旅行规划  •  门店洞察                      │
 └──────────────────────────────────┬──────────────────────────────────┘
                                    │
 ┌──────────────────────────────────▼──────────────────────────────────┐
-│                       Service / Data Layer                           │
-│  Profile Service  •  Movie Service  •  Rental Service  •  Map Client │
+│                     服务 / 数据层（Service / Data）                  │
+│  画像服务  •  影片服务  •  租赁服务  •  地图客户端                    │
 └──────────────────────────────────┬──────────────────────────────────┘
                                    │
 ┌──────────────────────────────────▼──────────────────────────────────┐
-│                       Persistence Layer                              │
+│                         持久化层（Persistence）                      │
 │  PostgreSQL  •  Prisma ORM  •  migrations  •  seeders                │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 3. Layer Responsibilities
+## 3. 各层职责
 
-### 3.1 Presentation Layer (`apps/web/`)
+### 3.1 表现层（`apps/web/`）
 
-| Component | Responsibility |
+| 组件 | 职责 |
 |---|---|
-| `ChatPage` | Conversation container, SSE connection lifecycle, message list. |
-| `FairyAvatar` | CSS-animated character avatar with expression states. |
-| `MessageStream` | Renders incremental tokens as they arrive over SSE. |
-| `RecommendationCard` | Displays movie recommendation with one-click borrow action. |
-| `TripTimeline` | Displays generated itinerary with map route overlay. |
-| `AdminDashboard` | Rental statistics and operational insights. |
+| `ChatPage` | 对话容器、SSE 连接生命周期、消息列表。 |
+| `FairyAvatar` | CSS 动画角色头像，带表情状态。 |
+| `MessageStream` | 逐字渲染经 SSE 到达的流式 token。 |
+| `RecommendationCard` | 展示影片推荐，并支持一键借阅。 |
+| `TripTimeline` | 展示生成的行程，叠加地图路线。 |
+| `AdminDashboard` | 租赁统计与运营洞察。 |
 
-Rules:
+规则：
 
-- The frontend never holds business transaction logic. It sends intent text and renders results.
-- Map rendering uses the client-side **Amap JS API only**. Server-side Amap keys remain secret.
-- All user-facing strings are sourced from the localization module.
+- 前端永不持有业务事务逻辑。它只发送意图文本并渲染结果。
+- 地图渲染**仅**使用客户端 **Amap JS API**。服务端 Amap 密钥保持私密。
+- 所有面向用户的内容均来自本地化模块。
 
-### 3.2 API Gateway Layer (`apps/api/src/routes/`, `apps/api/src/middleware/`)
+### 3.2 API 网关层（`apps/api/src/routes/`、`apps/api/src/middleware/`）
 
-| Component | Responsibility |
+| 组件 | 职责 |
 |---|---|
-| `POST /api/chat` | Entry point for all conversational requests. Accepts text + session context. |
-| `authMiddleware` | Validates JWT/session; attaches `userId` and `role`. |
-| `validateBody` | Validates request shape using Zod schemas from `packages/shared/`. |
-| Domain routers (`/movies`, `/rentals`, `/trips`, `/profiles`) | REST endpoints for admin CRUD and direct UI operations. |
+| `POST /api/chat` | 所有对话请求的入口。接收文本 + 会话上下文。 |
+| `authMiddleware` | 校验 JWT/会话；附加 `userId` 与 `role`。 |
+| `validateBody` | 使用 `packages/shared/` 的 Zod schema 校验请求形状。 |
+| 领域路由（`/movies`、`/rentals`、`/trips`、`/profiles`） | 面向管理端 CRUD 与直接 UI 操作的 REST 端点。 |
 
-Rules:
+规则：
 
-- All chat traffic flows through `/api/chat`. No direct tool invocation from the client.
-- Domain routers are for admin/maintenance UIs, not for agent logic.
+- 所有聊天流量都经由 `/api/chat`。客户端不得直接调用工具。
+- 领域路由面向管理/维护 UI，而非 agent 逻辑。
 
-### 3.3 Agent Orchestration Layer (`apps/api/src/agent/`)
+### 3.3 智能体编排层（`apps/api/src/agent/`）
 
-This is the heart of Fairy. It is modeled as an explicit state loop rather than a single prompt.
+这是 Fairy 的核心。它被建模为显式状态循环，而非单一提示词。
 
-| Component | Responsibility |
+| 组件 | 职责 |
 |---|---|
-| `IntentClassifier` | Maps user input to one of: `chat`, `recommend_movie`, `borrow_movie`, `plan_trip`, `store_insight`. |
-| `ContextBuilder` | Loads working memory: recent messages, user profile, and recent behavior logs. |
-| `Planner` | Decides which tool(s) to call and in what order. |
-| `ToolDispatcher` | Executes the selected tool, catches errors, and returns observations. |
-| `ResponseSynthesizer` | Converts observations into final streamed reply in Fairy persona. |
-| `StateLoop` | Drives the classify → plan → tool → observe → reply cycle, up to a max iteration limit. |
+| `IntentClassifier` | 把用户输入映射到以下之一：`chat`、`recommend_movie`、`borrow_movie`、`plan_trip`、`store_insight`。 |
+| `ContextBuilder` | 加载工作记忆：最近消息、用户画像、近期行为日志。 |
+| `Planner` | 决定调用哪个（些）工具及其先后顺序。 |
+| `ToolDispatcher` | 执行所选工具、捕获错误、返回观察结果。 |
+| `ResponseSynthesizer` | 把观察结果转换成最终以 Fairy 人设流式输出的回复。 |
+| `StateLoop` | 驱动 分类 → 规划 → 工具 → 观察 → 回复 循环，最大迭代次数受限。 |
 
-Rules:
+规则：
 
-- The loop terminates after a final response or after reaching `MAX_AGENT_ITERATIONS`.
-- Errors from a tool are returned to the LLM as observations so Fairy can recover or apologize.
-- No LLM output is persisted without first validating time-sensitive facts (inventory, map POI).
+- 循环在产出最终响应后，或达到 `MAX_AGENT_ITERATIONS` 后终止。
+- 工具报错会作为观察结果返回给 LLM，以便 Fairy 恢复或致歉。
+- 任何 LLM 输出在通过时间敏感事实（库存、地图 POI）校验之前，不得持久化。
 
-### 3.4 Tool Layer (`apps/api/src/tools/`)
+### 3.4 工具层（`apps/api/src/tools/`）
 
-Each tool is a self-contained function with a strict JSON schema consumed by the LLM.
+每个工具都是自包含的函数，带一份严格的由 LLM 消费的 JSON schema。
 
-| Tool | Responsibility |
+| 工具 | 职责 |
 |---|---|
-| `recommendMovieTool` | Reads profile + mood/scene filters, returns ranked movie cards. |
-| `borrowMovieTool` | Checks stock, decrements inventory, writes rental log. |
-| `planTripTool` | Reads profile, asks LLM for draft itinerary, validates POIs with Amap, computes routes. |
-| `storeInsightTool` | Aggregates rental/operation metrics and asks LLM for business suggestions. |
+| `recommendMovieTool` | 读取画像 + 心情/场景过滤条件，返回排序后的影片卡片。 |
+| `borrowMovieTool` | 校验库存、扣减库存、写入租赁日志。 |
+| `planTripTool` | 读取画像、请 LLM 生成行程草稿、用 Amap 校验 POI、计算路线。 |
+| `storeInsightTool` | 聚合租赁/运营指标，并请 LLM 给出经营建议。 |
 
-Rules:
+规则：
 
-- Every tool logs its invocation and outcome to the behavior log.
-- Every tool returns a deterministic shape: `{ success, data, error }`.
-- Tools are the **only** place business mutations happen during agent flow.
+- 每个工具都会把自身调用与结果写入行为日志。
+- 每个工具都返回确定性的结构：`{ success, data, error }`。
+- 在 agent 流程中，工具是业务变更发生的**唯一**场所。
 
-### 3.5 Service / Data Layer (`apps/api/src/services/`, `packages/database/`)
+### 3.5 服务 / 数据层（`apps/api/src/services/`、`packages/database/`）
 
-| Service | Responsibility |
+| 服务 | 职责 |
 |---|---|
-| `ProfileService` | CRUD for persona, preferences, dislikes, and travel style. |
-| `MovieService` | Catalog and metadata; enforces `mood` and `scene` tags. |
-| `RentalService` | Inventory checks, borrow transactions, return handling. |
-| `BehaviorLogService` | Append-only activity log for agent memory. |
-| `AmapClient` | Server-side POI search and route planning wrapper. |
-| `AiProviderClient` | Unified OpenAI/Claude client from `packages/ai-sdk/`. |
+| `ProfileService` | 人设、偏好、厌恶项、旅行风格的 CRUD。 |
+| `MovieService` | 影片目录与元数据；强制 `mood` 与 `scene` 标签。 |
+| `RentalService` | 库存校验、借阅事务、归还处理。 |
+| `BehaviorLogService` | 面向 agent 记忆的只追加活动日志。 |
+| `AmapClient` | 服务端 POI 搜索与路线规划封装。 |
+| `AiProviderClient` | 来自 `packages/ai-sdk/` 的统一 OpenAI/Claude 客户端。 |
 
-Rules:
+规则：
 
-- Services do not depend on Express or HTTP context.
-- Database access goes through Prisma models only.
+- 服务不依赖 Express 或 HTTP 上下文。
+- 数据库访问只通过 Prisma model 进行。
 
-### 3.6 Persistence Layer (`packages/database/`)
+### 3.6 持久化层（`packages/database/`）
 
-| Entity | Purpose |
+| 实体 | 用途 |
 |---|---|
-| `User` | Authentication, role (`admin`, `user`, `agent`). |
-| `Profile` | Personality tags, movie preferences, travel style, diet, dislikes. |
-| `Movie` | Catalog with required `mood[]` and `scene[]` arrays, plus quote snippets. |
-| `Rental` | Borrow/return records linked to user and movie. |
-| `Trip` | Generated itinerary with validated POIs and routes. |
-| `BehaviorLog` | Append-only ledger: who, when, action, related entity. |
-| `Session` | Lightweight conversation context for short-term memory. |
+| `User` | 认证、角色（`admin`、`user`、`agent`）。 |
+| `Profile` | 性格标签、影片偏好、旅行风格、饮食、厌恶项。 |
+| `Movie` | 影片目录，含必需的 `mood[]` 与 `scene[]` 数组，以及台词片段。 |
+| `Rental` | 关联用户与影片的借阅/归还记录。 |
+| `Trip` | 生成的行程，含经校验的 POI 与路线。 |
+| `BehaviorLog` | 只追加的分类账：谁、何时、什么动作、相关实体。 |
+| `Session` | 面向短期记忆的轻量会话上下文。 |
 
-Rules:
+规则：
 
-- `mood` and `scene` use strict enums. No free-form strings.
-- Every business action writes one `BehaviorLog` row minimum.
-- Long-term memory is derived from `Profile` + `BehaviorLog`, not from prompt stuffing.
+- `mood` 与 `scene` 使用严格枚举。不允许自由格式字符串。
+- 每个业务动作至少写入一条 `BehaviorLog` 记录。
+- 长期记忆由 `Profile` + `BehaviorLog` 推导得出，而非通过堆砌提示词实现。
 
 ---
 
-## 4. Tool Scheduling Design
+## 4. 工具调度设计
 
-### 4.1 Scheduling Model
+### 4.1 调度模型
 
-Fairy uses **single-agent sequential scheduling with deterministic routing** (inspired by LangGraph state transitions and Vercel AI SDK `streamText` with tools):
+Fairy 采用**单智能体顺序调度 + 确定性路由**（灵感来源于 LangGraph 状态迁移与 Vercel AI SDK 的 `streamText` + tools）：
 
-1. **Classify** — IntentClassifier selects the target domain.
-2. **Plan** — Planner picks the tool sequence. Most flows use one tool; travel planning may use `planTripTool` which internally calls the map API.
-3. **Execute** — ToolDispatcher runs the tool inside a transaction where needed.
-4. **Observe** — Tool result is appended to the running state.
-5. **Synthesize** — ResponseSynthesizer streams the final reply.
+1. **分类（Classify）** — `IntentClassifier` 选择目标领域。
+2. **规划（Plan）** — `Planner` 选择工具序列。多数流程只用一个工具；旅行规划可能使用 `planTripTool`，其内部会调用地图 API。
+3. **执行（Execute）** — `ToolDispatcher` 在需要时于事务内运行该工具。
+4. **观察（Observe）** — 工具结果被追加到运行中的状态。
+5. **合成（Synthesize）** — `ResponseSynthesizer` 流式输出最终回复。
 
-### 4.2 Tool Definition Schema
+### 4.2 工具定义 Schema
 
-Each tool exposes a schema compatible with OpenAI/Claude function calling:
+每个工具暴露一份兼容 OpenAI/Claude 函数调用的 schema：
 
 ```ts
 interface Tool {
   name: string;
-  description: string;           // Written from the model's perspective
-  parameters: z.ZodObject<any>;  // Shared Zod schema
+  description: string;           // 从模型的视角书写
+  parameters: z.ZodObject<any>;  // 共享 Zod schema
   handler: (args: any, ctx: AgentContext) => Promise<ToolResult>;
 }
 
@@ -206,19 +229,19 @@ interface ToolResult {
 }
 ```
 
-### 4.3 Tool Dispatch Flow
+### 4.3 工具调度流程
 
 ```
-User message
+User message（用户消息）
     │
     ▼
 IntentClassifier ──► Intent: recommend_movie
     │
     ▼
-ContextBuilder loads profile + recent logs
+ContextBuilder 加载 profile + 近期日志
     │
     ▼
-Planner selects recommendMovieTool
+Planner 选择 recommendMovieTool
     │
     ▼
 ToolDispatcher ──► recommendMovieTool
@@ -227,23 +250,23 @@ ToolDispatcher ──► recommendMovieTool
 MovieService + ProfileService
     │
     ▼
-ToolResult (movies ranked)
+ToolResult（sorted movies 排序影片）
     │
     ▼
-ResponseSynthesizer streams final reply
+ResponseSynthesizer 流式输出最终回复
 ```
 
-### 4.4 Error Handling
+### 4.4 错误处理
 
-- Tool failure returns `{ success: false, error }` to the orchestrator.
-- The orchestrator may retry once for transient external errors (e.g., map API timeout).
-- Fatal errors are streamed to the user as a friendly message; details are logged server-side.
+- 工具失败向编排器返回 `{ success: false, error }`。
+- 对于瞬时外部错误（例如地图 API 超时），编排器可重试一次。
+- 致命错误以友好文案流式返回给用户，细节在服务端记录日志。
 
 ---
 
-## 5. Data Flow
+## 5. 数据流
 
-### 5.1 Movie Recommendation Flow
+### 5.1 影片推荐流程
 
 ```
 [Frontend] "心情不好"
@@ -252,39 +275,39 @@ ResponseSynthesizer streams final reply
 [POST /api/chat]
     │
     ▼
-[Agent Orchestrator]
+[Agent Orchestrator 智能体编排器]
     │
     ├── IntentClassifier ──► recommend_movie
-    ├── ContextBuilder   ──► load profile, recent logs
+    ├── ContextBuilder   ──► 加载 profile、近期日志
     ├── Planner          ──► recommendMovieTool(mood: 致郁/治愈, profile)
     │
     ▼
 [recommendMovieTool]
     │
-    ├── ProfileService ──► movie genre preference
+    ├── ProfileService ──► 影片类型偏好
     ├── MovieService   ──► SELECT WHERE mood @> {致郁, 治愈} AND stock > 0
-    └── BehaviorLogService ──► log recommendation event
+    └── BehaviorLogService ──► 记录推荐事件
     │
     ▼
-[ToolResult] movie cards
+[ToolResult] 影片卡片
     │
     ▼
-[ResponseSynthesizer] stream recommendation reply + cards
+[ResponseSynthesizer] 流式输出推荐回复 + 卡片
     │
     ▼ SSE
-[Frontend] render MessageStream + RecommendationCard
+[Frontend] 渲染 MessageStream + RecommendationCard
 ```
 
-### 5.2 Borrow Execution Flow
+### 5.2 借阅执行流程
 
 ```
-[Frontend] click "一键借阅" on recommendation card
+[Frontend] 点击推荐卡片上的"一键借阅"
     │
     ▼ SSE (message: "我要借《XXX》")
 [POST /api/chat]
     │
     ▼
-[Agent Orchestrator]
+[Agent Orchestrator 智能体编排器]
     │
     ├── IntentClassifier ──► borrow_movie
     ├── Planner          ──► borrowMovieTool(movieId, userId)
@@ -293,86 +316,86 @@ ResponseSynthesizer streams final reply
 [borrowMovieTool]
     │
     ├── RentalService ──► BEGIN TX
-    │   ├── check stock > 0
-    │   ├── decrement stock
-    │   ├── insert Rental row
+    │   ├── 校验 stock > 0
+    │   ├── 扣减 stock
+    │   ├── 插入 Rental 记录
     │   └── commit
-    ├── MovieService   ──► return updated stock
-    └── BehaviorLogService ──► log borrow event
+    ├── MovieService   ──► 返回更新后的 stock
+    └── BehaviorLogService ──► 记录借阅事件
     │
     ▼
 [ToolResult] { success, rental, remainingStock }
     │
     ▼
-[ResponseSynthesizer] stream confirmation + updated card
+[ResponseSynthesizer] 流式输出确认信息 + 更新后的卡片
 ```
 
-### 5.3 Travel Planning Flow
+### 5.3 旅行规划流程
 
 ```
-[Frontend] "想去玩"  or  admin: "想和 XXX 去玩"
+[Frontend] "想去玩"  或  admin: "想和 XXX 去玩"
     │
     ▼ SSE
 [POST /api/chat]
     │
     ▼
-[Agent Orchestrator]
+[Agent Orchestrator 智能体编排器]
     │
     ├── IntentClassifier ──► plan_trip
-    ├── ContextBuilder   ──► load target profile(s)
+    ├── ContextBuilder   ──► 加载目标 profile
     ├── Planner          ──► planTripTool(city, profile)
     │
     ▼
 [planTripTool]
     │
-    ├── AiProviderClient ──► LLM generates candidate POIs
-    ├── AmapClient       ──► validate each POI exists
-    │   └── if invalid ──► ask LLM to regenerate or return error
-    ├── AmapClient       ──► route planning between valid POIs
-    └── BehaviorLogService ──► log trip planning event
+    ├── AiProviderClient ──► LLM 生成候选 POI
+    ├── AmapClient       ──► 校验每个 POI 是否存在
+    │   └── 若无效 ──► 请 LLM 重新生成或返回错误
+    ├── AmapClient       ──► 校验有效 POI 之间的路线规划
+    └── BehaviorLogService ──► 记录行程规划事件
     │
     ▼
-[ToolResult] validated itinerary + route
+[ToolResult] 校验后的行程 + 路线
     │
     ▼
-[ResponseSynthesizer] stream itinerary + map data
+[ResponseSynthesizer] 流式输出行程 + 地图数据
     │
     ▼ SSE
-[Frontend] render TripTimeline + Amap JS route overlay
+[Frontend] 渲染 TripTimeline + Amap JS 路线叠加
 ```
 
-### 5.4 Memory / Profile Flow
+### 5.4 记忆 / 画像流程
 
 ```
-Every tool execution
+每次工具执行
     │
     ▼
-[BehaviorLogService] append row
+[BehaviorLogService] 追加记录
     │
     ▼
-Future ContextBuilder reads
-    ├── latest N Session messages (short-term)
-    ├── recent BehaviorLog rows (medium-term)
-    └── Profile entity (long-term)
+后续 ContextBuilder 读取
+    ├── 最近 N 条 Session 消息（短期）
+    ├── 近期 BehaviorLog 记录（中期）
+    └── Profile 实体（长期）
     │
     ▼
-[Prompt context window] bounded by token budget
+[Prompt 上下文窗口] 受 token 预算约束
 ```
 
 ---
 
-## 6. State Management
+## 6. 状态管理
 
-### 6.1 Agent State Object
+### 6.1 智能体状态对象
 
-The orchestrator maintains one state object per request:
+编排器为每个请求维护一个状态对象：
 
 ```ts
 interface AgentState {
   sessionId: string;
   userId: string;
   role: 'admin' | 'user' | 'agent';
-  messages: ChatMessage[];        // Working conversation context
+  messages: ChatMessage[];        // 工作会话上下文
   intent: Intent | null;
   plan: ToolCall[] | null;
   observations: ToolResult[];
@@ -381,42 +404,42 @@ interface AgentState {
 }
 ```
 
-### 6.2 Persistence Strategy
+### 6.2 持久化策略
 
-| State Type | Storage | TTL / Scope |
+| 状态类型 | 存储 | TTL / 范围 |
 |---|---|---|
-| Working conversation context | In-memory per SSE request + `Session` table | Last 10–20 messages |
-| User profile | PostgreSQL `Profile` table | Persistent |
-| Activity history | PostgreSQL `BehaviorLog` table | Persistent |
-| Tool result cache | Optional Redis/memory for map POIs | Short TTL (minutes) |
+| 工作会话上下文 | 每个 SSE 请求的内存 + `Session` 表 | 最近 10–20 条消息 |
+| 用户画像 | PostgreSQL `Profile` 表 | 持久 |
+| 活动历史 | PostgreSQL `BehaviorLog` 表 | 持久 |
+| 工具结果缓存 | 供地图 POI 的可选 Redis/内存 | 短 TTL（分钟级） |
 
 ---
 
-## 7. External Integrations
+## 7. 外部集成
 
-| Service | Usage | Safety Rule |
+| 服务 | 用途 | 安全规则 |
 |---|---|---|
-| **OpenAI API** | LLM inference for intent, planning, synthesis. | Key via env; no logging of prompts/keys. |
-| **Claude API** | Alternative LLM provider. | Same as OpenAI. |
-| **Amap Server API** | POI validation and route planning. | Server-side only; key never exposed to frontend. |
-| **Amap JS API** | Map rendering in browser. | Frontend key restricted to referrers. |
+| **OpenAI API** | 用于意图、规划、合成的 LLM 推理。 | 密钥经环境变量；不记录 prompt 或密钥。 |
+| **Claude API** | 备选 LLM 供应商。 | 与 OpenAI 相同。 |
+| **Amap Server API** | POI 校验与路线规划。 | 仅服务端使用；密钥绝不暴露给前端。 |
+| **Amap JS API** | 浏览器内地图渲染。 | 前端密钥受限 referrer。 |
 
 ---
 
-## 8. Key Architectural Decisions
+## 8. 关键架构决策
 
-| Decision | Rationale |
+| 决策 | 理由 |
 |---|---|
-| Single chat endpoint `/api/chat` | Centralizes agent governance, auth, and logging. |
-| Explicit state loop instead of a single prompt | Easier to debug, test, and constrain tool execution. |
-| Profile-first design | All personalization flows read `Profile` before acting; avoids duplicating preference logic. |
-| Append-only behavior log | Provides observable history for agent memory and business analytics. |
-| Server validates AI-generated places | Prevents hallucinated destinations from reaching the user. |
-| SSE over WebSocket for chat | Simpler typing effect and aligns with Vercel AI SDK streaming patterns. |
+| 单一聊天端点 `/api/chat` | 集中 agent 治理、认证与日志记录。 |
+| 显式状态循环而非单一提示词 | 更易调试、测试，并能约束工具执行。 |
+| 画像优先设计 | 所有个性化流程在此前先读取 `Profile`；避免重复偏好逻辑。 |
+| 只追加行为日志 | 为 agent 记忆与业务分析提供可观测历史。 |
+| 服务端校验 AI 生成的地点 | 防止幻觉目的地触达用户。 |
+| 聊天采用 SSE 而非 WebSocket | 打字效果更简单，且与 Vercel AI SDK 流式模式一致。 |
 
 ---
 
-## 9. Module-to-Directory Mapping
+## 9. 模块到目录的映射
 
 ```
 apps/web/src/
@@ -425,7 +448,7 @@ apps/web/src/
     fairy/             # FairyAvatar, expressions
     admin/             # AdminDashboard
   hooks/
-    useSSE.ts          # SSE stream consumer
+    useSSE.ts          # SSE 流消费
   stores/
     chatStore.ts
 
@@ -459,23 +482,23 @@ apps/api/src/
     validateBody.ts
 
 packages/shared/
-  schemas/             # Zod schemas used by frontend and backend
-  types/               # Shared TypeScript types
+  schemas/             # 前端与后端使用的 Zod schema
+  types/               # 共享 TypeScript 类型
 
 packages/ai-sdk/
-  providers/           # OpenAI/Claude client wrappers
-  streaming.ts         # Unified stream helpers
+  providers/           # OpenAI/Claude 客户端封装
+  streaming.ts         # 统一流式辅助函数
 
 docs/
-  architecture.md      # This file
-  tools.md             # Tool registry and schemas
-  prompts.md           # System prompts and prompt templates
+  architecture.md      # 本文档
+  tools.md             # 工具注册表与 schema
+  prompts.md           # 系统提示词与提示词模板
 ```
 
 ---
 
-## 10. Validation & Evolution
+## 10. 验证与演进
 
-- Run `pnpm --filter=@fairy/api test` after any change in `agent/` or `tools/`.
-- Add unit tests for every new tool and state transition.
-- Keep this document updated when adding new intents, tools, or external integrations.
+- 改动 `agent/` 或 `tools/` 后运行 `pnpm --filter=@fairy/api test`。
+- 为每个新工具与状态迁移补充单元测试。
+- 新增意图、工具或外部集成时，保持本文档最新。

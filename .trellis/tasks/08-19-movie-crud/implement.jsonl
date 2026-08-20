@@ -1,0 +1,4 @@
+{"file": "AGENTS.md", "reason": "Project constitution: API format, auth, testing, no any"}
+{"file": "ARCHITECTURE.md", "reason": "Layer boundaries, Movie entity rules, module paths"}
+{"file": "API_CONTRACT.md", "reason": "Response shape and existing movie/search contract to extend"}
+{"file": "docs/requirements/2026-08-19-mvp-scope.md", "reason": "Approved grill-me requirements and acceptance criteria"}
