@@ -1,9 +1,7 @@
+import { DEV_ADMIN_ID, DEV_USER_ID } from "@fairy/shared";
 import type { Request, Response, NextFunction } from "express";
 
 export type DevRole = "admin" | "user";
-
-const DEV_USER_ID = "00000000-0000-4000-8000-000000000001";
-const DEV_ADMIN_ID = "00000000-0000-4000-8000-000000000002";
 
 export function authMiddleware(
   req: Request,

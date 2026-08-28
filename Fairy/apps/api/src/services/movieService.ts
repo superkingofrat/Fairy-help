@@ -157,6 +157,38 @@ export async function searchMovies(query: SearchMoviesQuery): Promise<PaginatedM
   };
 }
 
+export async function listMoviesForRecommend(
+  moods: Mood[],
+  scenes: Scene[]
+): Promise<Movie[]> {
+  const prismaMoods = toPrismaMoods(moods);
+  const prismaScenes = toPrismaScenes(scenes);
+  const tagFilters = [
+    ...(prismaMoods.length > 0 ? [{ moods: { hasSome: prismaMoods } }] : []),
+    ...(prismaScenes.length > 0 ? [{ scenes: { hasSome: prismaScenes } }] : []),
+  ];
+
+  if (tagFilters.length === 0) {
+    return [];
+  }
+
+  const records = await prisma.movie.findMany({
+    where: {
+      stock: { gt: 0 },
+      OR: tagFilters,
+    },
+  });
+
+  return records.map(toMovie);
+}
+
+export async function listMoviesForTitleMatch(): Promise<Pick<Movie, "id" | "title">[]> {
+  const records = await prisma.movie.findMany({
+    select: { id: true, title: true },
+  });
+  return records;
+}
+
 export async function getMovieById(id: string): Promise<Movie | null> {
   const record = await prisma.movie.findUnique({ where: { id } });
   return record ? toMovie(record) : null;

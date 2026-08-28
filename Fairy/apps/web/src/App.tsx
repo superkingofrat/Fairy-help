@@ -1,5 +1,6 @@
 import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
 import { MoviesAdminPage } from "./components/admin/MoviesAdminPage";
+import { ChatPage } from "./components/chat/ChatPage";
 import { t } from "./lib/i18n";
 
 export function App(): JSX.Element {
@@ -15,6 +16,9 @@ export function App(): JSX.Element {
             <nav className="flex gap-4 text-sm">
               <Link to="/" className="text-slate-600 hover:text-indigo-600">
                 {t("nav.home")}
+              </Link>
+              <Link to="/chat" className="text-slate-600 hover:text-indigo-600">
+                {t("nav.chat")}
               </Link>
               <Link to="/admin/movies" className="text-slate-600 hover:text-indigo-600">
                 {t("nav.movies")}
@@ -32,6 +36,7 @@ export function App(): JSX.Element {
               </main>
             }
           />
+          <Route path="/chat" element={<ChatPage />} />
           <Route path="/admin/movies" element={<MoviesAdminPage />} />
         </Routes>
       </div>

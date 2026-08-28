@@ -83,7 +83,49 @@ const seedMovies = [
   },
 ];
 
+const DEV_USER_ID = "00000000-0000-4000-8000-000000000001";
+const DEV_ADMIN_ID = "00000000-0000-4000-8000-000000000002";
+
 async function main(): Promise<void> {
+  await prisma.user.upsert({
+    where: { id: DEV_USER_ID },
+    update: { email: "user@fairy.local", role: "user" },
+    create: {
+      id: DEV_USER_ID,
+      email: "user@fairy.local",
+      role: "user",
+    },
+  });
+
+  await prisma.user.upsert({
+    where: { id: DEV_ADMIN_ID },
+    update: { email: "admin@fairy.local", role: "admin" },
+    create: {
+      id: DEV_ADMIN_ID,
+      email: "admin@fairy.local",
+      role: "admin",
+    },
+  });
+
+  await prisma.profile.upsert({
+    where: { userId: DEV_USER_ID },
+    update: {
+      name: "铃",
+      likeGenres: ["科幻", "悬疑"],
+      styleTags: ["夜猫子"],
+    },
+    create: {
+      userId: DEV_USER_ID,
+      name: "铃",
+      avatarUrl: null,
+      styleTags: ["夜猫子"],
+      likeGenres: ["科幻", "悬疑"],
+      avoidFood: [],
+      dietPreference: null,
+      travelStyle: null,
+    },
+  });
+
   for (const movie of seedMovies) {
     await prisma.movie.upsert({
       where: { title: movie.title },

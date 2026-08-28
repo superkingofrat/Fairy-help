@@ -25,12 +25,26 @@ enum Scene {
   COMMUTE             @map("通勤路上")
 }
 
+enum RentalStatus {
+  ACTIVE
+  RETURNED
+}
+
+enum BehaviorAction {
+  RECOMMEND
+  BORROW_SUCCESS
+  BORROW_OUT_OF_STOCK
+}
+
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  role      String   @default("user")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String        @id @default(uuid())
+  email        String        @unique
+  role         String        @default("user")
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  profile      Profile?
+  rentals      Rental[]
+  behaviorLogs BehaviorLog[]
 
   @@map("users")
 }
@@ -50,6 +64,50 @@ model Movie {
   description String   @default("")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  rentals     Rental[]
 
   @@map("movies")
+}
+
+model Profile {
+  userId          String   @id
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  avatarUrl       String?
+  styleTags       String[]
+  likeGenres      String[]
+  avoidFood       String[]
+  dietPreference  String?
+  travelStyle     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("profiles")
+}
+
+model Rental {
+  id        String       @id @default(uuid())
+  userId    String
+  movieId   String
+  status    RentalStatus @default(ACTIVE)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movie     Movie        @relation(fields: [movieId], references: [id], onDelete: Restrict)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@index([userId, movieId, status])
+  @@map("rentals")
+}
+
+model BehaviorLog {
+  id        String         @id @default(uuid())
+  userId    String
+  action    BehaviorAction
+  movieId   String?
+  rentalId  String?
+  payload   Json?
+  createdAt DateTime       @default(now())
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("behavior_logs")
 }

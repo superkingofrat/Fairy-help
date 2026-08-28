@@ -17,6 +17,7 @@
     "migrate": "prisma migrate dev",
     "migrate:status": "prisma migrate status",
     "seed": "tsx prisma/seed.ts",
+    "db:seed": "tsx prisma/seed.ts",
     "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"

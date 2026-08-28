@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   MOODS,
   SCENES,
+  parseCreateMovieInput,
   type CreateMovieInput,
   type Movie,
   type Mood,
+  type MovieWriteField,
   type Scene,
 } from "@fairy/shared";
 import {
@@ -14,7 +16,7 @@ import {
   searchMovies,
   updateMovie,
 } from "../../lib/movieApi";
-import { t } from "../../lib/i18n";
+import { t, type Messages } from "../../lib/i18n";
 
 interface MovieFormState {
   title: string;
@@ -28,6 +30,24 @@ interface MovieFormState {
   totalStock: string;
   coverUrl: string;
   description: string;
+}
+
+const FIELD_ERROR_KEYS: Record<MovieWriteField, keyof Messages> = {
+  title: "movies.error.field.title",
+  director: "movies.error.field.director",
+  year: "movies.error.field.year",
+  mood: "movies.error.field.mood",
+  scene: "movies.error.field.scene",
+  genres: "movies.error.field.genres",
+  quote: "movies.error.field.quote",
+  stock: "movies.error.field.stock",
+  totalStock: "movies.error.field.totalStock",
+  coverUrl: "movies.error.field.coverUrl",
+  description: "movies.error.field.description",
+};
+
+function formatFieldErrors(fields: MovieWriteField[]): string {
+  return [...new Set(fields)].map((field) => t(FIELD_ERROR_KEYS[field])).join("；");
 }
 
 const emptyForm: MovieFormState = {
@@ -99,6 +119,7 @@ export function MoviesAdminPage(): JSX.Element {
   const [filterMood, setFilterMood] = useState("");
   const [filterScene, setFilterScene] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [editingMovie, setEditingMovie] = useState<Movie | null>(null);
   const [form, setForm] = useState<MovieFormState>(emptyForm);
   const [deleteTarget, setDeleteTarget] = useState<Movie | null>(null);
@@ -137,12 +158,14 @@ export function MoviesAdminPage(): JSX.Element {
   function openCreateModal(): void {
     setEditingMovie(null);
     setForm(emptyForm);
+    setFormError(null);
     setModalOpen(true);
   }
 
   function openEditModal(movie: Movie): void {
     setEditingMovie(movie);
     setForm(movieToForm(movie));
+    setFormError(null);
     setModalOpen(true);
   }
 
@@ -150,25 +173,30 @@ export function MoviesAdminPage(): JSX.Element {
     setModalOpen(false);
     setEditingMovie(null);
     setForm(emptyForm);
+    setFormError(null);
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    setError(null);
+    setFormError(null);
+
+    const parsed = parseCreateMovieInput(formToInput(form));
+    if (!parsed.success) {
+      setFormError(formatFieldErrors(parsed.fields));
+      return;
+    }
 
     try {
-      const input = formToInput(form);
-
       if (editingMovie) {
-        await updateMovie(editingMovie.id, input);
+        await updateMovie(editingMovie.id, parsed.data);
       } else {
-        await createMovie(input);
+        await createMovie(parsed.data);
       }
 
       closeModal();
       await loadMovies();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : t("movies.error.save"));
+      setFormError(submitError instanceof Error ? submitError.message : t("movies.error.save"));
     }
   }
 
@@ -309,6 +337,7 @@ export function MoviesAdminPage(): JSX.Element {
             <h2 className="mb-4 text-xl font-semibold">
               {editingMovie ? t("movies.modal.editTitle") : t("movies.modal.createTitle")}
             </h2>
+            {formError ? <p className="mb-4 text-sm text-red-600">{formError}</p> : null}
 
             <div className="grid gap-3 md:grid-cols-2">
               <label className="text-sm">
@@ -334,6 +363,8 @@ export function MoviesAdminPage(): JSX.Element {
                 <input
                   required
                   type="number"
+                  min={1888}
+                  max={2100}
                   value={form.year}
                   onChange={(event) => setForm({ ...form, year: event.target.value })}
                   className="mt-1 w-full rounded border border-slate-300 px-3 py-2"

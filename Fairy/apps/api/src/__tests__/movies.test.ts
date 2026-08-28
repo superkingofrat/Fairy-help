@@ -112,6 +112,30 @@ describe("movies routes", () => {
     expect(movieService.createMovie).toHaveBeenCalled();
   });
 
+  it("creates a movie when year is a string and coverUrl is empty", async () => {
+    vi.mocked(movieService.createMovie).mockResolvedValue(sampleMovie);
+
+    const response = await request(app)
+      .post("/api/movies")
+      .set("X-Dev-Role", "admin")
+      .send({
+        title: "新片",
+        director: "导演",
+        year: "2024",
+        mood: ["治愈"],
+        scene: ["雨天"],
+        genres: ["剧情"],
+        stock: "1",
+        totalStock: "1",
+        coverUrl: "",
+        quote: "",
+        description: "测试",
+      });
+
+    expect(response.status).toBe(201);
+    expect(movieService.createMovie).toHaveBeenCalled();
+  });
+
   it("returns 400 for invalid mood count", async () => {
     const response = await request(app)
       .post("/api/movies")
