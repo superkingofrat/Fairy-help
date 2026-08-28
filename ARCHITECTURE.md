@@ -141,8 +141,9 @@ Fairy 是一个由 LLM 驱动的智能体，通过一个闭环操作真实的业
 
 规则：
 
+- Phase 2：`IntentClassifier` 与 `ResponseSynthesizer` 为**规则/模板**实现，不调用 LLM；后续可替换内部而不改 SSE 事件名。
 - 循环在产出最终响应后，或达到 `MAX_AGENT_ITERATIONS` 后终止。
-- 工具报错会作为观察结果返回给 LLM，以便 Fairy 恢复或致歉。
+- 工具报错会作为观察结果返回给编排器，以便 Fairy 恢复或致歉。
 - 任何 LLM 输出在通过时间敏感事实（库存、地图 POI）校验之前，不得持久化。
 
 ### 3.4 工具层（`apps/api/src/tools/`）
@@ -188,7 +189,7 @@ Fairy 是一个由 LLM 驱动的智能体，通过一个闭环操作真实的业
 | `Rental` | 关联用户与影片的借阅/归还记录。 |
 | `Trip` | 生成的行程，含经校验的 POI 与路线。 |
 | `BehaviorLog` | 只追加的分类账：谁、何时、什么动作、相关实体。 |
-| `Session` | 面向短期记忆的轻量会话上下文。 |
+| `Session` | 面向短期记忆的轻量会话上下文（**Phase 2 未建表**；`sessionId` 不落库）。 |
 
 规则：
 
@@ -303,7 +304,7 @@ ResponseSynthesizer 流式输出最终回复
 ```
 [Frontend] 点击推荐卡片上的"一键借阅"
     │
-    ▼ SSE (message: "我要借《XXX》")
+    ▼ SSE POST /api/chat { movieId }
 [POST /api/chat]
     │
     ▼
@@ -408,7 +409,7 @@ interface AgentState {
 
 | 状态类型 | 存储 | TTL / 范围 |
 |---|---|---|
-| 工作会话上下文 | 每个 SSE 请求的内存 + `Session` 表 | 最近 10–20 条消息 |
+| 工作会话上下文 | 每个 SSE 请求的内存（Phase 2 无 `Session` 表） | 单次请求 |
 | 用户画像 | PostgreSQL `Profile` 表 | 持久 |
 | 活动历史 | PostgreSQL `BehaviorLog` 表 | 持久 |
 | 工具结果缓存 | 供地图 POI 的可选 Redis/内存 | 短 TTL（分钟级） |
@@ -435,7 +436,7 @@ interface AgentState {
 | 画像优先设计 | 所有个性化流程在此前先读取 `Profile`；避免重复偏好逻辑。 |
 | 只追加行为日志 | 为 agent 记忆与业务分析提供可观测历史。 |
 | 服务端校验 AI 生成的地点 | 防止幻觉目的地触达用户。 |
-| 聊天采用 SSE 而非 WebSocket | 打字效果更简单，且与 Vercel AI SDK 流式模式一致。 |
+| 借阅仅经 `/api/chat` 工具 | 避免 REST 与工具双写库存；`POST /borrow` 为未来端点。 |
 
 ---
 

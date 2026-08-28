@@ -230,91 +230,44 @@ Authorization: Bearer <jwt>
 
 ---
 
-### 3.7 执行借阅
+### 3.7 智能体对话（SSE）
 
-**POST** `/borrow`
+**POST** `/chat`
 
-为用户借阅一部影片。扣减库存并创建租赁记录。
+用户侧推荐与借阅的唯一入口。成功时返回 `text/event-stream`，不是一次 JSON `{ code, data, msg }`。校验失败仍返回 JSON 信封。
+
+开发环境认证与影片读接口相同：`X-Dev-Role: user` 或 `Authorization: Bearer dev-user`。
 
 #### 请求体
 
 ```ts
 {
-  movieId: string;  // UUID
-  userId: string;   // UUID
+  message: string;     // 可为空（仅 movieId 借阅时）
+  movieId?: string;    // UUID，一键借阅
+  sessionId?: string;  // 可选；本阶段不落库
 }
 ```
 
-#### 响应结构
+#### SSE 事件
 
-```ts
-{
-  code: "OK" | ErrorCode;
-  data: {
-    success: boolean;
-    remainingStock: number;
-    rentalId: string | null;
-  } | null;
-  msg: string;
-}
-```
+| event | data |
+|---|---|
+| `text` | `{ content: string }` |
+| `recommendation` | `{ items: Movie[] }`（仅有可借匹配时） |
+| `borrow` | `{ success, remainingStock, rentalId, code }` |
+| `done` | `{}` |
 
-#### 校验规则
+`borrow.code` 成功为 `OK`；失败为 `OUT_OF_STOCK`、`ALREADY_BORROWED`、`MOVIE_NOT_FOUND`。
 
-- `movieId` 必须是合法的 UUID。
-- `userId` 必须是合法的 UUID。
-- 借阅人身份由请求 token 决定。除非调用方具有 admin 角色，否则传入的 `userId` 必须与认证用户一致。
+意图顺序：合法 `movieId` → 手打「借」+ 唯一片名 → 消息含子串 mood/scene → 引导语（不调工具）。
 
-#### 请求示例
-
-```http
-POST /api/borrow
-Authorization: Bearer <jwt>
-Content-Type: application/json
-
-{
-  "movieId": "550e8400-e29b-41d4-a716-446655440000",
-  "userId": "660e8400-e29b-41d4-a716-446655440001"
-}
-```
-
-#### 成功响应 — 200 OK
-
-```json
-{
-  "code": "OK",
-  "data": {
-    "success": true,
-    "remainingStock": 2,
-    "rentalId": "770e8400-e29b-41d4-a716-446655440002"
-  },
-  "msg": "借阅成功，愿这段旅程治愈你。"
-}
-```
-
-#### 错误响应
+#### 错误响应（非流）
 
 | 状态 | Code | 场景 |
 |---|---|---|
-| 400 | `INVALID_MOVIE_ID` | `movieId` 缺失或不是 UUID。 |
-| 400 | `INVALID_USER_ID` | `userId` 缺失或不是 UUID。 |
-| 403 | `FORBIDDEN` | `userId` 与认证用户不一致，且调用方不是 admin。 |
-| 404 | `MOVIE_NOT_FOUND` | 影片不存在。 |
-| 409 | `OUT_OF_STOCK` | 影片库存为零。 |
-| 409 | `ALREADY_BORROWED` | 用户对该影片已有进行中的租赁。 |
-| 500 | `INTERNAL_ERROR` | 事务失败或意外错误。 |
+| 400 | `VALIDATION_ERROR` | 请求体不合法（如 `movieId` 不是 UUID）。 |
 
-#### 错误示例 — 409 Conflict
-
-```json
-{
-  "code": "OUT_OF_STOCK",
-  "data": {
-    "movieId": "550e8400-e29b-41d4-a716-446655440000"
-  },
-  "msg": "该影片暂时缺货，Fairy 会记住你的偏好，到货后提醒你。"
-}
-```
+本阶段**不提供** `POST /borrow`。借阅只经本端点调度工具。
 
 ---
 
@@ -387,8 +340,8 @@ Authorization: Bearer <jwt>
 | `MISSING_SEARCH_CRITERIA` | 400 | 搜索请求缺少过滤条件。 |
 | `MOVIE_NOT_FOUND` | 404 | 目标影片缺失。 |
 | `PROFILE_NOT_FOUND` | 404 | 目标画像缺失。 |
-| `OUT_OF_STOCK` | 409 | 影片无法借阅。 |
-| `ALREADY_BORROWED` | 409 | 存在重复的进行中租赁。 |
+| `OUT_OF_STOCK` | SSE `borrow` / 未来 REST | 影片无法借阅。 |
+| `ALREADY_BORROWED` | SSE `borrow` / 未来 REST | 存在重复的进行中租赁。 |
 | `INTERNAL_ERROR` | 500 | 未处理的服务器错误。 |
 
 ---
@@ -397,7 +350,7 @@ Authorization: Bearer <jwt>
 
 以下端点为后续版本规划，暂不属于本契约：
 
-- `POST /api/chat` — 智能体对话入口（SSE）。
+- `POST /api/borrow` — REST 借阅旁路（本阶段仅经 `/api/chat` 工具借阅）。
 - `POST /api/trips` — 旅行规划。
 - `GET /api/admin/insights` — 运营看板数据。
 - `PATCH /api/profile/:userId` — 更新个人画像。

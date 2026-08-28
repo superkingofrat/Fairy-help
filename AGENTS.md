@@ -192,7 +192,11 @@ pnpm ci
 
 新人或需重建本地环境时，运行以下命令即可完成安装、准备数据库并启动两个应用：
 
+> **工作目录：** 以下命令均在 **`Fairy/`** 下执行（仓库根 `Fairy-help/` 没有 `package.json`，直接运行会报 `ERR_PNPM_NO_PKG_MANIFEST`）。
+
 ```bash
+cd Fairy   # 或终端打开时直接 cd 到 Fairy-help/Fairy
+
 # 安装全部依赖
 pnpm install
 
@@ -218,7 +222,8 @@ pnpm --filter=@fairy/web dev
 
 在 monorepo 中高效工作，务必注意以下事项：
 
-- **优先用 `--filter` 而非进入子目录**：运行某个 workspace 的命令时使用 `pnpm --filter=<workspace> ...`，不要 `cd` 进子目录再执行，以免依赖解析与类型检查错位。
+- **Monorepo 根目录是 `Fairy/`**：所有 `pnpm --filter=...` 命令在 `Fairy/` 下运行；仓库根 `Fairy-help/` 无 workspace，会报 `ERR_PNPM_NO_PKG_MANIFEST`。
+- **优先用 `--filter` 而非进入 `apps/*` 子目录**：运行某个 workspace 的命令时使用 `pnpm --filter=<workspace> ...`，不要 `cd` 进 `apps/api` 或 `apps/web` 再执行，以免依赖解析与类型检查错位。
 - **新增包先 `pnpm install`**：创建新的 `packages/*` 或 `apps/*` 时，先运行 `pnpm install --filter=<new_package>`，让 Vite、ESLint、TypeScript 都能解析到它，再开始写代码。
 - **改动 `packages/shared` 后重新 typecheck**：改完共享类型或 Zod schema，需对依赖它的 app 重新跑类型检查（例如 `pnpm --filter=@fairy/web typecheck`）。
 - **改 Prisma schema 必须 `generate`**：调整 `schema.prisma` 后，先 `pnpm --filter=@fairy/database generate` 再运行 web/api，否则类型不匹配会报错。
