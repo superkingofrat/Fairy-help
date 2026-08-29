@@ -1,6 +1,7 @@
 import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
 import { MoviesAdminPage } from "./components/admin/MoviesAdminPage";
 import { ProfilesAdminPage } from "./components/admin/ProfilesAdminPage";
+import { BehaviorPage } from "./components/admin/BehaviorPage";
 import { ChatPage } from "./components/chat/ChatPage";
 import { t } from "./lib/i18n";
 
@@ -27,6 +28,9 @@ export function App(): JSX.Element {
               <Link to="/admin/profiles" className="text-slate-600 hover:text-indigo-600">
                 {t("nav.profiles")}
               </Link>
+              <Link to="/admin/behavior" className="text-slate-600 hover:text-indigo-600">
+                {t("nav.behavior")}
+              </Link>
             </nav>
           </div>
         </header>
@@ -43,6 +47,7 @@ export function App(): JSX.Element {
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/admin/movies" element={<MoviesAdminPage />} />
           <Route path="/admin/profiles" element={<ProfilesAdminPage />} />
+          <Route path="/admin/behavior" element={<BehaviorPage />} />
         </Routes>
       </div>
     </BrowserRouter>

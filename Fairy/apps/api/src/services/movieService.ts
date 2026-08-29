@@ -189,6 +189,20 @@ export async function listMoviesForTitleMatch(): Promise<Pick<Movie, "id" | "tit
   return records;
 }
 
+export async function listMoviesByIds(
+  ids: string[]
+): Promise<Array<Pick<Movie, "id" | "title">>> {
+  const unique = [...new Set(ids.filter((id) => id.length > 0))];
+  if (unique.length === 0) {
+    return [];
+  }
+
+  return prisma.movie.findMany({
+    where: { id: { in: unique } },
+    select: { id: true, title: true },
+  });
+}
+
 export async function getMovieById(id: string): Promise<Movie | null> {
   const record = await prisma.movie.findUnique({ where: { id } });
   return record ? toMovie(record) : null;

@@ -402,6 +402,58 @@ PATCH `likeGenres` 后，`recommendMovieTool` 在下一次 `/api/chat` 调用时
 
 ---
 
+### 3.9 行为流水（FU-3）
+
+**GET** `/behavior-logs`
+
+BehaviorLog 的只读分页流水，仅 `admin` 可调用；append-only，**不提供**任何修改/删除端点。行按 `createdAt` 倒序。
+
+#### 查询参数
+
+| 名称 | 类型 | 必填 | 描述 |
+|---|---|---|---|
+| `page` | `number` | 否 | 页码，从 1 开始。默认：`1`。 |
+| `limit` | `number` | 否 | 每页条数。默认：`20`，最大：`100`。 |
+| `action` | `string` | 否 | 动作枚举：`RECOMMEND`、`BORROW_SUCCESS`、`BORROW_OUT_OF_STOCK`。 |
+| `userId` | `string` | 否 | 按用户 UUID 过滤。 |
+
+#### 成功响应 — 200 OK
+
+```json
+{
+  "code": "OK",
+  "data": {
+    "items": [
+      {
+        "id": "990e8400-e29b-41d4-a716-446655440000",
+        "userId": "00000000-0000-4000-8000-000000000001",
+        "email": "user@fairy.local",
+        "action": "BORROW_SUCCESS",
+        "movieId": "550e8400-e29b-41d4-a716-446655440000",
+        "movieTitle": "星际穿越",
+        "rentalId": "880e8400-e29b-41d4-a716-446655440000",
+        "recommendCount": null,
+        "createdAt": "2026-08-29T08:00:00Z"
+      }
+    ],
+    "pagination": { "page": 1, "limit": 20, "total": 1, "totalPages": 1 }
+  },
+  "msg": "查询成功"
+}
+```
+
+`movieTitle` 由 `movieId` 服务端解析；`recommendCount` 仅 `RECOMMEND` 行有值（推荐片单长度），原始 `payload` 不下发。
+
+#### 错误响应
+
+| 状态 | Code | 场景 |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | 查询参数不合法（含未知 `action`）。 |
+| 400 | `INVALID_USER_ID` | `userId` 不是 UUID。 |
+| 403 | `FORBIDDEN` | 非 admin 调用。 |
+
+---
+
 ## 4. 错误码参考
 
 | Code | HTTP 状态 | 含义 |

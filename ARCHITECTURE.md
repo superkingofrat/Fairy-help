@@ -451,7 +451,7 @@ apps/web/src/
   components/
     chat/              # ChatPage, MessageStream, RecommendationCard, TripTimeline
     fairy/             # FairyAvatar, expressions
-    admin/             # MoviesAdminPage, ProfilesAdminPage
+    admin/             # MoviesAdminPage, ProfilesAdminPage, BehaviorPage
   hooks/
     useSSE.ts          # SSE 流消费
   stores/

@@ -109,5 +109,6 @@ model BehaviorLog {
   createdAt DateTime       @default(now())
   user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([createdAt])
   @@map("behavior_logs")
 }
