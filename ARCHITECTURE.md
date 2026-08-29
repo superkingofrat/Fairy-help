@@ -384,6 +384,31 @@ ResponseSynthesizer 流式输出最终回复
 [Prompt 上下文窗口] 受 token 预算约束
 ```
 
+### 5.5 归还流程（FU-4）
+
+```
+用户消息「还 X」
+    │
+    ▼
+IntentClassifier ──► Intent: return（LLM 结构化意图，或规则链「还」+唯一片名分支）
+    │
+    ▼
+Planner ──► returnMovieTool
+    │
+    ▼
+ToolDispatcher ──► rentalService.returnRental（事务：findFirst ACTIVE
+    │               ── 无 → RENTAL_NOT_FOUND（库存/租借均不变）
+    │               ── 有 → rental 置 RETURNED → 库存 increment 1）
+    │
+    ▼
+BehaviorLog RETURN_SUCCESS（仅成功时）
+    │
+    ▼
+ResponseSynthesizer ──► SSE `return` 事件 + `text` 回复
+```
+
+红线：归还与借阅共用「库存变更仅经 chat 工具链」约束；`RENTAL_NOT_FOUND` 为幂等安全（重复归还第二次即拒绝）。一键归还按钮（FU-8）将复用本流程，经 chat 请求 `action` 参数直达工具。
+
 ---
 
 ## 6. 状态管理

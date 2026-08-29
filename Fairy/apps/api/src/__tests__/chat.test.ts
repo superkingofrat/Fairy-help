@@ -219,4 +219,66 @@ describe("POST /api/chat", () => {
     expect(events.find((event) => event.event === "recommendation")).toBeDefined();
     expect(events[events.length - 1].event).toBe("done");
   });
+
+  it("returns a return event when a held movie is returned by title", async () => {
+    vi.mocked(movieService.listMoviesForTitleMatch).mockResolvedValue([
+      { id: "660e8400-e29b-41d4-a716-446655440000", title: "千与千寻" },
+    ]);
+    vi.mocked(rentalService.returnRental).mockResolvedValue({
+      ok: true,
+      rentalId: "880e8400-e29b-41d4-a716-446655440000",
+      remainingStock: 4,
+    });
+
+    const response = await request(app)
+      .post("/api/chat")
+      .set("X-Dev-Role", "user")
+      .send({ message: "还千与千寻" });
+
+    const events = parseSse(response.text);
+    expect(events.find((event) => event.event === "return")?.data).toMatchObject({
+      success: true,
+      remainingStock: 4,
+      rentalId: "880e8400-e29b-41d4-a716-446655440000",
+      code: "OK",
+    });
+    expect(behaviorLogService.append).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "RETURN_SUCCESS" })
+    );
+  });
+
+  it("emits a failed return event when nothing is held", async () => {
+    vi.mocked(movieService.listMoviesForTitleMatch).mockResolvedValue([
+      { id: "660e8400-e29b-41d4-a716-446655440000", title: "千与千寻" },
+    ]);
+    vi.mocked(rentalService.returnRental).mockResolvedValue({
+      ok: false,
+      code: "RENTAL_NOT_FOUND",
+    });
+
+    const response = await request(app)
+      .post("/api/chat")
+      .set("X-Dev-Role", "user")
+      .send({ message: "还千与千寻" });
+
+    const events = parseSse(response.text);
+    expect(events.find((event) => event.event === "return")?.data).toMatchObject({
+      success: false,
+      code: "RENTAL_NOT_FOUND",
+    });
+    expect(behaviorLogService.append).not.toHaveBeenCalled();
+  });
+
+  it("does not misfire a return for the homograph 还 (still)", async () => {
+    const response = await request(app)
+      .post("/api/chat")
+      .set("X-Dev-Role", "user")
+      .send({ message: "还可以" });
+
+    const events = parseSse(response.text);
+    expect(events.some((event) => event.event === "return")).toBe(false);
+    expect(events.some((event) => event.event === "borrow")).toBe(false);
+    expect(events.some((event) => event.event === "text")).toBe(true);
+    expect(rentalService.returnRental).not.toHaveBeenCalled();
+  });
 });

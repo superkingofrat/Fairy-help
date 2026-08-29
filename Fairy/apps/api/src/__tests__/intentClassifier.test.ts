@@ -70,6 +70,26 @@ describe("classifyIntent with LLM", () => {
     expect(intent).toEqual({ type: "borrow", movieId: MOVIE_ID });
   });
 
+  it("classifies an LLM return intent by title", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(
+      llmResult('{"intent":"return","movieTitle":"千与千寻"}')
+    );
+
+    const intent = await classifyIntent({ message: "我要把千与千寻还了" });
+
+    expect(intent).toEqual({ type: "return", movieId: MOVIE_ID });
+  });
+
+  it("returns return_unresolved when the LLM return title matches nothing", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(
+      llmResult('{"intent":"return","movieTitle":"不存在的片"}')
+    );
+
+    const intent = await classifyIntent({ message: "还不存在的片" });
+
+    expect(intent).toEqual({ type: "return_unresolved" });
+  });
+
   it("returns borrow_unresolved when the LLM title matches nothing unique", async () => {
     vi.mocked(movieService.listMoviesForTitleMatch).mockResolvedValue([
       { id: MOVIE_ID, title: "星际穿越" },
@@ -93,8 +113,20 @@ describe("classifyIntent with LLM", () => {
     const borrow = await classifyIntent({ message: "借千与千寻" });
     expect(borrow).toEqual({ type: "borrow", movieId: MOVIE_ID });
 
+    const returnIntent = await classifyIntent({ message: "还千与千寻" });
+    expect(returnIntent).toEqual({ type: "return", movieId: MOVIE_ID });
+
     const unmatched = await classifyIntent({ message: "今天星期几" });
     expect(unmatched).toEqual({ type: "unmatched" });
+  });
+
+  it("does not misfire return on the homograph 还 (still)", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const intent = await classifyIntent({ message: "还可以" });
+
+    expect(intent).toEqual({ type: "unmatched" });
+    expect(llmClient.tryChat).toHaveBeenCalled();
   });
 
   it("falls back to rules on schema-invalid LLM output", async () => {

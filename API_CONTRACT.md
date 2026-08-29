@@ -255,11 +255,12 @@ Authorization: Bearer <jwt>
 | `text` | `{ content: string }` |
 | `recommendation` | `{ items: Movie[] }`（仅有可借匹配时） |
 | `borrow` | `{ success, remainingStock, rentalId, code }` |
+| `return` | `{ success, remainingStock, rentalId, code }`（FU-4 起；归还成功/失败） |
 | `done` | `{}` |
 
-`borrow.code` 成功为 `OK`；失败为 `OUT_OF_STOCK`、`ALREADY_BORROWED`、`MOVIE_NOT_FOUND`。
+`borrow.code` 成功为 `OK`；失败为 `OUT_OF_STOCK`、`ALREADY_BORROWED`、`MOVIE_NOT_FOUND`。`return.code` 成功为 `OK`；失败为 `RENTAL_NOT_FOUND`。
 
-意图顺序：合法 `movieId` → 手打「借」+ 唯一片名 → 消息含子串 mood/scene → 引导语（不调工具）。
+意图顺序：合法 `movieId` → 手打「借」+ 唯一片名 → 手打「还」+ 唯一片名 → 消息含子串 mood/scene → 引导语（不调工具）。LLM 路径（FU-2 起）按结构化意图输出，规则链为降级路径；归还仅在用户明确表达归还影片时触发（「还」有 hái/huán 歧义）。
 
 #### LLM 行为与降级（FU-2 起）
 
@@ -470,6 +471,7 @@ BehaviorLog 的只读分页流水，仅 `admin` 可调用；append-only，**不�
 | `PROFILE_ALREADY_EXISTS` | 409 | 该用户已有画像（补建冲突）。 |
 | `OUT_OF_STOCK` | SSE `borrow` / 未来 REST | 影片无法借阅。 |
 | `ALREADY_BORROWED` | SSE `borrow` / 未来 REST | 存在重复的进行中租赁。 |
+| `RENTAL_NOT_FOUND` | SSE `return` / 未来 REST | 该用户没有进行中的这笔借阅（未借先还/重复归还）。 |
 | `INTERNAL_ERROR` | 500 | 未处理的服务器错误。 |
 
 ---

@@ -4,6 +4,7 @@ export const BEHAVIOR_ACTIONS = [
   "RECOMMEND",
   "BORROW_SUCCESS",
   "BORROW_OUT_OF_STOCK",
+  "RETURN_SUCCESS",
 ] as const;
 
 export type BehaviorActionValue = (typeof BEHAVIOR_ACTIONS)[number];

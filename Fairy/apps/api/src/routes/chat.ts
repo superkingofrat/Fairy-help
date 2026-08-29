@@ -36,6 +36,9 @@ router.post("/", validateBody(chatRequestSchema), async (req, res, next) => {
     if (result.borrow) {
       writeSse(res, "borrow", result.borrow);
     }
+    if (result.return) {
+      writeSse(res, "return", result.return);
+    }
     writeSse(res, "done", {});
     res.end();
   } catch (error) {

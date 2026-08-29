@@ -3,6 +3,7 @@ import type {
   Movie,
   Profile,
   RecommendationSseEvent,
+  ReturnSseEvent,
   TextSseEvent,
 } from "@fairy/shared";
 import { sanitizeUserInput, tryChat } from "./llmClient";
@@ -12,11 +13,13 @@ export interface SynthesizedResponse {
   texts: TextSseEvent[];
   recommendation?: RecommendationSseEvent;
   borrow?: BorrowSseEvent;
+  return?: ReturnSseEvent;
 }
 
 export interface SynthesisContext {
   message: string;
   profile: Profile | null;
+  activeRentals?: Array<{ movieTitle: string }>;
 }
 
 const REPLY_SYSTEM_PROMPT = `你是 Fairy，一家录像带门店的 AI 助理，语气温暖自然，用中文回复，一到两句。你只能使用【事实】中给出的信息；不得编造片名、库存数字或做出无法兑现的承诺；事实为空时自然回应，并引导用户说出心情、场景或想借的影片。`;
@@ -32,7 +35,9 @@ function profileLine(profile: Profile | null): string {
   return `用户画像：名字 ${profile.name}；喜欢的类型 ${profile.likeGenres.join("、") || "暂无"}`;
 }
 
-function templateForNone(reason: "unmatched" | "borrow_unresolved" | "chitchat"): string {
+function templateForNone(
+  reason: "unmatched" | "borrow_unresolved" | "return_unresolved" | "chitchat"
+): string {
   if (reason === "borrow_unresolved") {
     return "没能确定要借哪一部。可以说完整片名，或点推荐卡片上的借阅按钮。";
   }
@@ -64,6 +69,24 @@ export async function synthesize(
   context: SynthesisContext
 ): Promise<SynthesizedResponse> {
   if (observation.kind === "none") {
+    if (observation.reason === "return_unresolved") {
+      const rentals = context.activeRentals ?? [];
+      const facts =
+        rentals.length > 0
+          ? `用户想归还影片但未能确定是哪一部。当前借阅中的影片：${rentals
+              .map((rental) => rental.movieTitle)
+              .join("、")}。`
+          : "用户想归还影片但未能确定是哪一部。当前没有借阅中的影片。";
+      const template =
+        rentals.length > 0
+          ? `你当前借阅中的影片：${rentals
+              .map((rental) => `《${rental.movieTitle}》`)
+              .join("、")}。可以说完整片名归还。`
+          : "你目前没有借阅中的影片。";
+      const text = (await generateReply(context, facts)) ?? template;
+      return { texts: [{ content: text }] };
+    }
+
     const template = templateForNone(observation.reason);
     const facts =
       observation.reason === "borrow_unresolved"
@@ -89,6 +112,38 @@ export async function synthesize(
     return {
       texts: [{ content: text }],
       recommendation: { items: observation.movies },
+    };
+  }
+
+  if (observation.kind === "return") {
+    if (observation.success) {
+      const template = `已归还，该片剩余可借 ${observation.remainingStock}。`;
+      const facts = `归还成功，该片剩余可借库存 ${observation.remainingStock}。`;
+      const text = (await generateReply(context, facts)) ?? template;
+      return {
+        texts: [{ content: text }],
+        return: {
+          success: true,
+          remainingStock: observation.remainingStock,
+          rentalId: observation.rentalId,
+          code: observation.code,
+        },
+      };
+    }
+
+    const messages: Record<string, string> = {
+      RENTAL_NOT_FOUND: "你目前没有借这部片子。",
+    };
+    const template = messages[observation.code] ?? "归还没有成功。";
+    const text = (await generateReply(context, `归还失败，原因代码 ${observation.code}。`)) ?? template;
+    return {
+      texts: [{ content: text }],
+      return: {
+        success: false,
+        remainingStock: null,
+        rentalId: null,
+        code: observation.code,
+      },
     };
   }
 

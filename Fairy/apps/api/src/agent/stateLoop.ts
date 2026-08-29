@@ -1,5 +1,6 @@
 import type { Profile } from "@fairy/shared";
 import * as profileService from "../services/profileService";
+import * as rentalService from "../services/rentalService";
 import { classifyIntent } from "./intentClassifier";
 import { plan } from "./planner";
 import { dispatch } from "./toolDispatcher";
@@ -16,5 +17,15 @@ export async function runChatTurn(input: {
   const profile: Profile | null = await profileService
     .getByUserId(input.userId)
     .catch(() => null);
+
+  if (observation.kind === "none" && observation.reason === "return_unresolved") {
+    const activeRentals = await rentalService.listActiveRentals(input.userId).catch(() => []);
+    return synthesize(observation, {
+      message: input.message,
+      profile,
+      activeRentals,
+    });
+  }
+
   return synthesize(observation, { message: input.message, profile });
 }

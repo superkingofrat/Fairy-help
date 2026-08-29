@@ -1,9 +1,20 @@
 import { prisma } from "@fairy/database";
-import type { BorrowErrorCode } from "@fairy/shared";
+import type { BorrowErrorCode, ReturnErrorCode } from "@fairy/shared";
 
 export type BorrowResult =
   | { ok: true; rentalId: string; remainingStock: number }
   | { ok: false; code: BorrowErrorCode };
+
+export type ReturnResult =
+  | { ok: true; rentalId: string; remainingStock: number }
+  | { ok: false; code: ReturnErrorCode };
+
+export interface ActiveRental {
+  id: string;
+  movieId: string;
+  movieTitle: string;
+  createdAt: string;
+}
 
 export async function borrow(userId: string, movieId: string): Promise<BorrowResult> {
   return prisma.$transaction(async (tx) => {
@@ -42,4 +53,46 @@ export async function borrow(userId: string, movieId: string): Promise<BorrowRes
       remainingStock: fresh?.stock ?? movie.stock - 1,
     };
   });
+}
+
+export async function returnRental(userId: string, movieId: string): Promise<ReturnResult> {
+  return prisma.$transaction(async (tx) => {
+    const rental = await tx.rental.findFirst({
+      where: { userId, movieId, status: "ACTIVE" },
+    });
+    if (!rental) {
+      return { ok: false, code: "RENTAL_NOT_FOUND" };
+    }
+
+    await tx.rental.update({
+      where: { id: rental.id },
+      data: { status: "RETURNED" },
+    });
+    await tx.movie.update({
+      where: { id: movieId },
+      data: { stock: { increment: 1 } },
+    });
+    const fresh = await tx.movie.findUnique({ where: { id: movieId } });
+
+    return {
+      ok: true,
+      rentalId: rental.id,
+      remainingStock: fresh?.stock ?? 0,
+    };
+  });
+}
+
+export async function listActiveRentals(userId: string): Promise<ActiveRental[]> {
+  const rentals = await prisma.rental.findMany({
+    where: { userId, status: "ACTIVE" },
+    include: { movie: { select: { title: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return rentals.map((rental) => ({
+    id: rental.id,
+    movieId: rental.movieId,
+    movieTitle: rental.movie.title,
+    createdAt: rental.createdAt.toISOString(),
+  }));
 }

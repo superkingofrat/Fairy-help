@@ -24,3 +24,10 @@ export interface BorrowSseEvent {
 export interface DoneSseEvent {
   [key: string]: never;
 }
+
+export interface ReturnSseEvent {
+  success: boolean;
+  remainingStock: number | null;
+  rentalId: string | null;
+  code: string;
+}

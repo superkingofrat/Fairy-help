@@ -13,3 +13,5 @@ export type BorrowErrorCode =
   | "MOVIE_NOT_FOUND"
   | "OUT_OF_STOCK"
   | "ALREADY_BORROWED";
+
+export type ReturnErrorCode = "RENTAL_NOT_FOUND";

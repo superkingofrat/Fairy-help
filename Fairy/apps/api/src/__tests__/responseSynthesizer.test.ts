@@ -152,4 +152,59 @@ describe("synthesize with LLM reply", () => {
 
     expect(result.texts[0].content).toBe("可以说一个心情或场景，比如「雨天」或「治愈」，也可以点卡片借阅。");
   });
+
+  it("uses the LLM for return success and keeps the return payload", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(llmResult("还好啦，这片回到架子上了。"));
+
+    const result = await synthesize(
+      { kind: "return", success: true, remainingStock: 3, rentalId: "r1", code: "OK" },
+      context
+    );
+
+    expect(result.texts[0].content).toBe("还好啦，这片回到架子上了。");
+    expect(result.return).toEqual({
+      success: true,
+      remainingStock: 3,
+      rentalId: "r1",
+      code: "OK",
+    });
+    expect(result.borrow).toBeUndefined();
+  });
+
+  it("falls back to the failure template for RENTAL_NOT_FOUND", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const result = await synthesize(
+      { kind: "return", success: false, remainingStock: null, rentalId: null, code: "RENTAL_NOT_FOUND" },
+      context
+    );
+
+    expect(result.texts[0].content).toBe("你目前没有借这部片子。");
+    expect(result.return).toMatchObject({ success: false, code: "RENTAL_NOT_FOUND" });
+  });
+
+  it("lists active rentals when the return intent is unresolved", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const result = await synthesize(
+      { kind: "none", reason: "return_unresolved" },
+      { ...context, activeRentals: [{ movieTitle: "千与千寻" }, { movieTitle: "星际穿越" }] }
+    );
+
+    expect(result.texts[0].content).toBe(
+      "你当前借阅中的影片：《千与千寻》、《星际穿越》。可以说完整片名归还。"
+    );
+    expect(result.return).toBeUndefined();
+  });
+
+  it("states no active rentals when the return intent is unresolved and none held", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const result = await synthesize(
+      { kind: "none", reason: "return_unresolved" },
+      { ...context, activeRentals: [] }
+    );
+
+    expect(result.texts[0].content).toBe("你目前没有借阅中的影片。");
+  });
 });

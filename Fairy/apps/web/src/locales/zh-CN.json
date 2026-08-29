@@ -109,5 +109,6 @@
   "behavior.page.prev": "上一页",
   "behavior.page.next": "下一页",
   "behavior.page.info": "第 {page} / {totalPages} 页",
-  "behavior.recommended": "推荐了 {count} 部"
+  "behavior.recommended": "推荐了 {count} 部",
+  "behavior.action.RETURN_SUCCESS": "归还成功"
 }

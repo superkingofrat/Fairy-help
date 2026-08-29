@@ -34,6 +34,7 @@ enum BehaviorAction {
   RECOMMEND
   BORROW_SUCCESS
   BORROW_OUT_OF_STOCK
+  RETURN_SUCCESS
 }
 
 model User {
