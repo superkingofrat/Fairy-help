@@ -4,6 +4,8 @@ Structured requirement docs produced by grill-me sessions. Each doc feeds OpenSp
 
 | Date | Feature | Status | Doc |
 |---|---|---|---|
+| 2026-08-29 | FU-8 一键归还 UI（含 rentals 查询端点） | draft（待 grill-me） | [2026-08-29-fu-8-return-button-ui.md](./2026-08-29-fu-8-return-button-ui.md) |
+| 2026-08-29 | FU-4 归还：回补库存与还片意图（聊天文本） | approved | [2026-08-29-fu-4-return-rentals.md](./2026-08-29-fu-4-return-rentals.md) |
 | 2026-08-29 | FU-3 BehaviorLog 查询与流水管理页 | approved | [2026-08-29-fu-3-behavior-log-query-admin-ui.md](./2026-08-29-fu-3-behavior-log-query-admin-ui.md) |
 | 2026-08-29 | FU-2 真实 LLM 替换规则意图与模板回复 | approved | [2026-08-29-fu-2-real-llm-intent-and-replies.md](./2026-08-29-fu-2-real-llm-intent-and-replies.md) |
 | 2026-08-24 | FU-1 画像写接口与管理 CRUD | approved | [2026-08-24-fu-1-profile-write-admin-crud.md](./2026-08-24-fu-1-profile-write-admin-crud.md) |
