@@ -37,7 +37,7 @@
 
 ## Next Steps（下一步）
 
-- FU-2 真实 LLM 替换规则意图与模板回复
+- FU-2 真实 LLM 替换规则意图与模板回复 — 需求已批准：[2026-08-29-fu-2-real-llm-intent-and-replies.md](docs/requirements/2026-08-29-fu-2-real-llm-intent-and-replies.md)；下一步 `/opsx:propose`
 - FU-3 BehaviorLog 查询与流水 UI
 - FU-4 归还（回补库存 + 还片意图）
 - FU-5 真实 JWT 替换 dev auth stub

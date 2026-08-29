@@ -4,6 +4,7 @@ Structured requirement docs produced by grill-me sessions. Each doc feeds OpenSp
 
 | Date | Feature | Status | Doc |
 |---|---|---|---|
+| 2026-08-29 | FU-2 真实 LLM 替换规则意图与模板回复 | approved | [2026-08-29-fu-2-real-llm-intent-and-replies.md](./2026-08-29-fu-2-real-llm-intent-and-replies.md) |
 | 2026-08-24 | FU-1 画像写接口与管理 CRUD | approved | [2026-08-24-fu-1-profile-write-admin-crud.md](./2026-08-24-fu-1-profile-write-admin-crud.md) |
 | 2026-08-21 | Phase 2 Agent 推荐与借阅 | approved | [2026-08-21-phase2-agent-recommend-borrow.md](./2026-08-21-phase2-agent-recommend-borrow.md) |
 | 2026-08-19 | MVP 范围确认（影片库 CRUD） | approved | [2026-08-19-mvp-scope.md](./2026-08-19-mvp-scope.md) |
