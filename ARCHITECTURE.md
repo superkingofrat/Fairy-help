@@ -447,7 +447,7 @@ apps/web/src/
   components/
     chat/              # ChatPage, MessageStream, RecommendationCard, TripTimeline
     fairy/             # FairyAvatar, expressions
-    admin/             # AdminDashboard
+    admin/             # MoviesAdminPage, ProfilesAdminPage
   hooks/
     useSSE.ts          # SSE 流消费
   stores/

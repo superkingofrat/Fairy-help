@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import { authMiddleware } from "./middleware/auth";
 import { moviesRouter } from "./routes/movies";
+import { profilesRouter } from "./routes/profiles";
 import { chatRouter } from "./routes/chat";
 
 export function createApp(): express.Application {
@@ -17,6 +18,7 @@ export function createApp(): express.Application {
   });
 
   app.use("/api/movies", authMiddleware, moviesRouter);
+  app.use("/api/profiles", authMiddleware, profilesRouter);
   app.use("/api/chat", authMiddleware, chatRouter);
 
   app.use(

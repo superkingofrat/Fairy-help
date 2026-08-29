@@ -271,28 +271,24 @@ Authorization: Bearer <jwt>
 
 ---
 
-### 3.8 获取用户画像
+### 3.8 画像资源 `/api/profiles`
 
-**GET** `/profile/:userId`
+画像 REST 资源为复数形式。历史单数路径 `GET /api/profile/:userId` 已废弃且从未实现，不得调用。
 
-获取用户的个人画像，Fairy 用它来个性化推荐与旅行规划。
+#### 认证
 
-#### 路径参数
+- 开发环境：`X-Dev-Role: user | admin` 或 `Authorization: Bearer dev-user | dev-admin`。
+- 列表、创建、更新仅 `admin`；单条读取为本人或 `admin`。
 
-| 名称 | 类型 | 必填 | 描述 |
-|---|---|---|---|
-| `userId` | `string` | 是 | 目标用户的 UUID。 |
+#### 3.8.1 列表（按用户展开）
 
-#### 授权
+**GET** `/profiles`
 
-- 用户可以读取自己的画像。
-- admin 可以读取任意画像。
-
-#### 请求示例
+每个已有 `User` 一行；`profile` 为完整画像文档（形状见 §2）或 `null`。本端点无分页。
 
 ```http
-GET /api/profile/660e8400-e29b-41d4-a716-446655440001
-Authorization: Bearer <jwt>
+GET /api/profiles
+X-Dev-Role: admin
 ```
 
 #### 成功响应 — 200 OK
@@ -300,18 +296,31 @@ Authorization: Bearer <jwt>
 ```json
 {
   "code": "OK",
-  "data": {
-    "userId": "660e8400-e29b-41d4-a716-446655440001",
-    "name": "铃",
-    "avatarUrl": "https://cdn.example.com/avatars/ling.jpg",
-    "styleTags": ["冒险家", "夜猫子", "甜食控"],
-    "likeGenres": ["科幻", "悬疑", "治愈"],
-    "avoidFood": ["香菜", "海鲜"],
-    "dietPreference": "偏爱甜食和面食",
-    "travelStyle": "城市探索 + 轻度徒步",
-    "createdAt": "2024-01-15T10:20:00Z",
-    "updatedAt": "2024-08-05T18:45:00Z"
-  },
+  "data": [
+    {
+      "userId": "660e8400-e29b-41d4-a716-446655440001",
+      "email": "user@fairy.local",
+      "role": "user",
+      "profile": {
+        "userId": "660e8400-e29b-41d4-a716-446655440001",
+        "name": "铃",
+        "avatarUrl": null,
+        "styleTags": ["夜猫子"],
+        "likeGenres": ["科幻", "悬疑"],
+        "avoidFood": [],
+        "dietPreference": null,
+        "travelStyle": null,
+        "createdAt": "2024-01-15T10:20:00Z",
+        "updatedAt": "2024-08-05T18:45:00Z"
+      }
+    },
+    {
+      "userId": "660e8400-e29b-41d4-a716-446655440002",
+      "email": "admin@fairy.local",
+      "role": "admin",
+      "profile": null
+    }
+  ],
   "msg": "查询成功"
 }
 ```
@@ -320,11 +329,70 @@ Authorization: Bearer <jwt>
 
 | 状态 | Code | 场景 |
 |---|---|---|
+| 403 | `FORBIDDEN` | 非 admin 调用。 |
+
+#### 3.8.2 读取单条
+
+**GET** `/profiles/:userId`
+
+成功时 `data` 为 Profile 文档（形状见 §2）。
+
+#### 错误响应
+
+| 状态 | Code | 场景 |
+|---|---|---|
 | 400 | `INVALID_USER_ID` | `userId` 不是 UUID。 |
-| 401 | `UNAUTHORIZED` | 缺少或无效的 token。 |
 | 403 | `FORBIDDEN` | 调用方既非所有者也非 admin。 |
 | 404 | `PROFILE_NOT_FOUND` | 该用户不存在画像。 |
-| 500 | `INTERNAL_ERROR` | 意外的服务器错误。 |
+
+#### 3.8.3 创建（补建）
+
+**POST** `/profiles`
+
+仅 admin，为**已有且尚无画像**的 User 创建，不创建新 User。请求体：
+
+```ts
+{
+  userId: string;                // 目标用户 UUID
+  name: string;                  // 必填非空
+  avatarUrl: string | null;      // 空串按 null 存储
+  styleTags: string[];           // 自由字符串，可为空数组
+  likeGenres: string[];
+  avoidFood: string[];
+  dietPreference: string | null;
+  travelStyle: string | null;
+}
+```
+
+#### 错误响应
+
+| 状态 | Code | 场景 |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | 请求体不合法。 |
+| 404 | `USER_NOT_FOUND` | 目标用户不存在。 |
+| 409 | `PROFILE_ALREADY_EXISTS` | 该用户已有画像。 |
+
+成功响应 — 201 Created，`data` 为新建 Profile 文档。
+
+#### 3.8.4 更新
+
+**PATCH** `/profiles/:userId`
+
+仅 admin，部分更新画像字段；`userId` 不可修改；本资源不提供 DELETE。更新为单次原子写入。请求体为上述可写字段的任意子集（不含 `userId`）。
+
+#### 错误响应
+
+| 状态 | Code | 场景 |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` / `INVALID_USER_ID` | 请求体不合法 / `userId` 不是 UUID。 |
+| 403 | `FORBIDDEN` | 非 admin 调用。 |
+| 404 | `PROFILE_NOT_FOUND` | 画像不存在。 |
+
+成功响应 — 200 OK，`data` 为更新后的 Profile 文档。
+
+#### 3.8.5 写后联动
+
+PATCH `likeGenres` 后，`recommendMovieTool` 在下一次 `/api/chat` 调用时即按新偏好（与影片 `genres` 精确相交）排序，无需其他刷新动作。
 
 ---
 
@@ -340,6 +408,8 @@ Authorization: Bearer <jwt>
 | `MISSING_SEARCH_CRITERIA` | 400 | 搜索请求缺少过滤条件。 |
 | `MOVIE_NOT_FOUND` | 404 | 目标影片缺失。 |
 | `PROFILE_NOT_FOUND` | 404 | 目标画像缺失。 |
+| `USER_NOT_FOUND` | 404 | 目标用户缺失（画像补建时）。 |
+| `PROFILE_ALREADY_EXISTS` | 409 | 该用户已有画像（补建冲突）。 |
 | `OUT_OF_STOCK` | SSE `borrow` / 未来 REST | 影片无法借阅。 |
 | `ALREADY_BORROWED` | SSE `borrow` / 未来 REST | 存在重复的进行中租赁。 |
 | `INTERNAL_ERROR` | 500 | 未处理的服务器错误。 |
@@ -353,4 +423,3 @@ Authorization: Bearer <jwt>
 - `POST /api/borrow` — REST 借阅旁路（本阶段仅经 `/api/chat` 工具借阅）。
 - `POST /api/trips` — 旅行规划。
 - `GET /api/admin/insights` — 运营看板数据。
-- `PATCH /api/profile/:userId` — 更新个人画像。
