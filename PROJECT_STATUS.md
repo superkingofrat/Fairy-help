@@ -6,11 +6,13 @@
 
 **Development（开发中）**
 
-> Monorepo 脚手架、影片库 CRUD MVP、Phase 2 Agent 推荐与借阅、FU-1 画像写接口与管理 CRUD、FU-2 真实 LLM 意图与回复已交付。后续为 FU-3～FU-7。
+> Monorepo 脚手架、影片库 CRUD MVP、Phase 2 Agent 推荐与借阅、FU-1 画像写接口与管理 CRUD、FU-2 真实 LLM 意图与回复、FU-3 行为流水查询与管理页已交付。后续为 FU-4～FU-7。
 
 ---
 
 ## Completed Modules（已完成模块）
+
+- **FU-3 BehaviorLog 查询与流水管理页**（2026-08-29）— admin-only `GET /api/behavior-logs`（分页、action/userId 筛选、email/movieTitle/recommendCount 解析、append-only 无 mutation 路由）、`/admin/behavior` 流水页（动作筛选 + 分页 + 三态）、`BehaviorLog` 增加 `@@index([createdAt])` 迁移已应用 dev 库；需求：[2026-08-29-fu-3-behavior-log-query-admin-ui.md](docs/requirements/2026-08-29-fu-3-behavior-log-query-admin-ui.md)；OpenSpec 归档：[2026-08-29-fu-3-behavior-log-query-admin-ui](openspec/changes/archive/2026-08-29-fu-3-behavior-log-query-admin-ui/)
 
 - **FU-2 真实 LLM 替换规则意图与模板回复**（2026-08-29）— `@fairy/ai-sdk` 统一 `chat()/stream()/embed()` + 三供应商（DeepSeek 默认 `deepseek-v4-flash`/OpenAI/Claude，env 工厂 + 类型化错误 + usage 元数据）、意图与回复 LLM 化（zod 结构化 JSON、事实边界防幻觉、chitchat）、规则/模板整体降级 fallback、SSE 协议与前端零改动；需求：[2026-08-29-fu-2-real-llm-intent-and-replies.md](docs/requirements/2026-08-29-fu-2-real-llm-intent-and-replies.md)；OpenSpec 归档：[2026-08-29-fu-2-real-llm-intent-and-replies](openspec/changes/archive/2026-08-29-fu-2-real-llm-intent-and-replies/)
 
@@ -39,9 +41,8 @@
 
 ## Next Steps（下一步）
 
-- FU-3 BehaviorLog 查询与流水 UI — 需求已批准：[2026-08-29-fu-3-behavior-log-query-admin-ui.md](docs/requirements/2026-08-29-fu-3-behavior-log-query-admin-ui.md)；OpenSpec change：`fu-3-behavior-log-query-admin-ui`（提案已生成，待用户审阅后 apply）
 - FU-4 归还（回补库存 + 还片意图）
-- FU-5 真实 JWT 替换 dev auth stub
+- FU-5 真实 JWT 替换 dev auth stub（当前前端 admin 页仍写死 `X-Dev-Role: admin`，上生产前必须完成）
 - FU-6 REST `POST /api/borrow`
 - FU-7 Session 表与对话历史回放
 

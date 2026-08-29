@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Appends an audit row for recommend success and for borrow success or out-of-stock failure so later memory features can read history without a query UI in this change.
+Appends an audit row for recommend success and for borrow success or out-of-stock failure and exposes the history as an admin-only read-only feed (append-only: no update or delete surface).
 
 ## Requirements
 
@@ -17,9 +17,21 @@ The system SHALL append a behavior-log row for a successful recommendation (with
 - **WHEN** the message is unmatched
 - **THEN** no new behavior-log row is created for that request
 
-### Requirement: No log query surface in this change
-The system MUST NOT add an HTTP API or admin page that lists behavior logs.
+### Requirement: Admin queries the behavior log feed
+The system MUST expose `GET /api/behavior-logs` for admins only, returning a `createdAt`-descending, paginated feed (`page`, `limit` default 1/20, max 100) with optional `action` enum filter and optional `userId` UUID filter. Each item MUST include the log fields plus the user's email, the resolved `movieTitle` for a single-`movieId` row, and `recommendCount` (length of the RECOMMEND payload's movie ids) instead of the raw payload. Non-admin callers MUST receive 403 `FORBIDDEN`; an invalid `userId` MUST return 400 `INVALID_USER_ID`; an unknown `action` MUST return 400 `VALIDATION_ERROR`. The system MUST NOT provide any endpoint that updates or deletes behavior-log rows.
 
-#### Scenario: No list endpoint
-- **WHEN** a client calls a dedicated behavior-log list path if one were documented
-- **THEN** this change does not provide such a working endpoint
+#### Scenario: Admin lists a resolved feed
+- **WHEN** an admin requests the feed after a recommend and a borrow have been logged
+- **THEN** rows are ordered newest-first and include the user's email, the movie title for the borrow row, and a recommend count for the recommend row, with no raw payload in the response
+
+#### Scenario: User role cannot list
+- **WHEN** a `user` role requests the feed
+- **THEN** the response is 403 with code `FORBIDDEN`
+
+#### Scenario: Filter validation
+- **WHEN** the feed is requested with an unknown action or a non-UUID userId
+- **THEN** the response is 400 with `VALIDATION_ERROR` or `INVALID_USER_ID` respectively
+
+#### Scenario: Append-only is preserved
+- **WHEN** any client sends DELETE, PUT, or PATCH to a behavior-log path
+- **THEN** no such route exists and no log row is modified or removed
