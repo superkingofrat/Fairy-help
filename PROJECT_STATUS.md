@@ -39,7 +39,7 @@
 
 ## Next Steps（下一步）
 
-- FU-3 BehaviorLog 查询与流水 UI
+- FU-3 BehaviorLog 查询与流水 UI — 需求已批准：[2026-08-29-fu-3-behavior-log-query-admin-ui.md](docs/requirements/2026-08-29-fu-3-behavior-log-query-admin-ui.md)；OpenSpec change：`fu-3-behavior-log-query-admin-ui`（提案已生成，待用户审阅后 apply）
 - FU-4 归还（回补库存 + 还片意图）
 - FU-5 真实 JWT 替换 dev auth stub
 - FU-6 REST `POST /api/borrow`
