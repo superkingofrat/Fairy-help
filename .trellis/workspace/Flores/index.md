@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 1
-- **Last Active**: 2026-08-20
+- **Total Sessions**: 2
+- **Last Active**: 2026-08-29
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~28 | Active |
+| `journal-1.md` | ~83 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 2 | 2026-08-29 | Phase 2 落库与仓库安全加固；FU-1 画像写接口全流程交付 | `361d0a6`, `218832f`, `89ec6c5`, `d104dd3`, `8e73de6`, `a98a159`, `f1d7667` | `master` |
 | 1 | 2026-08-20 | Movie CRUD MVP delivery and agent norms | `714538b` | `master` |
 <!-- @@@/auto:session-history -->
 
