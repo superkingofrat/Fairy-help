@@ -81,3 +81,54 @@ Took over the project on ZCode (migrated from Cursor); committed the whole uncom
 ### Status
 
 [OK] **Completed**
+
+
+## Session 3: FU-2 真实 LLM 交付：ai-sdk 三供应商 + 意图/回复 LLM 化 + 规则降级
+
+**Date**: 2026-08-29
+**Task**: FU-2 真实 LLM 交付：ai-sdk 三供应商 + 意图/回复 LLM 化 + 规则降级
+**Branch**: `master`
+
+### Summary
+
+Delivered FU-2 end to end through the OpenSpec gates (approve -> propose -> review -> apply -> accept -> archive); built @fairy/ai-sdk from zero and swapped rule/template agent internals for LLM with graceful fallback.
+
+### Main Changes
+
+### 改动
+
+- **`@fairy/ai-sdk` 从零落地**：统一 `chat()/stream()/embed()` 接口 + usage 元数据；DeepSeek（默认 `deepseek-v4-flash`，OpenAI 兼容 adapter，与 OpenAI 共用同一 adapter 换 baseURL）、OpenAI、Claude 三家纯 fetch 实现；类型化错误（MISSING_API_KEY/UNKNOWN_PROVIDER/TIMEOUT/HTTP_5XX/RATE_LIMITED/PARSE/EMBED_UNSUPPORTED，不泄漏供应商响应体）；env 工厂（AI_PROVIDER/AI_MODEL/AI_TIMEOUT_MS）；移除脚手架遗留、从未使用的 `openai` npm 依赖（零新增依赖）。
+- **agent LLM 化**：`llmClient`（缓存 provider、`tryChat -> null` 统一降级信号、输入清洗）；意图 = LLM 结构化 JSON（zod 校验，借片只产片名走 title-match，LLM 永不产 movieId，非枚举口语如「emo→致郁」映射，新增 chitchat 不调工具）；回复 = LLM 只引用工具观察事实 + profile（防幻觉），Phase 2 模板整体保留 fallback；`stateLoop` 单次读 profile 共享。
+- **OpenSpec 全流程**：需求批准 → propose（新能力 ai-provider + agent-chat MODIFIED/ADDED delta）→ 用户审阅后 apply → 真机验收（DeepSeek 走通「emo 推荐」与「借千与千寻」库存事务）→ archive；主 specs 同步（ai-provider 新建 3 条、agent-chat 扩到 6 条）。
+
+### 验证
+
+- 四包 98 测试全绿（ai-sdk 13 + api 57 + web 10 + shared 18），四包 typecheck 通过；原 7 个路由测试零改动通过——测试环境无 key 自动走降级路径，等价于降级验收的自动化版；SSE 事件名/负载形状与 Phase 2 契约完全一致，前端零改动。
+
+### 踩坑（下次直接避）
+
+1. **上轮回滚的三个笔误本源**：测试文件导入路径写错（`../factory` 应为 `./factory`）、跨 describe 引用作用域变量、未使用的 import——重写时先想清楚文件位置再动手。
+2. **`pnpm typecheck | tail` 的退出码是 tail 的**——`&&` 链上的 `echo ✅` 在 typecheck 失败时也会打印；要单独 `echo exit=$?`。
+3. **openspec validate 的 MODIFIED 规则**：MODIFIED 块必须携带原 requirement 的全部场景且场景名不能改，否则 archive 拒绝（丢场景 = 拒绝静默丢失）。
+4. **工具机制两连**：0 字节占位文件和 `git restore` 过的文件都要先 Read 再 Write/Edit，否则工具直接拒绝。
+5. **测试失败先甄别是产品 bug 还是场景设计错**：LLM 片名「星际穿越」精确命中一部 → 正确 borrow；要测「不唯一」场景得用部分匹配（如「星际」命中两部）。
+6. **联调前提**：用户在 `apps/api/.env` 补 `DEEPSEEK_API_KEY` 后必须重启 API（§9 惯例）；无 key 时全链路自动降级，开发与 CI 完全不依赖真 key。
+
+### 下一步
+
+- FU-3 BehaviorLog 查询与流水 UI（小切片，按 §15 可能走 Trellis 轨，比 OpenSpec 轻）。
+- `学习过程.md` 仍是用户未提交的个人笔记，保持不动。
+
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `58cbd61` | (see git log) |
+| `40c3036` | (see git log) |
+| `51f3a97` | (see git log) |
+
+### Status
+
+[OK] **Completed**
