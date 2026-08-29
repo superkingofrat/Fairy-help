@@ -4,7 +4,7 @@ import type { ChatIntent } from "./intentClassifier";
 export type PlannedCall =
   | { tool: "recommend"; moods: Mood[]; scenes: Scene[] }
   | { tool: "borrow"; movieId: string }
-  | { tool: "none"; reason: "unmatched" | "borrow_unresolved" };
+  | { tool: "none"; reason: "unmatched" | "borrow_unresolved" | "chitchat" };
 
 export function plan(intent: ChatIntent): PlannedCall {
   if (intent.type === "recommend") {
@@ -15,6 +15,9 @@ export function plan(intent: ChatIntent): PlannedCall {
   }
   if (intent.type === "borrow_unresolved") {
     return { tool: "none", reason: "borrow_unresolved" };
+  }
+  if (intent.type === "chitchat") {
+    return { tool: "none", reason: "chitchat" };
   }
   return { tool: "none", reason: "unmatched" };
 }

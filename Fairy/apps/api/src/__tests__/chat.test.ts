@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import { createApp } from "../app";
 import * as movieService from "../services/movieService";
@@ -63,12 +63,20 @@ describe("POST /api/chat", () => {
   const app = createApp();
 
   beforeEach(() => {
+    vi.stubEnv("AI_PROVIDER", "");
+    vi.stubEnv("DEEPSEEK_API_KEY", "");
+    vi.stubEnv("OPENAI_API_KEY", "");
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
     vi.clearAllMocks();
     vi.mocked(profileService.getByUserId).mockResolvedValue(profile);
     vi.mocked(behaviorLogService.append).mockResolvedValue();
     vi.mocked(movieService.listMoviesForTitleMatch).mockResolvedValue([
       { id: sampleMovie.id, title: sampleMovie.title },
     ]);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("rejects invalid movieId with JSON envelope", async () => {
@@ -192,5 +200,23 @@ describe("POST /api/chat", () => {
     expect(events.some((event) => event.event === "text")).toBe(true);
     expect(behaviorLogService.append).not.toHaveBeenCalled();
     expect(rentalService.borrow).not.toHaveBeenCalled();
+  });
+
+  it("falls back to template text when no LLM provider is configured", async () => {
+    vi.mocked(movieService.listMoviesForRecommend).mockResolvedValue([sampleMovie]);
+
+    const response = await request(app)
+      .post("/api/chat")
+      .set("X-Dev-Role", "user")
+      .send({ message: "雨天" });
+
+    expect(response.status).toBe(200);
+    const events = parseSse(response.text);
+    const text = events.find((event) => event.event === "text");
+    expect((text?.data as { content: string }).content).toBe(
+      "为你找到这些可借的片子：《星际穿越》。点卡片就能借阅。"
+    );
+    expect(events.find((event) => event.event === "recommendation")).toBeDefined();
+    expect(events[events.length - 1].event).toBe("done");
   });
 });

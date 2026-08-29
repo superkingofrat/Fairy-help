@@ -17,9 +17,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
-  "dependencies": {
-    "openai": "^4.52.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@types/node": "^20.0.0",
     "eslint": "^8.57.0",

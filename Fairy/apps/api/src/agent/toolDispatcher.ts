@@ -12,7 +12,7 @@ export type ToolObservation =
       rentalId: string | null;
       code: string;
     }
-  | { kind: "none"; reason: "unmatched" | "borrow_unresolved" };
+  | { kind: "none"; reason: "unmatched" | "borrow_unresolved" | "chitchat" };
 
 export async function dispatch(
   plan: PlannedCall,

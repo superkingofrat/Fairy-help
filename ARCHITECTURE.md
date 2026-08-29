@@ -141,10 +141,11 @@ Fairy 是一个由 LLM 驱动的智能体，通过一个闭环操作真实的业
 
 规则：
 
-- Phase 2：`IntentClassifier` 与 `ResponseSynthesizer` 为**规则/模板**实现，不调用 LLM；后续可替换内部而不改 SSE 事件名。
+- FU-2 起：`IntentClassifier` 与 `ResponseSynthesizer` 内部为 **LLM 实现**（经 `llmClient` 消费 `@fairy/ai-sdk`，意图为 zod 校验的结构化 JSON，回复只引用工具观察事实）；Phase 2 的规则/模板实现整体保留为 **fallback**——缺 key、超时或供应商报错时自动降级，SSE 事件名与负载形状不变。
+- `llmClient` 是 agent 内唯一的 LLM 入口：缓存 provider 实例、清洗用户输入、把任何供应商失败折叠为 `null`（降级信号），并经 `usage.ts` 记录 token 用量。
 - 循环在产出最终响应后，或达到 `MAX_AGENT_ITERATIONS` 后终止。
 - 工具报错会作为观察结果返回给编排器，以便 Fairy 恢复或致歉。
-- 任何 LLM 输出在通过时间敏感事实（库存、地图 POI）校验之前，不得持久化。
+- 任何 LLM 输出在通过时间敏感事实（库存、地图 POI）校验之前，不得持久化；工具执行永远不依赖 LLM 产出的 `movieId`（借片意图仅产片名，由 title-match 服务解析）。
 
 ### 3.4 工具层（`apps/api/src/tools/`）
 
@@ -420,10 +421,13 @@ interface AgentState {
 
 | 服务 | 用途 | 安全规则 |
 |---|---|---|
-| **OpenAI API** | 用于意图、规划、合成的 LLM 推理。 | 密钥经环境变量；不记录 prompt 或密钥。 |
-| **Claude API** | 备选 LLM 供应商。 | 与 OpenAI 相同。 |
+| **DeepSeek API** | 默认 LLM 供应商（`deepseek-v4-flash`），经 `@fairy/ai-sdk` 的 OpenAI 兼容 adapter。 | 密钥经环境变量（`DEEPSEEK_API_KEY`）；不记录 prompt 或密钥。 |
+| **OpenAI API** | 备选 LLM 供应商（`AI_PROVIDER=openai`）。 | 与 DeepSeek 相同。 |
+| **Claude API** | 备选 LLM 供应商（`AI_PROVIDER=claude`）。 | 与 DeepSeek 相同。 |
 | **Amap Server API** | POI 校验与路线规划。 | 仅服务端使用；密钥绝不暴露给前端。 |
 | **Amap JS API** | 浏览器内地图渲染。 | 前端密钥受限 referrer。 |
+
+供应商特化逻辑（请求构造、SSE 解析、错误分类）只存在于 `packages/ai-sdk`；`apps/api` 通过 `AI_PROVIDER`/`AI_MODEL` 等环境变量选择，不直接 import 任何供应商客户端。
 
 ---
 
