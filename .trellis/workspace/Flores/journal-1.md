@@ -132,3 +132,55 @@ Delivered FU-2 end to end through the OpenSpec gates (approve -> propose -> revi
 ### Status
 
 [OK] **Completed**
+
+
+## Session 4: FU-4 归还交付与验收期 P0/P1 修复（枚举迁移延迟部署 + SSE 流内降级）
+
+**Date**: 2026-08-30
+**Task**: FU-4 归还交付与验收期 P0/P1 修复（枚举迁移延迟部署 + SSE 流内降级）
+**Branch**: `master`
+
+### Summary
+
+Delivered FU-4 chat-text return end to end (scope split: button UI deferred to FU-8), then root-caused and fixed the acceptance hang (undeployed enum migration) and hardened the SSE error path; backfilled 3 lost log rows.
+
+### Main Changes
+
+### 改动
+
+- **FU-4 归还（聊天文本）**：`returnRental` 事务（findFirst ACTIVE → 置 RETURNED → 库存 increment，`RENTAL_NOT_FOUND` 幂等）、`returnMovieTool` + `RETURN_SUCCESS` 行为日志（枚举迁移 `add_return_success_action`）、return 意图（LLM 结构化 + 规则「还」+唯一片名分支，hái/huán 歧义双保险）、SSE 新 `return` 事件、unresolved 回复列出所借影片。**用户拍板拆分**：一键归还按钮 + `GET /api/rentals` + chat action 参数整体拆至 FU-8（占位需求已建，排 FU-6 后）——按钮对核心是单向依赖，拆出后 web 零改动、diff 减半。
+- **验收期 P0/P1 修复**（用户报告"还片一直发送中"+"还盗梦空间显示没有借阅记录"）：只读查库定位为**一个根因两个症状**——枚举迁移延迟部署：归还事务先提交（三笔全部实际成功、库存正确回补），随后写 `RETURN_SUCCESS` 日志撞上 DB 不存在的枚举值 → 抛错 → SSE 头已发 → Express 错误处理器对已开的流写 JSON → 前端永久"发送中"；重试报 RENTAL_NOT_FOUND 是幂等正确输出。修复：A) `prisma migrate deploy`（P0）；B) chat 路由流内降级（headersSent 后写友好 text + done + end，P1 用户敲定）。
+- **数据回填**（用户选 b）：三笔丢失的归还日志按 rental.updatedAt（=归还时刻）回填，幂等谓词按 rentalId 匹配已有日志；回填后 RETURN_SUCCESS 共 4 条，流水页完整。
+
+### 验证
+
+- 四包 129 测试全绿（api 85），typecheck 四包通过；真机验收：借 → 还 → 库存回补 → 可再借；迁移部署后枚举实测入库；回填后流水页 4 条归还记录。
+
+### 踩坑（下次直接避）
+
+1. **迁移文件落了 ≠ 迁移生效**：Neon 冷启动让 deploy 失败时按预案"只落文件留联调"，结果欠账以隐蔽形式爆雷——事务成功、日志写入才炸、UI 悬挂而非报错。联调 checklist 应加一条：`prisma migrate status` 确认无 pending 再开测。
+2. **SSE 端点必须在 headersSent 后自兜底**：异常时错误中间件写 JSON 无效，前端永久等 done。任何流式端点都要有"流内降级"分支（友好 text + done + end）。
+3. **部分失败时序**：事务先提交、后置步骤（日志）失败 → 业务生效但可观测性丢失，重试报"不存在"像 bug 实为幂等正确。排查顺序：先只读查 DB 实况，再解释 UI 症状。
+4. **prisma generate EPERM（DLL 被 dev server 锁）但 TS 类型已写完**——引擎未变时无害，typecheck 可继续；引擎步骤失败不影响生成产物正确性。
+5. **回填语义**：rental.updatedAt 即归还发生时刻（该行创建后唯一一次更新）；幂等回填按 rentalId 对账。
+6. openspec MODIFIED 场景保全规则本次一次过（上轮 FU-2 的教训生效）。
+
+### 下一步
+
+- FU-5 真实 JWT（用户已实际感知"点进去就是 admin"）；FU-6 REST borrow；FU-8 一键归还 UI（grill-me 后实施）；FU-7 Session 历史。
+- `学习过程.md` 仍为用户个人笔记未提交，保持不动。
+
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `956f60b` | (see git log) |
+| `da84300` | (see git log) |
+| `5f10e25` | (see git log) |
+| `a2a84cc` | (see git log) |
+
+### Status
+
+[OK] **Completed**
