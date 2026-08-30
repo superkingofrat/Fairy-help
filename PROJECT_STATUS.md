@@ -6,11 +6,13 @@
 
 **Development（开发中）**
 
-> Monorepo 脚手架、影片库 CRUD MVP、Phase 2 Agent 推荐与借阅、FU-1 画像写接口与管理 CRUD、FU-2 真实 LLM 意图与回复、FU-3 行为流水查询与管理页已交付。后续为 FU-4～FU-7。
+> Monorepo 脚手架、影片库 CRUD MVP、Phase 2 Agent 推荐与借阅、FU-1 画像写接口与管理 CRUD、FU-2 真实 LLM 意图与回复、FU-3 行为流水查询与管理页、FU-4 归还（聊天文本）已交付。后续为 FU-5、FU-6、FU-8、FU-7。
 
 ---
 
 ## Completed Modules（已完成模块）
+
+- **FU-4 归还：回补库存与还片意图（聊天文本）**（2026-08-30）— `rentalService.returnRental` 事务（闭租借 + 库存回补 + `RENTAL_NOT_FOUND` 幂等）、`returnMovieTool` + `RETURN_SUCCESS` 行为日志（枚举迁移已部署 dev 库）、return 意图（LLM + 规则「还」+唯一片名分支，hái/huán 防误判）、SSE `return` 事件、unresolved 回复列出现有借阅；验收期修复：枚举迁移延迟部署（P0）+ chat 流内错误降级加固（P1）；一键归还按钮拆至 FU-8；需求：[2026-08-29-fu-4-return-rentals.md](docs/requirements/2026-08-29-fu-4-return-rentals.md)；OpenSpec 归档：[2026-08-30-fu-4-return-rentals](openspec/changes/archive/2026-08-30-fu-4-return-rentals/)
 
 - **FU-3 BehaviorLog 查询与流水管理页**（2026-08-29）— admin-only `GET /api/behavior-logs`（分页、action/userId 筛选、email/movieTitle/recommendCount 解析、append-only 无 mutation 路由）、`/admin/behavior` 流水页（动作筛选 + 分页 + 三态）、`BehaviorLog` 增加 `@@index([createdAt])` 迁移已应用 dev 库；需求：[2026-08-29-fu-3-behavior-log-query-admin-ui.md](docs/requirements/2026-08-29-fu-3-behavior-log-query-admin-ui.md)；OpenSpec 归档：[2026-08-29-fu-3-behavior-log-query-admin-ui](openspec/changes/archive/2026-08-29-fu-3-behavior-log-query-admin-ui/)
 
@@ -41,7 +43,6 @@
 
 ## Next Steps（下一步）
 
-- FU-4 归还：回补库存与还片意图（聊天文本）— 需求已批准：[2026-08-29-fu-4-return-rentals.md](docs/requirements/2026-08-29-fu-4-return-rentals.md)；OpenSpec change：`fu-4-return-rentals`（提案已生成，待用户审阅后 apply）
 - FU-5 真实 JWT 替换 dev auth stub（当前前端 admin 页仍写死 `X-Dev-Role: admin`，上生产前必须完成）
 - FU-6 REST `POST /api/borrow`
 - FU-8 一键归还 UI（含 rentals 查询端点）— 从 FU-4 拆分的占位需求：[2026-08-29-fu-8-return-button-ui.md](docs/requirements/2026-08-29-fu-8-return-button-ui.md)；排在 FU-6 之后实施，实施前走一轮 grill-me
@@ -71,4 +72,4 @@
 
 ## Last Updated（最近更新）
 
-**2026-08-29**
+**2026-08-30**

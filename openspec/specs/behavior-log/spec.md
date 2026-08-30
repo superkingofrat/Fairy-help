@@ -7,7 +7,7 @@ Appends an audit row for recommend success and for borrow success or out-of-stoc
 ## Requirements
 
 ### Requirement: Successful recommend and borrow persist a log row
-The system SHALL append a behavior-log row for a successful recommendation (with user id and related movie ids) and for a successful borrow (with user id, movie id, and rental id). Out-of-stock borrow MUST append a failure row. Unmatched chat MUST NOT append a row.
+The system SHALL append a behavior-log row for a successful recommendation (with user id and related movie ids), for a successful borrow (with user id, movie id, and rental id), and for a successful return (with user id, movie id, and rental id). Out-of-stock borrow MUST append a failure row. Unmatched chat MUST NOT append a row. Return failures MUST NOT append a row.
 
 #### Scenario: Recommend writes a log
 - **WHEN** a recommend request returns at least one card
@@ -16,6 +16,10 @@ The system SHALL append a behavior-log row for a successful recommendation (with
 #### Scenario: Unmatched writes nothing
 - **WHEN** the message is unmatched
 - **THEN** no new behavior-log row is created for that request
+
+#### Scenario: Return writes a log
+- **WHEN** a return succeeds
+- **THEN** a behavior-log row exists for that user with return action, the movie id, and the rental id
 
 ### Requirement: Admin queries the behavior log feed
 The system MUST expose `GET /api/behavior-logs` for admins only, returning a `createdAt`-descending, paginated feed (`page`, `limit` default 1/20, max 100) with optional `action` enum filter and optional `userId` UUID filter. Each item MUST include the log fields plus the user's email, the resolved `movieTitle` for a single-`movieId` row, and `recommendCount` (length of the RECOMMEND payload's movie ids) instead of the raw payload. Non-admin callers MUST receive 403 `FORBIDDEN`; an invalid `userId` MUST return 400 `INVALID_USER_ID`; an unknown `action` MUST return 400 `VALIDATION_ERROR`. The system MUST NOT provide any endpoint that updates or deletes behavior-log rows.
