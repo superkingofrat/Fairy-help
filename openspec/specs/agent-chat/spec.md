@@ -29,11 +29,15 @@ The rule classifier — used as the fallback path when the LLM path is unavailab
 - **THEN** the dispatch runs the return tool for that movie
 
 ### Requirement: Chat UI consumes the stream
-The web app SHALL provide a `/chat` page that sends `POST /api/chat` with the stub user identity, renders streamed `text`, renders recommendation cards, and on card borrow resubmits the same endpoint with `movieId`. Chrome labels MUST come from the web locale files.
+The web app SHALL provide a `/chat` page that sends `POST /api/chat` with the logged-in user's identity (Bearer token from the auth store), renders streamed `text`, renders recommendation cards, and on card borrow resubmits the same endpoint with `movieId`. Chrome labels MUST come from the web locale files.
 
 #### Scenario: Card borrow sends movieId
 - **WHEN** the user clicks borrow on a recommendation card
 - **THEN** the client posts `movieId` set to that movie's id on `POST /api/chat`
+
+#### Scenario: Chat requires an authenticated session
+- **WHEN** a visitor without a session opens `/chat`
+- **THEN** the app redirects to `/login` instead of rendering the chat page
 
 ### Requirement: Intent understanding uses a real LLM with rule fallback
 For messages without a valid `movieId`, the system MUST classify intent via an LLM structured output (JSON) validated against a schema, mapping non-enum phrasing onto the mood/scene enums (for example 「emo」→ 致郁, 「睡不着」→ 失眠夜). The LLM MUST NOT produce a `movieId`; borrow intent MUST carry a movie title resolved through the existing title-match service. Pure greetings or non-movie chatter MUST classify as `chitchat` and MUST NOT call tools. Any LLM failure (missing key, timeout, vendor error, schema mismatch) MUST fall back to the rule classifier with identical downstream behavior.

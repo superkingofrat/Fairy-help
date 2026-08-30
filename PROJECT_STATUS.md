@@ -6,11 +6,13 @@
 
 **Development（开发中）**
 
-> Monorepo 脚手架、影片库 CRUD MVP、Phase 2 Agent 推荐与借阅、FU-1 画像写接口与管理 CRUD、FU-2 真实 LLM 意图与回复、FU-3 行为流水查询与管理页、FU-4 归还（聊天文本）已交付。后续为 FU-5、FU-6、FU-8、FU-7。
+> Monorepo 脚手架、影片库 CRUD MVP、Phase 2 Agent 推荐与借阅、FU-1 画像写接口与管理 CRUD、FU-2 真实 LLM 意图与回复、FU-3 行为流水查询与管理页、FU-4 归还（聊天文本）、FU-5 真实 JWT 认证已交付。后续为 FU-6、FU-8、FU-7。
 
 ---
 
 ## Completed Modules（已完成模块）
+
+- **FU-5 真实 JWT 认证（仅登录）**（2026-08-31）— `POST /api/auth/login` + `GET /api/auth/me`（bcrypt 校验、统一 401 防枚举、HS256 12h token）、`authMiddleware` 重写为 Bearer-only（dev stub 彻底移除）、`JWT_SECRET` 启动必填、web `/login` 页 + 路由守卫 + 角色化导航 + 401 自动登出、chat 说话人=登录者；账号=种子固定开发密码（`user@fairy.local`/`user123456`、`admin@fairy.local`/`admin123456`，demo-only 上线前必须改密），注册/建号拆后续 FU；需求：[2026-08-30-fu-5-jwt-auth.md](docs/requirements/2026-08-30-fu-5-jwt-auth.md)；OpenSpec 归档：[2026-08-31-fu-5-jwt-auth](openspec/changes/archive/2026-08-31-fu-5-jwt-auth/)
 
 - **FU-4 归还：回补库存与还片意图（聊天文本）**（2026-08-30）— `rentalService.returnRental` 事务（闭租借 + 库存回补 + `RENTAL_NOT_FOUND` 幂等）、`returnMovieTool` + `RETURN_SUCCESS` 行为日志（枚举迁移已部署 dev 库）、return 意图（LLM + 规则「还」+唯一片名分支，hái/huán 防误判）、SSE `return` 事件、unresolved 回复列出现有借阅；验收期修复：枚举迁移延迟部署（P0）+ chat 流内错误降级加固（P1）；一键归还按钮拆至 FU-8；需求：[2026-08-29-fu-4-return-rentals.md](docs/requirements/2026-08-29-fu-4-return-rentals.md)；OpenSpec 归档：[2026-08-30-fu-4-return-rentals](openspec/changes/archive/2026-08-30-fu-4-return-rentals/)
 
@@ -43,10 +45,10 @@
 
 ## Next Steps（下一步）
 
-- FU-5 真实 JWT 替换 dev auth stub — 需求已批准：[2026-08-30-fu-5-jwt-auth.md](docs/requirements/2026-08-30-fu-5-jwt-auth.md)；OpenSpec change：`fu-5-jwt-auth`（提案已生成，待用户审阅后 apply）
 - FU-6 REST `POST /api/borrow`
 - FU-8 一键归还 UI（含 rentals 查询端点）— 从 FU-4 拆分的占位需求：[2026-08-29-fu-8-return-button-ui.md](docs/requirements/2026-08-29-fu-8-return-button-ui.md)；排在 FU-6 之后实施，实施前走一轮 grill-me
 - FU-7 Session 表与对话历史回放
+- （FU 外挂账）登录限速；注册/建号流程；refresh token
 
 ---
 
@@ -72,4 +74,4 @@
 
 ## Last Updated（最近更新）
 
-**2026-08-30**
+**2026-08-31**
