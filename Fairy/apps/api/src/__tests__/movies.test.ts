@@ -3,6 +3,7 @@ import request from "supertest";
 import { createApp } from "../app";
 import * as movieService from "../services/movieService";
 import type { Movie } from "@fairy/shared";
+import { authHeader } from "./helpers/auth";
 
 vi.mock("../services/movieService");
 
@@ -38,7 +39,7 @@ describe("movies routes", () => {
 
     const response = await request(app)
       .get("/api/movies")
-      .set("X-Dev-Role", "user");
+      .set("Authorization", authHeader("user"));
 
     expect(response.status).toBe(200);
     expect(response.body.code).toBe("OK");
@@ -53,7 +54,7 @@ describe("movies routes", () => {
 
     const response = await request(app)
       .get("/api/movies/search?mood=治愈&keyword=星际")
-      .set("X-Dev-Role", "user");
+      .set("Authorization", authHeader("user"));
 
     expect(response.status).toBe(200);
     expect(movieService.searchMovies).toHaveBeenCalled();
@@ -62,7 +63,7 @@ describe("movies routes", () => {
   it("returns 400 when search criteria are missing", async () => {
     const response = await request(app)
       .get("/api/movies/search")
-      .set("X-Dev-Role", "user");
+      .set("Authorization", authHeader("user"));
 
     expect(response.status).toBe(400);
     expect(response.body.code).toBe("MISSING_SEARCH_CRITERIA");
@@ -71,7 +72,7 @@ describe("movies routes", () => {
   it("returns 403 when non-admin creates a movie", async () => {
     const response = await request(app)
       .post("/api/movies")
-      .set("X-Dev-Role", "user")
+      .set("Authorization", authHeader("user"))
       .send({
         title: "新片",
         director: "导演",
@@ -94,7 +95,7 @@ describe("movies routes", () => {
 
     const response = await request(app)
       .post("/api/movies")
-      .set("X-Dev-Role", "admin")
+      .set("Authorization", authHeader("admin"))
       .send({
         title: "星际穿越",
         director: "Christopher Nolan",
@@ -117,7 +118,7 @@ describe("movies routes", () => {
 
     const response = await request(app)
       .post("/api/movies")
-      .set("X-Dev-Role", "admin")
+      .set("Authorization", authHeader("admin"))
       .send({
         title: "新片",
         director: "导演",
@@ -139,7 +140,7 @@ describe("movies routes", () => {
   it("returns 400 for invalid mood count", async () => {
     const response = await request(app)
       .post("/api/movies")
-      .set("X-Dev-Role", "admin")
+      .set("Authorization", authHeader("admin"))
       .send({
         title: "新片",
         director: "导演",
@@ -161,7 +162,7 @@ describe("movies routes", () => {
 
     const response = await request(app)
       .get(`/api/movies/${sampleMovie.id}`)
-      .set("X-Dev-Role", "user");
+      .set("Authorization", authHeader("user"));
 
     expect(response.status).toBe(200);
     expect(response.body.data.title).toBe("星际穿越");
@@ -172,7 +173,7 @@ describe("movies routes", () => {
 
     const response = await request(app)
       .get("/api/movies/missing-id")
-      .set("X-Dev-Role", "user");
+      .set("Authorization", authHeader("user"));
 
     expect(response.status).toBe(404);
     expect(response.body.code).toBe("MOVIE_NOT_FOUND");
@@ -187,7 +188,7 @@ describe("movies routes", () => {
 
     const patchResponse = await request(app)
       .patch(`/api/movies/${sampleMovie.id}`)
-      .set("X-Dev-Role", "admin")
+      .set("Authorization", authHeader("admin"))
       .send({ title: "更新后的片名" });
 
     expect(patchResponse.status).toBe(200);
@@ -195,13 +196,13 @@ describe("movies routes", () => {
 
     const deleteResponse = await request(app)
       .delete(`/api/movies/${sampleMovie.id}`)
-      .set("X-Dev-Role", "admin");
+      .set("Authorization", authHeader("admin"));
 
     expect(deleteResponse.status).toBe(200);
     expect(deleteResponse.body.data.id).toBe(sampleMovie.id);
   });
 
-  it("accepts bearer dev-admin token", async () => {
+  it("accepts bearer admin token", async () => {
     vi.mocked(movieService.listMovies).mockResolvedValue({
       items: [],
       pagination: { page: 1, limit: 10, total: 0, totalPages: 0 },
@@ -209,7 +210,7 @@ describe("movies routes", () => {
 
     const response = await request(app)
       .get("/api/movies")
-      .set("Authorization", "Bearer dev-admin");
+      .set("Authorization", authHeader("admin"));
 
     expect(response.status).toBe(200);
   });

@@ -3,6 +3,7 @@ import request from "supertest";
 import { createApp } from "../app";
 import * as behaviorLogService from "../services/behaviorLogService";
 import type { BehaviorLogListItem } from "@fairy/shared";
+import { authHeader } from "./helpers/auth";
 
 vi.mock("../services/behaviorLogService");
 
@@ -34,7 +35,7 @@ describe("behavior-logs routes", () => {
   it("returns 403 when user role lists behavior logs", async () => {
     const response = await request(app)
       .get("/api/behavior-logs")
-      .set("X-Dev-Role", "user");
+      .set("Authorization", authHeader("user"));
 
     expect(response.status).toBe(403);
     expect(response.body.code).toBe("FORBIDDEN");
@@ -49,7 +50,7 @@ describe("behavior-logs routes", () => {
 
     const response = await request(app)
       .get("/api/behavior-logs")
-      .set("X-Dev-Role", "admin");
+      .set("Authorization", authHeader("admin"));
 
     expect(response.status).toBe(200);
     expect(response.body.code).toBe("OK");
@@ -72,7 +73,7 @@ describe("behavior-logs routes", () => {
 
     const response = await request(app)
       .get("/api/behavior-logs")
-      .set("X-Dev-Role", "admin");
+      .set("Authorization", authHeader("admin"));
 
     expect(response.status).toBe(200);
     expect(response.body.data.items).toEqual([]);
@@ -84,7 +85,7 @@ describe("behavior-logs routes", () => {
 
     const response = await request(app)
       .get("/api/behavior-logs?action=RECOMMEND&page=2&limit=5")
-      .set("X-Dev-Role", "admin");
+      .set("Authorization", authHeader("admin"));
 
     expect(response.status).toBe(200);
     expect(behaviorLogService.listLogs).toHaveBeenCalledWith({
@@ -97,7 +98,7 @@ describe("behavior-logs routes", () => {
   it("returns 400 for an unknown action", async () => {
     const response = await request(app)
       .get("/api/behavior-logs?action=HACKED")
-      .set("X-Dev-Role", "admin");
+      .set("Authorization", authHeader("admin"));
 
     expect(response.status).toBe(400);
     expect(response.body.code).toBe("VALIDATION_ERROR");
@@ -107,7 +108,7 @@ describe("behavior-logs routes", () => {
   it("returns 400 INVALID_USER_ID for a non-uuid userId", async () => {
     const response = await request(app)
       .get("/api/behavior-logs?userId=not-a-uuid")
-      .set("X-Dev-Role", "admin");
+      .set("Authorization", authHeader("admin"));
 
     expect(response.status).toBe(400);
     expect(response.body.code).toBe("INVALID_USER_ID");
@@ -119,7 +120,7 @@ describe("behavior-logs routes", () => {
 
     const response = await request(app)
       .get(`/api/behavior-logs?userId=${DEV_USER_ID}`)
-      .set("X-Dev-Role", "admin");
+      .set("Authorization", authHeader("admin"));
 
     expect(response.status).toBe(200);
     expect(behaviorLogService.listLogs).toHaveBeenCalledWith({
@@ -132,10 +133,10 @@ describe("behavior-logs routes", () => {
   it("does not offer mutation routes (append-only)", async () => {
     const deleteResponse = await request(app)
       .delete("/api/behavior-logs/990e8400-e29b-41d4-a716-446655440000")
-      .set("X-Dev-Role", "admin");
+      .set("Authorization", authHeader("admin"));
     const patchResponse = await request(app)
       .patch("/api/behavior-logs/990e8400-e29b-41d4-a716-446655440000")
-      .set("X-Dev-Role", "admin")
+      .set("Authorization", authHeader("admin"))
       .send({ action: "RECOMMEND" });
 
     expect(deleteResponse.status).toBe(404);

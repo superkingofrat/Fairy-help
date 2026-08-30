@@ -125,6 +125,7 @@ Fairy 是一个由 LLM 驱动的智能体，通过一个闭环操作真实的业
 
 - 所有聊天流量都经由 `/api/chat`。客户端不得直接调用工具。
 - 领域路由面向管理/维护 UI，而非 agent 逻辑。
+- 认证（FU-5 起）：`POST /api/auth/login` 签发 HS256 JWT（12h），`authMiddleware` 只认 `Authorization: Bearer` 并注入 `userId`/`role`；dev stub（`X-Dev-Role`/`Bearer dev-*`）已移除。`JWT_SECRET` 缺失时 API 拒绝启动。密码以 bcrypt 哈希存储。
 
 ### 3.3 智能体编排层（`apps/api/src/agent/`）
 

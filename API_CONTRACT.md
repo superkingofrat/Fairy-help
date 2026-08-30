@@ -64,6 +64,22 @@ interface Profile {
 
 ## 3. 端点
 
+### 3.0 认证（FU-5）
+
+**POST** `/auth/login` — **Public**
+
+请求体 `{ email, password }`；成功返回 `{ code, data: { token, user: { id, email, role } } }`。`token` 为 HS256 JWT（payload `{ userId, role }`，12h 过期）。凭证错误（密码错/邮箱不存在）统一返回 401 `UNAUTHORIZED`，不区分原因。
+
+**GET** `/auth/me` — 需认证
+
+返回当前 token 对应的用户摘要 `{ id, email, role }`；token 无效/过期 → 401。
+
+#### 认证约定（FU-5 起）
+
+- 除 `/health` 与 `/auth/login` 外，所有端点都需要 `Authorization: Bearer <jwt>`。
+- dev auth stub（`X-Dev-Role` 头 / `Bearer dev-<role>`）已**移除**，携带者一律 401。
+- 角色语义不变：admin-only 端点对 user 角色 403 `FORBIDDEN`；chat 说话人 = token 中的 userId。
+
 ### 3.1 搜索影片
 
 **GET** `/movies/search`
@@ -155,13 +171,6 @@ Authorization: Bearer <jwt>
 
 - `user` 与 `admin` 均可读取。
 
-#### 开发环境认证
-
-开发阶段可使用以下任一方式：
-
-- 请求头：`X-Dev-Role: user` 或 `X-Dev-Role: admin`
-- 请求头：`Authorization: Bearer dev-user` 或 `Authorization: Bearer dev-admin`
-
 #### 成功响应 — 200 OK
 
 ```json
@@ -236,7 +245,7 @@ Authorization: Bearer <jwt>
 
 用户侧推荐与借阅的唯一入口。成功时返回 `text/event-stream`，不是一次 JSON `{ code, data, msg }`。校验失败仍返回 JSON 信封。
 
-开发环境认证与影片读接口相同：`X-Dev-Role: user` 或 `Authorization: Bearer dev-user`。
+认证：需要 `Authorization: Bearer <jwt>`；未认证 401（JSON 信封，不开启流）。说话人身份 = token 中的 userId。
 
 #### 请求体
 
@@ -284,7 +293,7 @@ Authorization: Bearer <jwt>
 
 #### 认证
 
-- 开发环境：`X-Dev-Role: user | admin` 或 `Authorization: Bearer dev-user | dev-admin`。
+- `Authorization: Bearer <jwt>`（登录获取，见 §3.0）。
 - 列表、创建、更新仅 `admin`；单条读取为本人或 `admin`。
 
 #### 3.8.1 列表（按用户展开）
@@ -295,7 +304,7 @@ Authorization: Bearer <jwt>
 
 ```http
 GET /api/profiles
-X-Dev-Role: admin
+Authorization: Bearer <jwt>
 ```
 
 #### 成功响应 — 200 OK

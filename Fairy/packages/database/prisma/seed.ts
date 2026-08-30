@@ -1,6 +1,11 @@
 import { PrismaClient, Mood, Scene } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
+
+// demo-only 固定开发密码（上线前必须改密或实施注册/建号流程）
+const DEV_USER_PASSWORD = "user123456";
+const DEV_ADMIN_PASSWORD = "admin123456";
 
 const seedMovies = [
   {
@@ -87,23 +92,28 @@ const DEV_USER_ID = "00000000-0000-4000-8000-000000000001";
 const DEV_ADMIN_ID = "00000000-0000-4000-8000-000000000002";
 
 async function main(): Promise<void> {
+  const userPasswordHash = bcrypt.hashSync(DEV_USER_PASSWORD, 10);
+  const adminPasswordHash = bcrypt.hashSync(DEV_ADMIN_PASSWORD, 10);
+
   await prisma.user.upsert({
     where: { id: DEV_USER_ID },
-    update: { email: "user@fairy.local", role: "user" },
+    update: { email: "user@fairy.local", role: "user", passwordHash: userPasswordHash },
     create: {
       id: DEV_USER_ID,
       email: "user@fairy.local",
       role: "user",
+      passwordHash: userPasswordHash,
     },
   });
 
   await prisma.user.upsert({
     where: { id: DEV_ADMIN_ID },
-    update: { email: "admin@fairy.local", role: "admin" },
+    update: { email: "admin@fairy.local", role: "admin", passwordHash: adminPasswordHash },
     create: {
       id: DEV_ADMIN_ID,
       email: "admin@fairy.local",
       role: "admin",
+      passwordHash: adminPasswordHash,
     },
   });
 

@@ -4,6 +4,7 @@ import { createApp } from "../app";
 import * as profileService from "../services/profileService";
 import { DEV_ADMIN_ID, DEV_USER_ID } from "@fairy/shared";
 import type { Profile, ProfileListItem } from "@fairy/shared";
+import { authHeader } from "./helpers/auth";
 
 vi.mock("../services/profileService");
 
@@ -59,7 +60,7 @@ describe("profiles routes", () => {
   it("returns 403 when user role lists profiles", async () => {
     const response = await request(app)
       .get("/api/profiles")
-      .set("X-Dev-Role", "user");
+      .set("Authorization", authHeader("user"));
 
     expect(response.status).toBe(403);
     expect(response.body.code).toBe("FORBIDDEN");
@@ -69,7 +70,7 @@ describe("profiles routes", () => {
   it("returns 403 when user role creates or patches", async () => {
     const createResponse = await request(app)
       .post("/api/profiles")
-      .set("X-Dev-Role", "user")
+      .set("Authorization", authHeader("user"))
       .send(createBody());
 
     expect(createResponse.status).toBe(403);
@@ -78,7 +79,7 @@ describe("profiles routes", () => {
 
     const patchResponse = await request(app)
       .patch(`/api/profiles/${DEV_USER_ID}`)
-      .set("X-Dev-Role", "user")
+      .set("Authorization", authHeader("user"))
       .send({ name: "改名" });
 
     expect(patchResponse.status).toBe(403);
@@ -90,7 +91,7 @@ describe("profiles routes", () => {
 
     const response = await request(app)
       .get("/api/profiles")
-      .set("X-Dev-Role", "admin");
+      .set("Authorization", authHeader("admin"));
 
     expect(response.status).toBe(200);
     expect(response.body.code).toBe("OK");
@@ -106,7 +107,7 @@ describe("profiles routes", () => {
 
     const response = await request(app)
       .get(`/api/profiles/${DEV_USER_ID}`)
-      .set("X-Dev-Role", "user");
+      .set("Authorization", authHeader("user"));
 
     expect(response.status).toBe(200);
     expect(response.body.data.name).toBe("铃");
@@ -115,7 +116,7 @@ describe("profiles routes", () => {
   it("returns 403 when user reads another user's profile", async () => {
     const response = await request(app)
       .get(`/api/profiles/${DEV_ADMIN_ID}`)
-      .set("X-Dev-Role", "user");
+      .set("Authorization", authHeader("user"));
 
     expect(response.status).toBe(403);
     expect(response.body.code).toBe("FORBIDDEN");
@@ -125,7 +126,7 @@ describe("profiles routes", () => {
   it("returns 400 for a non-uuid userId", async () => {
     const response = await request(app)
       .get("/api/profiles/not-a-uuid")
-      .set("X-Dev-Role", "admin");
+      .set("Authorization", authHeader("admin"));
 
     expect(response.status).toBe(400);
     expect(response.body.code).toBe("INVALID_USER_ID");
@@ -136,7 +137,7 @@ describe("profiles routes", () => {
 
     const response = await request(app)
       .get(`/api/profiles/${DEV_ADMIN_ID}`)
-      .set("X-Dev-Role", "admin");
+      .set("Authorization", authHeader("admin"));
 
     expect(response.status).toBe(404);
     expect(response.body.code).toBe("PROFILE_NOT_FOUND");
@@ -150,7 +151,7 @@ describe("profiles routes", () => {
 
     const response = await request(app)
       .post("/api/profiles")
-      .set("X-Dev-Role", "admin")
+      .set("Authorization", authHeader("admin"))
       .send(createBody());
 
     expect(response.status).toBe(201);
@@ -168,7 +169,7 @@ describe("profiles routes", () => {
 
     const response = await request(app)
       .post("/api/profiles")
-      .set("X-Dev-Role", "admin")
+      .set("Authorization", authHeader("admin"))
       .send(createBody({ userId: DEV_USER_ID }));
 
     expect(response.status).toBe(409);
@@ -183,7 +184,7 @@ describe("profiles routes", () => {
 
     const response = await request(app)
       .post("/api/profiles")
-      .set("X-Dev-Role", "admin")
+      .set("Authorization", authHeader("admin"))
       .send(createBody({ userId: "00000000-0000-4000-8000-000000000099" }));
 
     expect(response.status).toBe(404);
@@ -193,7 +194,7 @@ describe("profiles routes", () => {
   it("returns 400 for an invalid create body", async () => {
     const response = await request(app)
       .post("/api/profiles")
-      .set("X-Dev-Role", "admin")
+      .set("Authorization", authHeader("admin"))
       .send(createBody({ name: "" }));
 
     expect(response.status).toBe(400);
@@ -209,7 +210,7 @@ describe("profiles routes", () => {
 
     const response = await request(app)
       .patch(`/api/profiles/${DEV_USER_ID}`)
-      .set("X-Dev-Role", "admin")
+      .set("Authorization", authHeader("admin"))
       .send({ likeGenres: ["动画"] });
 
     expect(response.status).toBe(200);
@@ -224,7 +225,7 @@ describe("profiles routes", () => {
 
     const response = await request(app)
       .patch(`/api/profiles/${DEV_ADMIN_ID}`)
-      .set("X-Dev-Role", "admin")
+      .set("Authorization", authHeader("admin"))
       .send({ name: "改名" });
 
     expect(response.status).toBe(404);
@@ -234,7 +235,7 @@ describe("profiles routes", () => {
   it("returns 400 when patching with a non-uuid userId", async () => {
     const response = await request(app)
       .patch("/api/profiles/abc")
-      .set("X-Dev-Role", "admin")
+      .set("Authorization", authHeader("admin"))
       .send({ name: "改名" });
 
     expect(response.status).toBe(400);
@@ -245,7 +246,7 @@ describe("profiles routes", () => {
   it("does not offer delete", async () => {
     const response = await request(app)
       .delete(`/api/profiles/${DEV_USER_ID}`)
-      .set("X-Dev-Role", "admin");
+      .set("Authorization", authHeader("admin"));
 
     expect(response.status).toBe(404);
   });

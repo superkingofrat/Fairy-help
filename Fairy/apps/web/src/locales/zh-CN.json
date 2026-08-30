@@ -110,5 +110,13 @@
   "behavior.page.next": "下一页",
   "behavior.page.info": "第 {page} / {totalPages} 页",
   "behavior.recommended": "推荐了 {count} 部",
-  "behavior.action.RETURN_SUCCESS": "归还成功"
+  "behavior.action.RETURN_SUCCESS": "归还成功",
+  "login.title": "登录 Fairy",
+  "login.email": "邮箱",
+  "login.password": "密码",
+  "login.submit": "登录",
+  "login.submitting": "登录中...",
+  "login.error": "登录失败",
+  "nav.login": "登录",
+  "nav.logout": "退出"
 }

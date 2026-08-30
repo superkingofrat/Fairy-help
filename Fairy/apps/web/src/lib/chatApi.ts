@@ -1,4 +1,5 @@
 import type { BorrowSseEvent, ChatRequest, Movie, RecommendationSseEvent } from "@fairy/shared";
+import { useAuthStore } from "../stores/authStore";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -35,16 +36,22 @@ export async function postChat(
   body: ChatRequest,
   onEvent: (event: ParsedSseEvent) => void
 ): Promise<void> {
+  const token = useAuthStore.getState().token;
   const response = await fetch(`${API_BASE}/api/chat`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-Dev-Role": "user",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify(body),
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      useAuthStore.getState().clear();
+      window.location.assign("/login");
+      throw new Error("会话已失效，请重新登录");
+    }
     const raw = await response.text();
     throw new Error(raw || `Chat failed (${response.status})`);
   }

@@ -1,3 +1,4 @@
+import { useAuthStore } from "../stores/authStore";
 import type {
   CreateProfileInput,
   Profile,
@@ -6,6 +7,11 @@ import type {
 } from "@fairy/shared";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
+
+function authHeaderOption(): Record<string, string> {
+  const token = useAuthStore.getState().token;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 interface ApiResponse<T> {
   code: string;
@@ -21,7 +27,7 @@ async function request<T>(
     ...options,
     headers: {
       "Content-Type": "application/json",
-      "X-Dev-Role": "admin",
+      ...authHeaderOption(),
       ...options.headers,
     },
   });
@@ -42,6 +48,11 @@ async function request<T>(
   }
 
   if (!response.ok) {
+    if (response.status === 401) {
+      useAuthStore.getState().clear();
+      window.location.assign("/login");
+      throw new Error("会话已失效，请重新登录");
+    }
     throw new Error(
       payload?.msg ??
         `Request failed (${response.status}). Check that pnpm --filter=@fairy/api dev is running.`

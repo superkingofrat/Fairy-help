@@ -6,6 +6,7 @@ import * as profileService from "../services/profileService";
 import * as rentalService from "../services/rentalService";
 import * as behaviorLogService from "../services/behaviorLogService";
 import type { Movie, Profile } from "@fairy/shared";
+import { authHeader } from "./helpers/auth";
 
 vi.mock("../services/movieService");
 vi.mock("../services/profileService");
@@ -82,7 +83,7 @@ describe("POST /api/chat", () => {
   it("rejects invalid movieId with JSON envelope", async () => {
     const response = await request(app)
       .post("/api/chat")
-      .set("X-Dev-Role", "user")
+      .set("Authorization", authHeader("user"))
       .send({ message: "", movieId: "bad" });
 
     expect(response.status).toBe(400);
@@ -97,7 +98,7 @@ describe("POST /api/chat", () => {
 
     const response = await request(app)
       .post("/api/chat")
-      .set("X-Dev-Role", "user")
+      .set("Authorization", authHeader("user"))
       .send({ message: "雨天心情不好" });
 
     expect(response.headers["content-type"]).toMatch(/text\/event-stream/);
@@ -117,7 +118,7 @@ describe("POST /api/chat", () => {
 
     const response = await request(app)
       .post("/api/chat")
-      .set("X-Dev-Role", "user")
+      .set("Authorization", authHeader("user"))
       .send({ message: "雨天" });
 
     const events = parseSse(response.text);
@@ -135,7 +136,7 @@ describe("POST /api/chat", () => {
 
     const response = await request(app)
       .post("/api/chat")
-      .set("X-Dev-Role", "user")
+      .set("Authorization", authHeader("user"))
       .send({ message: "", movieId: sampleMovie.id });
 
     const events = parseSse(response.text);
@@ -158,7 +159,7 @@ describe("POST /api/chat", () => {
 
     const response = await request(app)
       .post("/api/chat")
-      .set("X-Dev-Role", "user")
+      .set("Authorization", authHeader("user"))
       .send({ message: "", movieId: sampleMovie.id });
 
     const events = parseSse(response.text);
@@ -175,7 +176,7 @@ describe("POST /api/chat", () => {
 
     const response = await request(app)
       .post("/api/chat")
-      .set("X-Dev-Role", "user")
+      .set("Authorization", authHeader("user"))
       .send({ message: "", movieId: sampleMovie.id });
 
     const events = parseSse(response.text);
@@ -191,7 +192,7 @@ describe("POST /api/chat", () => {
   it("unmatched messages do not recommend, borrow, or log", async () => {
     const response = await request(app)
       .post("/api/chat")
-      .set("X-Dev-Role", "user")
+      .set("Authorization", authHeader("user"))
       .send({ message: "今天星期几" });
 
     const events = parseSse(response.text);
@@ -207,7 +208,7 @@ describe("POST /api/chat", () => {
 
     const response = await request(app)
       .post("/api/chat")
-      .set("X-Dev-Role", "user")
+      .set("Authorization", authHeader("user"))
       .send({ message: "雨天" });
 
     expect(response.status).toBe(200);
@@ -232,7 +233,7 @@ describe("POST /api/chat", () => {
 
     const response = await request(app)
       .post("/api/chat")
-      .set("X-Dev-Role", "user")
+      .set("Authorization", authHeader("user"))
       .send({ message: "还千与千寻" });
 
     const events = parseSse(response.text);
@@ -258,7 +259,7 @@ describe("POST /api/chat", () => {
 
     const response = await request(app)
       .post("/api/chat")
-      .set("X-Dev-Role", "user")
+      .set("Authorization", authHeader("user"))
       .send({ message: "还千与千寻" });
 
     const events = parseSse(response.text);
@@ -272,7 +273,7 @@ describe("POST /api/chat", () => {
   it("does not misfire a return for the homograph 还 (still)", async () => {
     const response = await request(app)
       .post("/api/chat")
-      .set("X-Dev-Role", "user")
+      .set("Authorization", authHeader("user"))
       .send({ message: "还可以" });
 
     const events = parseSse(response.text);
@@ -290,7 +291,7 @@ describe("POST /api/chat", () => {
 
     const response = await request(app)
       .post("/api/chat")
-      .set("X-Dev-Role", "user")
+      .set("Authorization", authHeader("user"))
       .send({ message: "还千与千寻" });
 
     const events = parseSse(response.text);

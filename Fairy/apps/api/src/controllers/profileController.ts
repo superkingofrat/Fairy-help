@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import type { CreateProfileInput, UpdateProfileInput } from "@fairy/shared";
 import { userIdParamsSchema } from "@fairy/shared";
-import type { DevRole } from "../middleware/auth";
+import type { Role } from "../middleware/auth";
 import * as profileService from "../services/profileService";
 
 export async function listProfilesHandler(
@@ -30,7 +30,7 @@ export async function getProfileHandler(
     }
 
     const { userId } = params.data;
-    const role = res.locals.role as DevRole | undefined;
+    const role = res.locals.role as Role | undefined;
     const callerId = res.locals.userId as string | undefined;
 
     if (role !== "admin" && callerId !== userId) {

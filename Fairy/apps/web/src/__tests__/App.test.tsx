@@ -4,11 +4,14 @@ import { MemoryRouter } from "react-router-dom";
 import { App } from "../App";
 import { MoviesAdminPage } from "../components/admin/MoviesAdminPage";
 import * as movieApi from "../lib/movieApi";
+import { useAuthStore } from "../stores/authStore";
 
 vi.mock("../lib/movieApi");
 
 afterEach(() => {
   cleanup();
+  useAuthStore.setState({ token: null, user: null });
+  window.history.pushState({}, "", "/");
 });
 
 describe("App", () => {
@@ -17,9 +20,32 @@ describe("App", () => {
     expect(screen.getByText("Fairy")).toBeDefined();
   });
 
-  it("renders chat navigation", () => {
+  it("renders chat navigation when logged in", () => {
+    useAuthStore.setState({
+      token: "t",
+      user: { id: "00000000-0000-4000-8000-000000000001", email: "user@fairy.local", role: "user" },
+    });
     render(<App />);
     expect(screen.getByText("对话")).toBeDefined();
+    expect(screen.queryByText("影片管理")).toBeNull();
+    expect(screen.getByText("退出")).toBeDefined();
+  });
+
+  it("renders admin navigation for admin role", () => {
+    useAuthStore.setState({
+      token: "t",
+      user: { id: "00000000-0000-4000-8000-000000000002", email: "admin@fairy.local", role: "admin" },
+    });
+    render(<App />);
+    expect(screen.getByText("影片管理")).toBeDefined();
+    expect(screen.getByText("画像管理")).toBeDefined();
+    expect(screen.getByText("行为流水")).toBeDefined();
+  });
+
+  it("redirects unauthenticated access of admin pages to login", () => {
+    window.history.pushState({}, "", "/admin/movies");
+    render(<App />);
+    expect(screen.getByText("登录 Fairy")).toBeDefined();
   });
 });
 
