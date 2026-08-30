@@ -45,7 +45,7 @@
 
 ## Next Steps（下一步）
 
-- FU-6 REST `POST /api/borrow`
+- FU-6 REST `POST /api/borrow` — 需求已批准：[2026-08-31-fu-6-rest-borrow.md](docs/requirements/2026-08-31-fu-6-rest-borrow.md)；OpenSpec change：`fu-6-rest-borrow`（提案已生成，待用户审阅后 apply）
 - FU-8 一键归还 UI（含 rentals 查询端点）— 从 FU-4 拆分的占位需求：[2026-08-29-fu-8-return-button-ui.md](docs/requirements/2026-08-29-fu-8-return-button-ui.md)；排在 FU-6 之后实施，实施前走一轮 grill-me
 - FU-7 Session 表与对话历史回放
 - （FU 外挂账）登录限速；注册/建号流程；refresh token
