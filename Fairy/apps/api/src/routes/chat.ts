@@ -11,15 +11,15 @@ function writeSse(res: Response, event: string, data: unknown): void {
 }
 
 router.post("/", validateBody(chatRequestSchema), async (req, res, next) => {
+  res.status(200);
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders?.();
+
   try {
     const body = req.body as ChatRequestInput;
     const userId = res.locals.userId as string;
-
-    res.status(200);
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-    res.flushHeaders?.();
 
     const result = await runChatTurn({
       userId,
@@ -42,6 +42,14 @@ router.post("/", validateBody(chatRequestSchema), async (req, res, next) => {
     writeSse(res, "done", {});
     res.end();
   } catch (error) {
+    if (res.headersSent) {
+      // 流已开始：任何异常都不能悬挂客户端，也不能把堆栈写给用户。
+      console.error("[chat] in-stream error:", error);
+      writeSse(res, "text", { content: "Fairy 这边出了点小状况，请稍后再试。" });
+      writeSse(res, "done", {});
+      res.end();
+      return;
+    }
     next(error);
   }
 });

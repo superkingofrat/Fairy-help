@@ -4,7 +4,7 @@
 
 ## 2. Database
 
-- [x] 2.1 Add `RETURN_SUCCESS` to `BehaviorAction` enum in `schema.prisma`; migration `add_return_success_action` (dev DB unreachable at apply time — migration file committed, `migrate deploy` deferred to联调)
+- [x] 2.1 Add `RETURN_SUCCESS` to `BehaviorAction` enum in `schema.prisma`; migration `add_return_success_action` (deployed to dev DB on 2026-08-30 during acceptance bugfix — initial deploy attempt hit Neon cold start)
 
 ## 3. API
 

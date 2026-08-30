@@ -281,4 +281,22 @@ describe("POST /api/chat", () => {
     expect(events.some((event) => event.event === "text")).toBe(true);
     expect(rentalService.returnRental).not.toHaveBeenCalled();
   });
+
+  it("degrades in-stream tool errors to text+done instead of hanging", async () => {
+    vi.mocked(movieService.listMoviesForTitleMatch).mockResolvedValue([
+      { id: "660e8400-e29b-41d4-a716-446655440000", title: "千与千寻" },
+    ]);
+    vi.mocked(rentalService.returnRental).mockRejectedValue(new Error("db exploded"));
+
+    const response = await request(app)
+      .post("/api/chat")
+      .set("X-Dev-Role", "user")
+      .send({ message: "还千与千寻" });
+
+    const events = parseSse(response.text);
+    expect(events.length).toBeGreaterThan(0);
+    expect(events[events.length - 1].event).toBe("done");
+    expect(events.some((event) => event.event === "text")).toBe(true);
+    expect(response.text).not.toContain("db exploded");
+  });
 });
