@@ -10,3 +10,9 @@ export const rentalSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
 });
+
+export const borrowRequestSchema = z.object({
+  movieId: z.string().uuid(),
+});
+
+export type BorrowRequestInput = z.infer<typeof borrowRequestSchema>;

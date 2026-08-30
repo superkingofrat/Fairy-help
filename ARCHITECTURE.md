@@ -333,6 +333,8 @@ ResponseSynthesizer 流式输出最终回复
 [ResponseSynthesizer] 流式输出确认信息 + 更新后的卡片
 ```
 
+> 双入口（FU-6 起）：`POST /api/borrow` REST 端点复用同一 `borrowMovieTool`（服务事务 + 日志），错误映射为 201/404/409。借阅逻辑唯一，chat 与 REST 只是两个传输口。
+
 ### 5.3 旅行规划流程
 
 ```
@@ -466,7 +468,7 @@ interface AgentState {
 | 画像优先设计 | 所有个性化流程在此前先读取 `Profile`；避免重复偏好逻辑。 |
 | 只追加行为日志 | 为 agent 记忆与业务分析提供可观测历史。 |
 | 服务端校验 AI 生成的地点 | 防止幻觉目的地触达用户。 |
-| 借阅仅经 `/api/chat` 工具 | 避免 REST 与工具双写库存；`POST /borrow` 为未来端点。 |
+| 库存写入统一经 `rentalService.borrow` | chat 工具与 REST（FU-6 `POST /api/borrow`）只是两个传输口，无第二套借阅逻辑。 |
 
 ---
 

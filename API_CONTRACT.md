@@ -464,6 +464,40 @@ BehaviorLog 的只读分页流水，仅 `admin` 可调用；append-only，**不�
 
 ---
 
+### 3.10 REST 借阅（FU-6）
+
+**POST** `/borrow` — 需认证（Bearer）
+
+登录用户直接借片；借阅人 = token subject（请求体**不含** userId）。与 chat 借阅共用同一事务与日志。
+
+#### 请求体
+
+```json
+{ "movieId": "550e8400-e29b-41d4-a716-446655440000" }
+```
+
+#### 成功响应 — 201 Created
+
+```json
+{
+  "code": "OK",
+  "data": { "rentalId": "880e8400-e29b-41d4-a716-446655440000", "remainingStock": 2 },
+  "msg": "借阅成功"
+}
+```
+
+#### 错误响应
+
+| 状态 | Code | 场景 |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | `movieId` 不是 UUID。 |
+| 401 | `UNAUTHORIZED` | 未认证。 |
+| 404 | `MOVIE_NOT_FOUND` | 影片不存在。 |
+| 409 | `ALREADY_BORROWED` | 已有进行中的同片租借。 |
+| 409 | `OUT_OF_STOCK` | 库存不足。 |
+
+---
+
 ## 4. 错误码参考
 
 | Code | HTTP 状态 | 含义 |
@@ -489,6 +523,5 @@ BehaviorLog 的只读分页流水，仅 `admin` 可调用；append-only，**不�
 
 以下端点为后续版本规划，暂不属于本契约：
 
-- `POST /api/borrow` — REST 借阅旁路（本阶段仅经 `/api/chat` 工具借阅）。
 - `POST /api/trips` — 旅行规划。
 - `GET /api/admin/insights` — 运营看板数据。

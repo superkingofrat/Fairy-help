@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import { authMiddleware } from "./middleware/auth";
 import { authRouter } from "./routes/auth";
+import { borrowRouter } from "./routes/borrow";
 import { moviesRouter } from "./routes/movies";
 import { profilesRouter } from "./routes/profiles";
 import { behaviorLogsRouter } from "./routes/behaviorLogs";
@@ -21,6 +22,7 @@ export function createApp(): express.Application {
 
   app.use("/api/auth", authRouter);
   app.use("/api/movies", authMiddleware, moviesRouter);
+  app.use("/api/borrow", authMiddleware, borrowRouter);
   app.use("/api/profiles", authMiddleware, profilesRouter);
   app.use("/api/behavior-logs", authMiddleware, behaviorLogsRouter);
   app.use("/api/chat", authMiddleware, chatRouter);
