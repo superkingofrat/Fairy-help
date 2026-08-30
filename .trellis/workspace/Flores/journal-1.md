@@ -184,3 +184,54 @@ Delivered FU-4 chat-text return end to end (scope split: button UI deferred to F
 ### Status
 
 [OK] **Completed**
+
+
+## Session 5: FU-5 真实 JWT 认证交付（仅登录）：stub 移除 + 全栈身份改造
+
+**Date**: 2026-08-31
+**Task**: FU-5 真实 JWT 认证交付（仅登录）：stub 移除 + 全栈身份改造
+**Branch**: `master`
+
+### Summary
+
+Delivered FU-5 end to end: JWT login replacing the dev stub across api and web, including full test-header migration and login page with guards; acceptance passed after fixing Neon connectivity flakiness.
+
+### Main Changes
+
+### 改动
+
+- **DB**：User 增加 `passwordHash`（迁移文件入库；Neon 休眠按预案未即时 deploy）；seed 用 bcryptjs 写入两个种子用户的固定开发密码（demo-only 注释，上线前必须改密）。
+- **API**：`POST /api/auth/login`（bcrypt 校验、统一 401 防用户枚举、HS256 12h token）+ `GET /api/auth/me`；`authMiddleware` 重写为 Bearer-only——`X-Dev-Role`/`Bearer dev-*` 彻底移除；`JWT_SECRET` 启动必填校验（index.ts，缺失拒绝启动）。
+- **Web**：authStore（zustand persist）+ authApi + `/login` 页 + 路由守卫（/chat 需登录、/admin/* 需 admin）+ 4 个 API client 注入 Bearer 且 401 自动清会话跳登录 + 角色化导航（admin 链接仅 admin 可见）+ 退出按钮。
+- **测试迁移**：`authHeader(role)` 助手（导入时注入测试 JWT_SECRET），4 个测试文件 49 处 stub 头批量迁移，全部既有测试逻辑不变。
+
+### 验证
+
+- 五包 typecheck 通过；138+ 测试全绿（api 89 / web 18 / shared 18 / ai-sdk 13）；真机验收：两账号登录、chat 借还身份=登录者、admin 页管理、未登录跳转、退出。
+
+### 踩坑（下次直接避）
+
+1. **Neon 连接抖动的应对姿势**：CLI（migrate deploy/status）与 engine 直连时好时坏，单次失败不代表死——**带间隔的重试循环**（3-4 次 × sleep 15s）最终全部跑通；"No pending migrations" 说明其实第一次就成功了。
+2. **pnpm --filter exec 报 "Command prisma not found"** 是底层 prisma 进程死亡后的误导性包装——直接 `npx prisma ...` 更可靠。
+3. **加 NOT NULL 列到非空表必须带 DEFAULT**：`passwordHash String @default("")` —— 空哈希即"未设密码"（bcrypt.compare 对空串必失败），迁移与语义双安全。
+4. prisma generate EPERM（DLL 被运行中的 dev server 锁）两次验证均为良性：**TS 类型/运行时 index.js 先落盘，仅引擎二进制改名失败**——引擎版本未变时无害。
+5. chat 说话人真实化后，演示"铃"的画像需用 user@fairy.local 登录——seed 账号与画像的绑定关系要写进联调提示。
+
+### 下一步
+
+- FU-6 REST `POST /api/borrow` → FU-8 一键归还 UI（grill-me 后）→ FU-7 Session 历史。
+- 挂账：登录限速；注册/建号流程；refresh token；种子固定密码上线前必须改密。
+
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `0182cb4` | (see git log) |
+| `3e90280` | (see git log) |
+| `35c72a2` | (see git log) |
+
+### Status
+
+[OK] **Completed**
