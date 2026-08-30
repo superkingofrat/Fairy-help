@@ -43,7 +43,7 @@
 
 ## Next Steps（下一步）
 
-- FU-5 真实 JWT 替换 dev auth stub（当前前端 admin 页仍写死 `X-Dev-Role: admin`，上生产前必须完成）
+- FU-5 真实 JWT 替换 dev auth stub — 需求已批准：[2026-08-30-fu-5-jwt-auth.md](docs/requirements/2026-08-30-fu-5-jwt-auth.md)；OpenSpec change：`fu-5-jwt-auth`（提案已生成，待用户审阅后 apply）
 - FU-6 REST `POST /api/borrow`
 - FU-8 一键归还 UI（含 rentals 查询端点）— 从 FU-4 拆分的占位需求：[2026-08-29-fu-8-return-button-ui.md](docs/requirements/2026-08-29-fu-8-return-button-ui.md)；排在 FU-6 之后实施，实施前走一轮 grill-me
 - FU-7 Session 表与对话历史回放
