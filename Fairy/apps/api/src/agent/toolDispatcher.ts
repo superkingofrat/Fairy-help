@@ -133,8 +133,8 @@ export async function dispatch(
   }
 
   if (plan.tool === "trip") {
-    // 行程规划仅对代理人「铃」开放；其余身份（绳匠、其他用户）仅影片服务，不调用工具
-    if (profile?.name !== "铃") {
+    // 行程规划对代理人「铃」与绳匠（admin）开放；其余用户仅影片服务，不调用工具
+    if (profile?.name !== "铃" && role !== "admin") {
       return {
         kind: "trip",
         success: false,

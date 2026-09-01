@@ -88,8 +88,8 @@ async function draftTrip(message: string, travelStyle: string | null): Promise<T
     { role: "system" as const, content: TRIP_SYSTEM_PROMPT },
     { role: "user" as const, content: `${styleLine}用户说：「${text}」` },
   ];
-  // 严格 JSON 输出：低温度提高稳定性；失败重试一次再降级（模型偶发非法 JSON/截断）
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  // 严格 JSON 输出：低温度提高稳定性；失败重试两次再降级（模型偶发非法 JSON/截断）
+  for (let attempt = 0; attempt < 3; attempt += 1) {
     const result = await tryChat("agent.trip", messages, {
       maxTokens: 1200,
       temperature: 0.2,

@@ -300,7 +300,7 @@ Authorization: Bearer <jwt>
 
 `borrow.code` 成功为 `OK`；失败为 `OUT_OF_STOCK`、`ALREADY_BORROWED`、`MOVIE_NOT_FOUND`。`return.code` 成功为 `OK`；失败为 `RENTAL_NOT_FOUND`。
 
-`trip` 事件仅在行程规划成功时发出，`data` 为完整 `TripResult`（`tripId`、`destination`、`days`、`itinerary`——按天分组的 POI 步骤，每步含 `time`/`name`/`category`/`note`/`location`/`validated`、`route`——相邻已校验 POI 间的路线 `from`/`to`/`distanceMeters`/`durationSeconds`，无校验时为 `null`、`validated`）。行程规划仅对代理人「铃」（画像名 `铃`）开放：非「铃」身份请求时**不调用规划工具、不落库、不发出事件**，回复婉拒文本并引导推荐影片。目的地无法从消息确定时**不落库、不发出事件**，只返回追问文本；高德不可用（`AMAP_SERVER_KEY` 缺失/超时/报错）时 POI 标 `validated: false`、`route: null`，仍返回行程，且不暴露密钥、原始响应或堆栈（FU-13）。
+`trip` 事件仅在行程规划成功时发出，`data` 为完整 `TripResult`（`tripId`、`destination`、`days`、`itinerary`——按天分组的 POI 步骤，每步含 `time`/`name`/`category`/`note`/`location`/`validated`、`route`——相邻已校验 POI 间的路线 `from`/`to`/`distanceMeters`/`durationSeconds`，无校验时为 `null`、`validated`）。行程规划对代理人「铃」（画像名 `铃`）与绳匠（admin）开放：其他身份请求时**不调用规划工具、不落库、不发出事件**，回复婉拒文本并引导推荐影片。目的地无法从消息确定时**不落库、不发出事件**，只返回追问文本；高德不可用（`AMAP_SERVER_KEY` 缺失/超时/报错）时 POI 标 `validated: false`、`route: null`，仍返回行程，且不暴露密钥、原始响应或堆栈（FU-13）。
 
 意图顺序：合法 `movieId` → 手打「借」+ 唯一片名 → 手打「还」+ 唯一片名 → 消息含子串 mood/scene → 引导语（不调工具）。LLM 路径（FU-2 起）按结构化意图输出，规则链为降级路径；归还仅在用户明确表达归还影片时触发（「还」有 hái/huán 歧义）。
 

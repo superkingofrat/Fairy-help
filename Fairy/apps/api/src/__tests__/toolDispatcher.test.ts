@@ -209,8 +209,8 @@ describe("dispatch trip tool (FU-13)", () => {
     });
   });
 
-  it("forbids trip planning for non-agent identities without calling the tool", async () => {
-    const observation = await dispatch({ tool: "trip" }, "admin-1", "admin", "帮我规划周末去北京玩");
+  it("forbids trip planning for other users without calling the tool", async () => {
+    const observation = await dispatch({ tool: "trip" }, "user-2", "user", "帮我规划周末去北京玩");
 
     expect(observation).toEqual({
       kind: "trip",
@@ -220,5 +220,31 @@ describe("dispatch trip tool (FU-13)", () => {
       code: "TRIP_FORBIDDEN",
     });
     expect(planTripTool.planTripTool).not.toHaveBeenCalled();
+  });
+
+  it("allows an admin (no profile) to plan a trip", async () => {
+    vi.mocked(planTripTool.planTripTool).mockResolvedValue({
+      success: true,
+      data: tripResult,
+    });
+
+    const observation = await dispatch(
+      { tool: "trip" },
+      "admin-1",
+      "admin",
+      "帮我规划周末去北京玩"
+    );
+
+    expect(observation).toEqual({
+      kind: "trip",
+      success: true,
+      unresolved: false,
+      trip: tripResult,
+      code: "OK",
+    });
+    expect(planTripTool.planTripTool).toHaveBeenCalledWith({
+      userId: "admin-1",
+      message: "帮我规划周末去北京玩",
+    });
   });
 });
