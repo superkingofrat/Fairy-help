@@ -2,8 +2,9 @@ import { recommendMovieTool } from "../tools/recommendMovieTool";
 import { borrowMovieTool } from "../tools/borrowMovieTool";
 import { returnMovieTool } from "../tools/returnMovieTool";
 import { storeInsightTool } from "../tools/storeInsightTool";
+import { planTripTool } from "../tools/planTripTool";
 import type { PlannedCall } from "./planner";
-import type { Movie, StoreInsightsOverview, InsightTopic } from "@fairy/shared";
+import type { Movie, StoreInsightsOverview, InsightTopic, TripResult } from "@fairy/shared";
 import type { Role } from "../middleware/auth";
 
 export type ToolObservation =
@@ -31,6 +32,13 @@ export type ToolObservation =
       code: string;
     }
   | {
+      kind: "trip";
+      success: boolean;
+      unresolved: boolean;
+      trip: TripResult | null;
+      code: string;
+    }
+  | {
       kind: "none";
       reason: "unmatched" | "borrow_unresolved" | "return_unresolved" | "chitchat";
     };
@@ -38,7 +46,8 @@ export type ToolObservation =
 export async function dispatch(
   plan: PlannedCall,
   userId: string,
-  role: Role = "user"
+  role: Role = "user",
+  message?: string
 ): Promise<ToolObservation> {
   if (plan.tool === "recommend") {
     const result = await recommendMovieTool({
@@ -119,6 +128,35 @@ export async function dispatch(
       topic: plan.topic,
       overview: null,
       code: result.error ?? "INSIGHT_UNAVAILABLE",
+    };
+  }
+
+  if (plan.tool === "trip") {
+    const result = await planTripTool({ userId, message: message ?? "" });
+    if (!result.success) {
+      return {
+        kind: "trip",
+        success: false,
+        unresolved: false,
+        trip: null,
+        code: result.error ?? "INTERNAL_ERROR",
+      };
+    }
+    if ("unresolved" in result.data) {
+      return {
+        kind: "trip",
+        success: true,
+        unresolved: true,
+        trip: null,
+        code: "TRIP_DESTINATION_REQUIRED",
+      };
+    }
+    return {
+      kind: "trip",
+      success: true,
+      unresolved: false,
+      trip: result.data,
+      code: "OK",
     };
   }
 

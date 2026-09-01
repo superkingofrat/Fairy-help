@@ -246,6 +246,62 @@ describe("classifyIntent store_insight (FU-12)", () => {
   });
 });
 
+describe("classifyIntent plan_trip (FU-13)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(movieService.listMoviesForTitleMatch).mockResolvedValue([
+      { id: MOVIE_ID, title: "千与千寻" },
+    ]);
+  });
+
+  it("short-circuits on the travel rule without consulting the LLM", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(
+      llmResult('{"intent":"chitchat","movieTitle":null,"moods":[],"scenes":[]}')
+    );
+
+    const intent = await classifyIntent({ message: "帮我规划周末去杭州玩" });
+
+    expect(intent).toEqual({ type: "plan_trip" });
+    expect(llmClient.tryChat).not.toHaveBeenCalled();
+  });
+
+  it("matches the bare travel keyword 旅行", async () => {
+    const intent = await classifyIntent({ message: "我想去旅行" });
+
+    expect(intent).toEqual({ type: "plan_trip" });
+    expect(llmClient.tryChat).not.toHaveBeenCalled();
+  });
+
+  it("maps an LLM plan_trip verdict when no rule keyword matches", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(
+      llmResult('{"intent":"plan_trip","movieTitle":null,"moods":[],"scenes":[]}')
+    );
+
+    const intent = await classifyIntent({ message: "给我安排一趟旅程" });
+
+    expect(intent).toEqual({ type: "plan_trip" });
+  });
+
+  it("does not treat a bare 规划 as travel, keeping inventory questions as insight", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(
+      llmResult('{"intent":"plan_trip","movieTitle":null,"moods":[],"scenes":[]}')
+    );
+
+    const intent = await classifyIntent({ message: "规划一下店里的库存" });
+
+    expect(intent).toEqual({ type: "store_insight", topic: "inventory" });
+    expect(llmClient.tryChat).not.toHaveBeenCalled();
+  });
+
+  it("keeps mood/scene phrasing as recommend even when it mentions travel", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const intent = await classifyIntent({ message: "雨天想去旅游" });
+
+    expect(intent).toEqual({ type: "recommend", moods: [], scenes: ["雨天"] });
+  });
+});
+
 describe("classifyStoreInsightByRules topic mapping", () => {
   it("returns the most specific matching topic", () => {
     expect(classifyStoreInsightByRules("最火的片子")).toBe("popular");

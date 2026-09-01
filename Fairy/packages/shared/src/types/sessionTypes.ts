@@ -1,4 +1,5 @@
 import type { Movie } from "./movieTypes";
+import type { TripResult } from "../schemas/tripSchemas";
 
 export type SessionRole = "user" | "assistant";
 
@@ -17,7 +18,8 @@ export type ChatEvent =
       remainingStock: number | null;
       rentalId: string | null;
       code: string;
-    };
+    }
+  | { type: "trip"; trip: TripResult };
 
 export interface ChatMessagePayload {
   events: ChatEvent[];

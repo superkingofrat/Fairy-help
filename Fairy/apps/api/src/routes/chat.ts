@@ -25,6 +25,9 @@ function buildEvents(result: SynthesizedResponse): ChatEvent[] {
   if (result.return) {
     events.push({ type: "return", ...result.return });
   }
+  if (result.trip) {
+    events.push({ type: "trip", trip: result.trip.trip });
+  }
   return events;
 }
 
@@ -96,6 +99,9 @@ router.post("/", validateBody(chatRequestSchema), async (req, res, next) => {
       }
       if (result.return) {
         writeSse(res, "return", result.return);
+      }
+      if (result.trip) {
+        writeSse(res, "trip", result.trip);
       }
       writeSse(res, "done", { sessionId: sessionId ?? null });
       res.end();

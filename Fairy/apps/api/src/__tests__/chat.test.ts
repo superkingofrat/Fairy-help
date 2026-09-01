@@ -7,7 +7,8 @@ import * as rentalService from "../services/rentalService";
 import * as behaviorLogService from "../services/behaviorLogService";
 import * as sessionService from "../services/sessionService";
 import * as insightService from "../services/insightService";
-import { DEV_USER_ID, type Movie, type Profile, type StoreInsightsOverview } from "@fairy/shared";
+import * as planTripTool from "../tools/planTripTool";
+import { DEV_USER_ID, type Movie, type Profile, type StoreInsightsOverview, type TripResult } from "@fairy/shared";
 import { authHeader } from "./helpers/auth";
 
 vi.mock("../services/movieService");
@@ -16,6 +17,7 @@ vi.mock("../services/rentalService");
 vi.mock("../services/behaviorLogService");
 vi.mock("../services/sessionService");
 vi.mock("../services/insightService");
+vi.mock("../tools/planTripTool");
 
 const SESSION_ID = "550e8400-e29b-41d4-a716-446655440000";
 
@@ -532,5 +534,59 @@ describe("POST /api/chat", () => {
     );
     expect(insightService.getStoreInsightsOverview).not.toHaveBeenCalled();
     expect(events[events.length - 1].event).toBe("done");
+  });
+
+  it("emits a trip SSE event and persists it in the turn (FU-13)", async () => {
+    const tripResult: TripResult = {
+      tripId: "550e8400-e29b-41d4-a716-446655440000",
+      destination: "杭州",
+      days: 1,
+      itinerary: [
+        {
+          day: 1,
+          title: "西湖经典一日",
+          steps: [
+            {
+              time: "09:00",
+              name: "西湖",
+              category: "景点",
+              note: null,
+              location: { lng: 120.15, lat: 30.25 },
+              validated: true,
+            },
+          ],
+        },
+      ],
+      route: null,
+      validated: true,
+    };
+    vi.mocked(planTripTool.planTripTool).mockResolvedValue({
+      success: true,
+      data: tripResult,
+    });
+
+    const response = await request(app)
+      .post("/api/chat")
+      .set("Authorization", authHeader("user"))
+      .send({ message: "帮我规划周末去杭州玩" });
+
+    expect(response.status).toBe(200);
+    const events = parseSse(response.text);
+    const trip = events.find((event) => event.event === "trip");
+    expect(trip?.data).toEqual({ trip: tripResult });
+    expect(events.some((event) => event.event === "text")).toBe(true);
+    expect(planTripTool.planTripTool).toHaveBeenCalledWith({
+      userId: DEV_USER_ID,
+      message: "帮我规划周末去杭州玩",
+    });
+    expect(sessionService.appendTurn).toHaveBeenCalledWith(
+      DEV_USER_ID,
+      SESSION_ID,
+      expect.objectContaining({
+        events: expect.arrayContaining([
+          expect.objectContaining({ type: "trip", trip: tripResult }),
+        ]),
+      })
+    );
   });
 });

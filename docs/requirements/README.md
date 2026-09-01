@@ -4,6 +4,7 @@ Structured requirement docs produced by grill-me sessions. Each doc feeds OpenSp
 
 | Date | Feature | Status | Doc |
 |---|---|---|---|
+| 2026-09-01 | FU-13 旅行规划（第一期：对话行程生成） | approved | [2026-09-01-travel-planning.md](./2026-09-01-travel-planning.md) |
 | 2026-09-01 | FU-12 storeInsightTool chat 工具（第二期：对话问数） | approved | [2026-09-01-store-insight-chat-tool.md](./2026-09-01-store-insight-chat-tool.md) |
 | 2026-09-01 | FU-11 Store Insights 运营看板（第一期：管理端） | approved | [2026-09-01-store-insights.md](./2026-09-01-store-insights.md) |
 | 2026-09-01 | FU-7 Session 表与对话历史回放 | approved | [2026-09-01-fu-7-session-history.md](./2026-09-01-fu-7-session-history.md) |

@@ -8,6 +8,10 @@ describe("plan", () => {
     expect(plan(intent)).toEqual({ tool: "insight", topic: "inventory" });
   });
 
+  it("maps plan_trip intent to the trip tool", () => {
+    expect(plan({ type: "plan_trip" })).toEqual({ tool: "trip" });
+  });
+
   it("keeps existing intent mappings intact", () => {
     expect(
       plan({ type: "borrow", movieId: "550e8400-e29b-41d4-a716-446655440000" })

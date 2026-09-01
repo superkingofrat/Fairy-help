@@ -53,7 +53,7 @@ export async function runChatTurn(input: {
     history: input.history,
   });
   const planned = plan(intent);
-  const observation = await dispatch(planned, input.userId, input.role);
+  const observation = await dispatch(planned, input.userId, input.role, input.message);
   const profile: Profile | null = await profileService
     .getByUserId(input.userId)
     .catch(() => null);

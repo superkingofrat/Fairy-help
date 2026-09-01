@@ -6,6 +6,7 @@ export type PlannedCall =
   | { tool: "borrow"; movieId: string }
   | { tool: "return"; movieId: string }
   | { tool: "insight"; topic: InsightTopic }
+  | { tool: "trip" }
   | { tool: "none"; reason: "unmatched" | "borrow_unresolved" | "return_unresolved" | "chitchat" };
 
 export function plan(intent: ChatIntent): PlannedCall {
@@ -20,6 +21,9 @@ export function plan(intent: ChatIntent): PlannedCall {
   }
   if (intent.type === "store_insight") {
     return { tool: "insight", topic: intent.topic };
+  }
+  if (intent.type === "plan_trip") {
+    return { tool: "trip" };
   }
   if (intent.type === "borrow_unresolved") {
     return { tool: "none", reason: "borrow_unresolved" };

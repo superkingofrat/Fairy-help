@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Movie, Profile, StoreInsightsOverview } from "@fairy/shared";
+import type { Movie, Profile, StoreInsightsOverview, TripResult } from "@fairy/shared";
 import type { ChatResult } from "@fairy/ai-sdk";
 import { synthesize } from "../agent/responseSynthesizer";
 import * as llmClient from "../agent/llmClient";
@@ -362,5 +362,94 @@ describe("synthesize store insight (FU-12)", () => {
     );
 
     expect(result.texts[0].content).toContain("拉取失败");
+  });
+});
+
+describe("synthesize trip planning (FU-13)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const tripResult: TripResult = {
+    tripId: "550e8400-e29b-41d4-a716-446655440000",
+    destination: "杭州",
+    days: 1,
+    itinerary: [
+      {
+        day: 1,
+        title: "西湖经典一日",
+        steps: [
+          {
+            time: "09:00",
+            name: "西湖",
+            category: "景点",
+            note: null,
+            location: { lng: 120.15, lat: 30.25 },
+            validated: true,
+          },
+          {
+            time: "15:00",
+            name: "河坊街",
+            category: "美食",
+            note: null,
+            location: { lng: 120.17, lat: 30.24 },
+            validated: true,
+          },
+        ],
+      },
+    ],
+    route: [{ from: "西湖", to: "河坊街", distanceMeters: 2100, durationSeconds: 480 }],
+    validated: true,
+  };
+
+  it("returns the itinerary summary text and a trip SSE payload", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const result = await synthesize(
+      { kind: "trip", success: true, unresolved: false, trip: tripResult, code: "OK" },
+      { message: "帮我规划周末去杭州玩", profile: null }
+    );
+
+    expect(result.texts[0].content).toContain("杭州");
+    expect(result.texts[0].content).toContain("西湖→河坊街");
+    expect(result.trip).toEqual({ trip: tripResult });
+  });
+
+  it("marks an unvalidated itinerary as reference-only in the template", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const unvalidated: TripResult = { ...tripResult, validated: false, route: null };
+
+    const result = await synthesize(
+      { kind: "trip", success: true, unresolved: false, trip: unvalidated, code: "OK" },
+      { message: "帮我规划周末去杭州玩", profile: null }
+    );
+
+    expect(result.texts[0].content).toContain("仅供参考");
+    expect(result.trip).toEqual({ trip: unvalidated });
+  });
+
+  it("guides the user to a destination when unresolved", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const result = await synthesize(
+      { kind: "trip", success: true, unresolved: true, trip: null, code: "TRIP_DESTINATION_REQUIRED" },
+      { message: "帮我规划个行程", profile: null }
+    );
+
+    expect(result.texts[0].content).toBe("想去哪儿玩呀？告诉我一个目的地（比如城市名），我来帮你规划。");
+    expect(result.trip).toBeUndefined();
+  });
+
+  it("degrades to an apology when the trip tool fails", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const result = await synthesize(
+      { kind: "trip", success: false, unresolved: false, trip: null, code: "TRIP_DRAFT_FAILED" },
+      { message: "帮我规划周末去杭州玩", profile: null }
+    );
+
+    expect(result.texts[0].content).toContain("出了点状况");
+    expect(result.trip).toBeUndefined();
   });
 });

@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
-import type { ChatMessageDto, Movie, SessionListItem } from "@fairy/shared";
+import type { ChatMessageDto, Movie, SessionListItem, TripResult } from "@fairy/shared";
 import { postChat } from "../../lib/chatApi";
 import { t } from "../../lib/i18n";
 import {
@@ -10,12 +10,14 @@ import {
 import { useChatStore } from "../../stores/chatStore";
 import { MessageStream } from "./MessageStream";
 import { RecommendationCard } from "./RecommendationCard";
+import { TripTimeline } from "./TripTimeline";
 
 interface ChatMessage {
   id: string;
   role: "user" | "fairy";
   content: string;
   cards: Movie[];
+  trips: TripResult[];
 }
 
 const SESSION_STORAGE_KEY = "fairy.sessionId";
@@ -24,11 +26,13 @@ function dtoToMessage(dto: ChatMessageDto): ChatMessage {
   const recommendation = dto.payload?.events.find(
     (event) => event.type === "recommendation"
   );
+  const tripEvent = dto.payload?.events.find((event) => event.type === "trip");
   return {
     id: dto.id,
     role: dto.role === "assistant" ? "fairy" : "user",
     content: dto.content,
     cards: recommendation?.type === "recommendation" ? recommendation.items : [],
+    trips: tripEvent && tripEvent.type === "trip" ? [tripEvent.trip] : [],
   };
 }
 
@@ -141,13 +145,14 @@ export function ChatPage(): JSX.Element {
     const fairyId = `fairy-${Date.now()}`;
     let fairyText = "";
     let cards: Movie[] = [];
+    let trips: TripResult[] = [];
 
     setMessages((current) => [
       ...current,
       ...(body.movieId
         ? []
-        : [{ id: `user-${Date.now()}`, role: "user" as const, content: body.message, cards: [] }]),
-      { id: fairyId, role: "fairy", content: "", cards: [] },
+        : [{ id: `user-${Date.now()}`, role: "user" as const, content: body.message, cards: [], trips: [] }]),
+      { id: fairyId, role: "fairy", content: "", cards: [], trips: [] },
     ]);
 
     try {
@@ -163,6 +168,10 @@ export function ChatPage(): JSX.Element {
         if (event.event === "recommendation") {
           const data = event.data as { items: Movie[] };
           cards = data.items;
+        }
+        if (event.event === "trip") {
+          const data = event.data as { trip: TripResult };
+          trips = [data.trip];
         }
         if (event.event === "return") {
           const data = event.data as { success: boolean; rentalId: string | null };
@@ -181,7 +190,9 @@ export function ChatPage(): JSX.Element {
         }
         setMessages((current) =>
           current.map((message) =>
-            message.id === fairyId ? { ...message, content: fairyText, cards } : message
+            message.id === fairyId
+              ? { ...message, content: fairyText, cards, trips }
+              : message
           )
         );
       });
@@ -304,6 +315,9 @@ export function ChatPage(): JSX.Element {
                   ))}
                 </div>
               ) : null}
+              {message.trips.map((trip) => (
+                <TripTimeline key={trip.tripId} trip={trip} />
+              ))}
             </div>
           ))}
         </div>

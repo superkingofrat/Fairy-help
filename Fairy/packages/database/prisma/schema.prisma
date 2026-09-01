@@ -35,6 +35,11 @@ enum BehaviorAction {
   BORROW_SUCCESS
   BORROW_OUT_OF_STOCK
   RETURN_SUCCESS
+  TRIP_PLANNED
+}
+
+enum TripStatus {
+  DRAFT
 }
 
 enum ChatRole {
@@ -53,6 +58,7 @@ model User {
   rentals      Rental[]
   behaviorLogs BehaviorLog[]
   sessions     Session[]
+  trips        Trip[]
   refreshTokens RefreshToken[]
 
   @@map("users")
@@ -162,4 +168,21 @@ model ChatMessage {
 
   @@index([sessionId, createdAt])
   @@map("chat_messages")
+}
+
+// FU-13：旅行规划——行程落库（含校验后的 POI 与路线），为二期回放/历史列表打底
+model Trip {
+  id          String     @id @default(uuid())
+  userId      String
+  destination String
+  days        Int
+  itinerary   Json
+  route       Json?
+  status      TripStatus @default(DRAFT)
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([userId, createdAt])
+  @@map("trips")
 }

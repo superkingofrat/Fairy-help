@@ -7,7 +7,7 @@ import { parseSseBuffer } from "../lib/chatApi";
 import * as sessionApi from "../lib/sessionApi";
 import { listRentals } from "../lib/rentalsApi";
 import { useChatStore } from "../stores/chatStore";
-import type { ChatMessageDto, Movie, SessionListItem } from "@fairy/shared";
+import type { ChatMessageDto, Movie, SessionListItem, TripResult } from "@fairy/shared";
 
 vi.mock("../lib/chatApi", async () => {
   const actual = await vi.importActual<typeof import("../lib/chatApi")>("../lib/chatApi");
@@ -67,6 +67,30 @@ const assistantDto: ChatMessageDto = {
     events: [{ type: "recommendation", items: [movie] }],
   },
   createdAt: "2026-09-01T09:00:00.000Z",
+};
+
+const tripResult: TripResult = {
+  tripId: "550e8400-e29b-41d4-a716-446655440000",
+  destination: "杭州",
+  days: 1,
+  itinerary: [
+    {
+      day: 1,
+      title: "西湖经典一日",
+      steps: [
+        {
+          time: "09:00",
+          name: "西湖",
+          category: "景点",
+          note: null,
+          location: { lng: 120.15, lat: 30.25 },
+          validated: true,
+        },
+      ],
+    },
+  ],
+  route: null,
+  validated: true,
 };
 
 afterEach(() => {
@@ -255,6 +279,41 @@ describe("ChatPage", () => {
 
     expect(sessionApi.createSession).toHaveBeenCalled();
     expect(await screen.findByText("新会话")).toBeDefined();
+  });
+
+  it("replays a stored trip timeline from the session payload (FU-13)", async () => {
+    localStorage.setItem(SESSION_STORAGE_KEY, SESSION_ID);
+    vi.mocked(sessionApi.listSessions).mockResolvedValue([sampleSession]);
+    vi.mocked(sessionApi.getSessionMessages).mockResolvedValue([
+      {
+        ...assistantDto,
+        content: "给你规划了「杭州」1 天的行程",
+        payload: { events: [{ type: "trip", trip: tripResult }] },
+      },
+    ]);
+
+    render(<ChatPage />);
+
+    expect(await screen.findByText(/行程规划/)).toBeDefined();
+    expect(screen.getByText("西湖")).toBeDefined();
+    expect(screen.getAllByText(/杭州/).length).toBeGreaterThan(0);
+  });
+
+  it("renders a trip card from a live trip SSE event (FU-13)", async () => {
+    vi.mocked(chatApi.postChat).mockImplementation(async (_body, onEvent) => {
+      onEvent({ event: "text", data: { content: "给你规划了「杭州」1 天的行程。" } });
+      onEvent({ event: "trip", data: { trip: tripResult } });
+      onEvent({ event: "done", data: {} });
+    });
+
+    render(<ChatPage />);
+    fireEvent.change(screen.getByPlaceholderText("和 Fairy 说点什么吧..."), {
+      target: { value: "帮我规划周末去杭州玩" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+
+    expect(await screen.findByText("西湖")).toBeDefined();
+    expect(screen.getByText("地点已核实")).toBeDefined();
   });
 });
 

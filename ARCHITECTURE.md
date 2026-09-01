@@ -564,6 +564,7 @@ interface AgentState {
 | insight 工具返回完整 overview，切片在 synthesizer | 工具零参数、零聚合逻辑，复用 FU-11 单端点「一次返回全部」决策；topic 只决定 synthesizer 构造哪些【事实】，回复聚焦且省 token（FU-12）。 |
 | 运营问数规则优先级：mood/scene 枚举 > insight 关键词；借/还分支内嵌 insight 判定 | 「心情不好想看治愈的」是 recommend 而非 mood_scene 洞察；「最近借阅情况」含「借」字但属 trend，借分支无唯一片名时先试 insight 再判 borrow_unresolved（FU-12）。 |
 | insight 关键词先于 LLM 判定运营问数 | 真机验收发现 deepseek 模型对严格 JSON 输出不可靠（偶发输出 177~200 token 的自创 schema 长文本），「最近什么片最火」等会被误判 chitchat，规则兜底轮不到；改为 `classifyIntent` 先跑规则，命中 store_insight 即返回（LLM 不调用），其余意图仍 LLM 优先、规则兜底——保证 AC-5 口语问数确定性（FU-12）。 |
+| plan_trip 规则先于 LLM；Amap 校验可选降级 | 「帮我规划周末去杭州玩」等由规则关键词（旅行/出游/行程/规划/想去/旅游/周末去哪/去…玩）先于 LLM 确定性判定（同 FU-12 store_insight 模式）；`planTripTool` 以 LLM 草稿 + 高德服务端 POI/路线校验防幻觉，`AMAP_SERVER_KEY` 缺失/失败时降级为未校验草稿（POI 标 `validated=false`、`route=null`，不暴露密钥/堆栈）；行程落库 `Trip` + `TRIP_PLANNED` 日志；前端地图叠加路线为二期非目标（FU-13）。 |
 
 ---
 

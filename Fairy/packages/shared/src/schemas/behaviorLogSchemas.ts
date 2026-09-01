@@ -5,6 +5,7 @@ export const BEHAVIOR_ACTIONS = [
   "BORROW_SUCCESS",
   "BORROW_OUT_OF_STOCK",
   "RETURN_SUCCESS",
+  "TRIP_PLANNED",
 ] as const;
 
 export type BehaviorActionValue = (typeof BEHAVIOR_ACTIONS)[number];

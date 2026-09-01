@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { movieDtoSchema } from "./movieSchemas";
+import { tripEventSchema } from "./tripSchemas";
 
 export const sessionRoleSchema = z.enum(["user", "assistant"]);
 
@@ -22,6 +23,7 @@ export const chatEventSchema = z.discriminatedUnion("type", [
     rentalId: z.string().nullable(),
     code: z.string(),
   }),
+  tripEventSchema,
 ]);
 
 export const chatMessagePayloadSchema = z.object({

@@ -1,4 +1,5 @@
 import type { Movie } from "./movieTypes";
+import type { TripResult } from "../schemas/tripSchemas";
 
 export interface ChatRequest {
   message: string;
@@ -31,4 +32,8 @@ export interface ReturnSseEvent {
   remainingStock: number | null;
   rentalId: string | null;
   code: string;
+}
+
+export interface TripSseEvent {
+  trip: TripResult;
 }

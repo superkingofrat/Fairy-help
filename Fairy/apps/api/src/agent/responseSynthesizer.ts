@@ -7,6 +7,9 @@ import type {
   TextSseEvent,
   StoreInsightsOverview,
   InsightTopic,
+  TripSseEvent,
+  TripResult,
+  RouteLeg,
 } from "@fairy/shared";
 import { sanitizeUserInput, tryChat } from "./llmClient";
 import type { ToolObservation } from "./toolDispatcher";
@@ -16,6 +19,7 @@ export interface SynthesizedResponse {
   recommendation?: RecommendationSseEvent;
   borrow?: BorrowSseEvent;
   return?: ReturnSseEvent;
+  trip?: TripSseEvent;
 }
 
 export interface SynthesisContext {
@@ -150,6 +154,35 @@ function buildInsightFacts(
   };
 }
 
+// FU-13：旅行规划——从 TripResult 构造【事实】与兜底模板。
+function buildTripFacts(trip: TripResult): { facts: string; template: string } {
+  const dayCount = trip.itinerary.length;
+  const poiLine = trip.itinerary
+    .map((day) => `Day ${day.day} ${day.steps.map((step) => step.name).join("→")}`)
+    .join("；");
+  const validatedLine = trip.validated ? "" : "（POI 未经验证，仅供参考）";
+  const routeLine = routeSummary(trip.route);
+  return {
+    facts: `行程规划成功：目的地 ${trip.destination}，${dayCount} 天。${poiLine}${validatedLine}${routeLine}`,
+    template: `给你规划了「${trip.destination}」${dayCount} 天的行程：${poiLine}。${validatedLine}`,
+  };
+}
+
+function routeSummary(route: RouteLeg[] | null): string {
+  if (!route || route.length === 0) {
+    return "";
+  }
+  const distanceKm = route.reduce(
+    (sum, leg) => sum + (leg.distanceMeters ?? 0),
+    0
+  ) / 1000;
+  const durationMinutes = route.reduce(
+    (sum, leg) => sum + (leg.durationSeconds ?? 0),
+    0
+  ) / 60;
+  return ` 全程约 ${distanceKm.toFixed(1)} 公里、车程约 ${Math.round(durationMinutes)} 分钟。`;
+}
+
 async function generateReply(
   context: SynthesisContext,
   facts: string
@@ -218,6 +251,24 @@ export async function synthesize(
         : "没有工具调用结果：未能从消息中识别出借片或推荐意图（chitchat 视为正常闲聊）。";
     const text = (await generateReply(context, facts)) ?? template;
     return { texts: [{ content: text }] };
+  }
+
+  if (observation.kind === "trip") {
+    if (observation.unresolved) {
+      const template = "想去哪儿玩呀？告诉我一个目的地（比如城市名），我来帮你规划。";
+      const facts = "用户请求规划行程但未能确定目的地；应引导用户说出目的地。";
+      const text = (await generateReply(context, facts)) ?? template;
+      return { texts: [{ content: text }] };
+    }
+    if (!observation.success || !observation.trip) {
+      const template = "行程规划这会儿出了点状况，稍后再试？";
+      const facts = "行程规划失败（草稿生成或落库异常），无法提供行程。";
+      const text = (await generateReply(context, facts)) ?? template;
+      return { texts: [{ content: text }] };
+    }
+    const { facts, template } = buildTripFacts(observation.trip);
+    const text = (await generateReply(context, facts)) ?? template;
+    return { texts: [{ content: text }], trip: { trip: observation.trip } };
   }
 
   if (observation.kind === "recommend") {
