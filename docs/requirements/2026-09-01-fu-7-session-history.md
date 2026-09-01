@@ -1,7 +1,7 @@
 # FU-7 Session 表与对话历史回放
 
-**Date:** 2026-09-01（grill-me 收敛：2026-09-01；批准：待定）
-**Status:** draft（grill-me 已收敛，待用户批准）
+**Date:** 2026-09-01（grill-me 收敛：2026-09-01；批准：2026-09-01）
+**Status:** approved
 **Complexity:** medium（跨 db + shared + api + web，新增公共 API → OpenSpec 轨）
 
 ## Goal

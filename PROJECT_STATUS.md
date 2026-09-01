@@ -45,13 +45,13 @@
 
 ## In Progress（进行中）
 
-（无）
+- **FU-7 Session 表与对话历史回放**（负责人：Flores；2026-09-01 批准，需求见 [2026-09-01-fu-7-session-history.md](./docs/requirements/2026-09-01-fu-7-session-history.md)）
+  - 技术债登记：续聊注入最近 N 条上下文，按 AGENTS §6 以 `TODO(memory-center):` 注释临时内联查询，未来由记忆中心统一替换。
 
 ---
 
 ## Next Steps（下一步）
 
-- FU-7 Session 表与对话历史回放（grill-me 已收敛，待批准：[requirements doc](./docs/requirements/2026-09-01-fu-7-session-history.md)；技术债：注入最近 N 条按 §6 登记 `TODO(memory-center)`）
 - （FU 外挂账）登录限速；注册/建号流程；refresh token
 
 ---
