@@ -381,3 +381,56 @@ Delivered FU-9 end to end: /movies library page with REST borrow and borrowed ma
 ### Status
 
 [OK] **Completed**
+
+
+## Session 9: FU-7 session table and chat history replay delivery and archive
+
+**Date**: 2026-09-01
+**Task**: FU-7 session table and chat history replay delivery and archive
+**Branch**: `master`
+
+### Summary
+
+Delivered FU-7 end to end: Session/ChatMessage persistence, /api/sessions CRUD, chat side-channel appendTurn, 10-message history injection, web session sidebar with replay and reload restore. Fixed an SSE-header regression. Acceptance AC-1~AC-7 passed; archived with new chat-session main spec.
+
+### Main Changes
+
+### 改动
+
+- **FU-7 Session 表与对话历史回放（OpenSpec 轨）**：`Session`/`ChatMessage` Prisma 模型 + 迁移（`role` 枚举、`payload` JSON、`sessionId`/`createdAt` 索引）；shared 新增 `sessionSchemas`/`sessionTypes`（`chatEventSchema` 统一 recommendation/borrow/return 事件形状，`chatMessageDto` 带 payload 回放，`sessionListItem` 含 messageCount）。
+- **API**：`sessionService`（createSession/listSessions/getOwnedSession/getSessionMessages/getRecentMessages/appendTurn——事务内写标题 + USER + ASSISTANT 两条消息，标题首条消息前 20 字派生，失败仅记日志不中断 SSE 旁路）；`/api/sessions` 三端点（POST 201 / GET 列表按 `updatedAt` 倒序含消息数 / GET `:id` 回放）；`chatRequestSchema` 可选 `sessionId`（return 请求豁免）；404 `SESSION_NOT_FOUND` / 403 `SESSION_FORBIDDEN` 在 SSE 之前返回；`done` 事件携带 `sessionId`；`contextBuilder.buildConversationHistory` 注入最近 10 条纯文本（`TODO(memory-center)` 技术债）。
+- **Web**：`sessionApi` + ChatPage 会话侧栏（新建/切换/恢复）、历史回放（文本 + 推荐卡 + 借还事件走同一渲染路径、刷新后重取）、i18n 补全。
+- **修复一个真回归**：chat.ts 的 SSE headers 曾移到 `runChatTurn` 之后（为了流前 JSON 404/403），导致流内工具错误从「text+done 优雅降级」变成 500 JSON——已恢复为先设置 SSE 头 + 内层 try/catch，降级契约回归。
+- **测试**：api 135/17 文件（新增 sessionService 8、sessions routes 5、contextBuilder 1，chat +6）、web 36（ChatPage 12）、shared 36（sessionSchemas 12、chatSchemas +3）全绿。
+- **归档**：主 spec `chat-session` 全新创建（Purpose 逐字 + 4 条 ADDED 需求并入 `## Requirements`）；change dir 移入 `archive/2026-09-01-fu-7-session-history`；PROJECT_STATUS 更新（FU-7 → Completed 顶部，In Progress 清空）。
+
+### 验证
+
+- 四包测试全绿 + 三包 typecheck + `openspec validate --all` 8/8；`openspec status` 4/4 artifacts done、15/15 任务勾选。
+- 真机验收 AC-1~AC-7 全过：新建/自动标题、跨登录回放、刷新恢复（等 ~10s 冷启动后完整回放）、回放卡借阅落当前会话、跨用户 403/无 token 401、续聊 messageCount 2→4、admin 全链路（登录→管理页→会话区发消息）。用户已验收通过。
+
+### 踩坑（下次直接避）
+
+1. **Windows Git Bash + curl 中文乱码**——`curl -d` 带中文经 ANSI 代码页变 `\ufffd` mojibake（验收期产生 2 条脏会话已删）；API 验收一律用 python urllib UTF-8。
+2. **`$transaction` mockImplementation 类型不匹配**——回调参数签名报 TS2345，直接照抄 `rentalService.test.ts` 的 `(async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx)) as unknown as typeof prisma.$transaction` cast。
+3. **Neon 冷启动让「刷新恢复」看起来像 bug**——刷新后 2.5s 快照仍是空状态，等 ~10s 消息才回放；验收观察窗口要 >10s 再下结论。
+4. **locator 歧义**——`getByRole("article")` 匹配「海蒂」时同时命中「海蒂和爷爷」；用 `filter({ has: heading exact })` 定位。
+5. **会话 fixture 标题真值陷阱**——`sessionRow.title="雨天"` 是 truthy，derive-title 测试需 mock 空标题，否则断言错位。
+6. **SSE 头顺序回归**——为流前 JSON 错误把 headers 移到 turn 处理之后，会破坏「流内错误降级 text+done」契约；两个诉求要靠先设头 + 内层 try/catch 同时满足。
+
+### 下一步
+
+- 挂账：登录限速；注册/建号流程；refresh token；种子固定密码上线前改密。
+- memory-center 技术债：续聊最近 10 条历史注入（`contextBuilder.ts` 内联查询）待记忆中心统一替换。
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e9fe777` | (see git log) |
+| `974fad8` | (see git log) |
+
+### Status
+
+[OK] **Completed**

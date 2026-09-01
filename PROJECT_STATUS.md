@@ -6,11 +6,13 @@
 
 **Development（开发中）**
 
-> Monorepo 脚手架、影片库 CRUD MVP、Phase 2 Agent 推荐与借阅、FU-1 画像写接口与管理 CRUD、FU-2 真实 LLM 意图与回复、FU-3 行为流水查询与管理页、FU-4 归还（聊天文本）、FU-5 真实 JWT 认证、FU-6 REST 借阅、FU-8 一键归还 UI、FU-9 影片库浏览页已交付。后续为 FU-7。
+> Monorepo 脚手架、影片库 CRUD MVP、Phase 2 Agent 推荐与借阅、FU-1 画像写接口与管理 CRUD、FU-2 真实 LLM 意图与回复、FU-3 行为流水查询与管理页、FU-4 归还（聊天文本）、FU-5 真实 JWT 认证、FU-6 REST 借阅、FU-7 会话表与对话历史回放、FU-8 一键归还 UI、FU-9 影片库浏览页已交付。
 
 ---
 
 ## Completed Modules（已完成模块）
+
+- **FU-7 Session 表与对话历史回放**（2026-09-01）— `Session`/`ChatMessage` Prisma 模型 + 迁移（消息 `role`/`payload` JSON/索引）；shared session schemas/types（`chatEventSchema`/`chatMessageDto`/`sessionListItem`）；API：`sessionService`（createSession/listSessions/getOwnedSession/getSessionMessages/getRecentMessages/appendTurn 事务，标题首条消息前 20 字派生）+ `/api/sessions` 三端点（POST 201 / GET 列表按 `updatedAt` 倒序含消息数 / GET `:id` 回放）+ chat 落库旁路（`appendTurn` 失败仅记日志不中断 SSE，done 事件携带 `sessionId`）+ `chatRequestSchema` 可选 `sessionId` + 404 `SESSION_NOT_FOUND` / 403 `SESSION_FORBIDDEN`（SSE 前返回）+ `contextBuilder.buildConversationHistory` 注入最近 10 条纯文本（`TODO(memory-center)` 技术债）；Web：`sessionApi` + ChatPage 会话侧栏（新建/切换/恢复）+ 历史回放（文本 + 推荐卡借还事件走同一渲染路径，刷新后重取）+ i18n；测试：api 135（17 文件，新增 sessionService 8 / sessions routes 5 / contextBuilder 1，chat +6）、web 36（ChatPage 12）、shared 36（sessionSchemas 12 / chatSchemas +3）全绿；真机验收 AC-1~AC-7 全过（含跨用户 403、刷新恢复、回放卡借阅落当前会话、admin 全链路）；需求：[2026-09-01-fu-7-session-history.md](docs/requirements/2026-09-01-fu-7-session-history.md)；OpenSpec 归档：[2026-09-01-fu-7-session-history](openspec/changes/archive/2026-09-01-fu-7-session-history/)
 
 - **FU-9 影片库浏览页（直接借阅）**（2026-09-01）— `/movies` 用户页（RequireAuth，user+admin）+ 顶部导航「影片库」；分页目录 + mood/scene 标签筛选 + keyword 搜索（复用 `GET /api/movies` / `/api/movies/search`）；借阅按钮直调 REST `POST /api/borrow`（成功标记「已借」+ 轻提示 + refetch rentals/目录；失败卡片内按 code 映射友好文案，无 500）；已借标记取自 `GET /api/rentals?status=ACTIVE`（已借卡片置灰「已借」，跨页一致）；库页**无归还按钮**（归还仍只经 chat 工具链，双写禁令不变）；纯 web 改动、后端/shared 零改动；web 31 测试（新增 MovieLibraryPage 7 + App 2）；需求：[2026-09-01-fu-9-movie-library-page.md](docs/requirements/2026-09-01-fu-9-movie-library-page.md)；OpenSpec 归档：[2026-09-01-fu-9-movie-library-page](openspec/changes/archive/2026-09-01-fu-9-movie-library-page/)
 
@@ -45,8 +47,7 @@
 
 ## In Progress（进行中）
 
-- **FU-7 Session 表与对话历史回放**（负责人：Flores；2026-09-01 批准，需求见 [2026-09-01-fu-7-session-history.md](./docs/requirements/2026-09-01-fu-7-session-history.md)）
-  - 技术债登记：续聊注入最近 N 条上下文，按 AGENTS §6 以 `TODO(memory-center):` 注释临时内联查询，未来由记忆中心统一替换。
+- 无进行中功能（挂账项见 Next Steps）。
 
 ---
 
@@ -73,6 +74,8 @@
 | 2026-08-19 | Mood/Scene 中文枚举 | Project Lead | mood: 治愈/热血/悬疑/致郁/轻松/浪漫；scene: 雨天/失眠夜/周末午后/独自在家/约会夜/通勤路上。 |
 | 2026-08-20 | AI 执行双轨门禁 | Project Lead | 小功能 Trellis + requirements；大变更 OpenSpec；§15 为唯一脊柱来源。 |
 | 2026-08-20 | 本地双 `.env` 须同步 | Project Lead | `packages/database/.env` 与 `apps/api/.env` 的 `DATABASE_URL` 必须一致。 |
+| 2026-09-01 | 会话落库为旁路 + 标题首条消息派生 | Flores | FU-7：`appendTurn` 失败仅记日志不中断 SSE；空标题会话在首条消息落库时取前 20 字。 |
+| 2026-09-01 | 历史注入为纯文本旁路 | Flores | FU-7：最近 10 条以「用户/Fairy」文本注入 intent+合成 prompt，不注入 `payload` 事件；`TODO(memory-center)` 已登记技术债。 |
 
 ---
 
