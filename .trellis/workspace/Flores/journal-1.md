@@ -235,3 +235,49 @@ Delivered FU-5 end to end: JWT login replacing the dev stub across api and web, 
 ### Status
 
 [OK] **Completed**
+
+
+## Session 6: FU-6 REST 借阅交付：REST 端点复用 chat 事务 + 全流程归档
+
+**Date**: 2026-09-01
+**Task**: FU-6 REST 借阅交付：REST 端点复用 chat 事务 + 全流程归档
+**Branch**: `master`
+
+### Summary
+
+Delivered FU-6 end to end: POST /api/borrow sharing the borrowMovieTool transaction with the chat path; acceptance passed and archive completed with movie-rental main spec sync.
+
+### Main Changes
+
+### 改动
+
+- **FU-6 REST 借阅接口**：`POST /api/borrow`（Bearer-only、body `{ movieId }`、借阅人=token subject、body 内 `userId` 忽略、201 `{rentalId, remainingStock}` / 404 `MOVIE_NOT_FOUND` / 409 `ALREADY_BORROWED` / 409 `OUT_OF_STOCK` / 400 `VALIDATION_ERROR` / 401）。系列里最轻的一个 FU：路由薄层直接复用 `borrowMovieTool`——同一事务 + 同一行为日志，**零新借阅逻辑**；共享 `borrowRequestSchema`（movieId: uuid）；`rentalsRouter` 占位原样留给 FU-8。
+- **测试**：7 个路由测试（成功断言工具收到 token subject、body userId 越权字段忽略、404、409×2、400、401）。
+- **文档**：API_CONTRACT 新增 §3.10 REST 借阅 + 从 §5 移除预留；ARCHITECTURE §8 决策行修订为「库存写入统一经 `rentalService.borrow`，chat 工具与 REST 只是两个传输口」+ §5.2 双入口标注。
+- **归档**：主 spec `movie-rental` 同步新增「REST borrow endpoint shares the rental transaction」需求（3 scenarios 全保）；change dir 移入 `archive/2026-09-01-fu-6-rest-borrow`；PROJECT_STATUS 更新（FU-6 → Completed，Next Steps 剩 FU-8/FU-7）。
+
+### 验证
+
+- 四包 145 测试全绿（api 96 / web 18 / shared 18 / ai-sdk 13）+ 五包 typecheck 通过 + `openspec validate` 通过；web 零改动回归确认。
+- 真机验收点（AC-5）：REST 借一部 → chat「还 X」→ 两入口共享同一数据；用户已验收通过。
+
+### 踩坑（下次直接避）
+
+1. **archive 前 sync 比对别用 `grep | head` 判断**——退出码是 head 的（恒 0），匹配与否被吞掉；用 `grep -c` 或列主 spec 需求头列表对账。本次差点误判"已同步"。
+
+### 下一步
+
+- FU-8 一键归还 UI（grill-me 后实施：GET /api/rentals + chat action 参数 + 按钮）；FU-7 Session 历史。
+- 挂账：登录限速；注册/建号流程；refresh token；种子固定密码上线前必须改密。
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `86fd91a` | (see git log) |
+| `ecc0c3a` | (see git log) |
+
+### Status
+
+[OK] **Completed**
