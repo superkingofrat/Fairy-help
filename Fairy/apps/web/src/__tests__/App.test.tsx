@@ -76,6 +76,7 @@ describe("App", () => {
     expect(screen.getByRole("link", { name: "影片库" })).toBeDefined();
     expect(screen.getByText("画像管理")).toBeDefined();
     expect(screen.getByText("行为流水")).toBeDefined();
+    expect(screen.getByText("运营看板")).toBeDefined();
   });
 
   it("redirects unauthenticated access of admin pages to login", () => {

@@ -2,6 +2,7 @@ import { BrowserRouter, Link, Navigate, Route, Routes } from "react-router-dom";
 import { MoviesAdminPage } from "./components/admin/MoviesAdminPage";
 import { ProfilesAdminPage } from "./components/admin/ProfilesAdminPage";
 import { BehaviorPage } from "./components/admin/BehaviorPage";
+import { InsightsAdminPage } from "./components/admin/InsightsAdminPage";
 import { ChatPage } from "./components/chat/ChatPage";
 import { MovieLibraryPage } from "./components/library/MovieLibraryPage";
 import { LoginPage } from "./components/LoginPage";
@@ -60,6 +61,9 @@ function HeaderNav(): JSX.Element {
               </Link>
               <Link to="/admin/behavior" className={linkClass}>
                 {t("nav.behavior")}
+              </Link>
+              <Link to="/admin/insights" className={linkClass}>
+                {t("nav.insights")}
               </Link>
             </>
           ) : null}
@@ -147,6 +151,14 @@ export function App(): JSX.Element {
             element={
               <RequireAuth role="admin">
                 <BehaviorPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/insights"
+            element={
+              <RequireAuth role="admin">
+                <InsightsAdminPage />
               </RequireAuth>
             }
           />

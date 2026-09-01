@@ -4,6 +4,7 @@ Structured requirement docs produced by grill-me sessions. Each doc feeds OpenSp
 
 | Date | Feature | Status | Doc |
 |---|---|---|---|
+| 2026-09-01 | FU-11 Store Insights 运营看板（第一期：管理端） | approved | [2026-09-01-store-insights.md](./2026-09-01-store-insights.md) |
 | 2026-09-01 | FU-7 Session 表与对话历史回放 | approved | [2026-09-01-fu-7-session-history.md](./2026-09-01-fu-7-session-history.md) |
 | 2026-09-01 | FU-9 影片库浏览页（直接借阅） | approved | [2026-09-01-fu-9-movie-library-page.md](./2026-09-01-fu-9-movie-library-page.md) |
 | 2026-08-31 | FU-6 REST `POST /api/borrow` | approved | [2026-08-31-fu-6-rest-borrow.md](./2026-08-31-fu-6-rest-borrow.md) |

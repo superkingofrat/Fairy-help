@@ -445,6 +445,30 @@ SSE：... → done { sessionId }
 
 回放路径：`GET /api/sessions/:id` 按 `createdAt` 升序返回消息 DTO，前端 `dtoToMessage` 从 `payload.events` 的 `recommendation` 事件还原推荐卡片。
 
+### 5.7 运营洞察聚合（FU-11）
+
+```
+/admin/insights 页面加载
+    │
+    ▼
+insightApi.fetchInsightsOverview ── GET /api/insights/overview（Bearer + requireRole("admin")）
+    │
+    ▼
+insightService.getStoreInsightsOverview ── 11 个查询 Promise.all 并行（规避 Neon 冷启动串行延迟）
+    │  ├─ rental.groupBy(movieId) ── 热门影片 TOP 5（借阅次数降序）
+    │  ├─ behaviorLog.findMany(RECOMMEND) ── payload.movieIds 累计推荐次数
+    │  ├─ rental.findMany(近 14 天) ── 按日借出桶；RETURNED 子集按日归还桶（缺日补 0）
+    │  ├─ rental.count(ACTIVE) + movie.aggregate(totalStock) ── 借出占比
+    │  ├─ movie.findMany(stock ≤ 1) ── 低库存列表
+    │  ├─ rental.findMany(近 30 天) + movie.moods/scenes ── 标签计数 TOP 5
+    │  └─ user.count 总量 + behaviorLog.groupBy(userId, 近 7 天) ── 活跃概况
+    │
+    ▼
+InsightsAdminPage ── 纯 CSS 条形图 + 表格渲染（无图表库），加载/错误/空态齐全
+```
+
+只读聚合，不加表、不加埋点；窗口与低库存阈值（`stock ≤ 1`）为契约常量（见 API_CONTRACT §3.13）。
+
 ---
 
 ## 6. 状态管理
@@ -510,6 +534,8 @@ interface AgentState {
 | 登录/注册按 IP 限流 | express-rate-limit，login 10 次/15 分钟、register 20 次/小时；限流器在 `createApp()` 内创建保证测试隔离。生产反代后须启用 trust proxy（见 API_CONTRACT §3.0）。 |
 | refresh token 旋转 + 复用吊销 | DB 只存 sha256 哈希（不明文）；旋转时旧 token 置 `revokedAt` + `replacedByTokenId`，检测到复用已吊销 token 即吊销该用户全部 refresh token，压缩 token 泄露窗口。 |
 | 前端 401 单飞刷新 | 共享 in-flight refresh promise，并发 401 只发一次 `/auth/refresh`，成功后重试原请求；刷新失败才清登录并跳转。SSE（chatApi）保持直连 401 → 清登录，不引入流中断重试。 |
+| 运营洞察单端点一次返回全部 | `GET /api/insights/overview`（admin-only）聚合热门影片/趋势/库存/分布/活跃五类卡片，减少 round-trip；数据量小，窗口与低库存阈值（`stock ≤ 1`）为契约常量（FU-11）。 |
+| 聚合用 Prisma groupBy/count 并行 + JS 补零 | 数据量级下 `Promise.all` 并行规避 Neon 冷启动串行延迟；趋势缺日补 0 在 JS 内存按服务器本地日期分桶完成，避免 SQL 时区逻辑（FU-11）。 |
 
 ---
 
@@ -520,11 +546,12 @@ apps/web/src/
   components/
     chat/              # ChatPage（含会话侧栏）, MessageStream, RecommendationCard, TripTimeline
     fairy/             # FairyAvatar, expressions
-    admin/             # MoviesAdminPage, ProfilesAdminPage, BehaviorPage
+    admin/             # MoviesAdminPage, ProfilesAdminPage, BehaviorPage, InsightsAdminPage（FU-11 运营看板）
   hooks/
     useSSE.ts          # SSE 流消费
   lib/
     sessionApi.ts      # FU-7：/api/sessions 客户端
+    insightApi.ts      # FU-11：/api/insights 客户端
   stores/
     chatStore.ts
 
@@ -532,6 +559,7 @@ apps/api/src/
   routes/
     chat.ts            # POST /api/chat（SSE）
     sessions.ts        # /api/sessions（FU-7：创建/列表/消息回放）
+    insights.ts        # /api/insights（FU-11：GET /overview，requireRole("admin")）
     movies.ts
     rentals.ts
     trips.ts
@@ -554,15 +582,17 @@ apps/api/src/
     profileService.ts
     behaviorLogService.ts
     sessionService.ts  # FU-7：会话 CRUD + appendTurn 事务
+    insightService.ts  # FU-11：运营看板聚合（只读）
     amapClient.ts
   controllers/
     sessionsController.ts  # FU-7
+    insightController.ts   # FU-11
   middleware/
     auth.ts
     validateBody.ts
 
 packages/shared/
-  schemas/             # 前端与后端使用的 Zod schema（含 sessionSchemas，FU-7）
+  schemas/             # 前端与后端使用的 Zod schema（含 sessionSchemas，FU-7；insightSchemas，FU-11）
   types/               # 共享 TypeScript 类型（含 sessionTypes，FU-7）
 
 packages/ai-sdk/

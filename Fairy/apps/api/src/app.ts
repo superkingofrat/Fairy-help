@@ -11,6 +11,7 @@ import { profilesRouter } from "./routes/profiles";
 import { behaviorLogsRouter } from "./routes/behaviorLogs";
 import { chatRouter } from "./routes/chat";
 import { sessionsRouter } from "./routes/sessions";
+import { insightsRouter } from "./routes/insights";
 
 function tooManyRequests(_req: express.Request, res: express.Response): void {
   res.status(429).json({ code: "TOO_MANY_REQUESTS", data: null, msg: "尝试过于频繁，请稍后再试" });
@@ -53,6 +54,7 @@ export function createApp(): express.Application {
   app.use("/api/behavior-logs", authMiddleware, behaviorLogsRouter);
   app.use("/api/chat", authMiddleware, chatRouter);
   app.use("/api/sessions", authMiddleware, sessionsRouter);
+  app.use("/api/insights", authMiddleware, insightsRouter);
 
   app.use(
     (

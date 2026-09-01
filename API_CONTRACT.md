@@ -691,6 +691,76 @@ Authorization: Bearer <jwt>
 
 ---
 
+### 3.13 运营洞察 `/api/insights`（FU-11）
+
+admin-only 只读聚合接口，一次返回运营看板全部卡片数据。需认证（Bearer）且角色为 admin；user 角色 → 403 `FORBIDDEN`，无 token → 401 `UNAUTHORIZED`。
+
+#### 3.13.1 运营看板概览
+
+**GET** `/insights/overview`
+
+```http
+GET /api/insights/overview
+Authorization: Bearer <jwt>
+```
+
+聚合窗口与阈值均为契约常量：借阅趋势最近 14 天（缺日补 0）、mood/scene 分布最近 30 天、活跃用户/新增注册最近 7 天、热门影片 TOP 5；低库存阈值为 `stock ≤ 1`。
+
+#### 成功响应 — 200 OK
+
+```json
+{
+  "code": "OK",
+  "data": {
+    "popularMovies": [
+      {
+        "movieId": "550e8400-e29b-41d4-a716-446655440000",
+        "title": "海蒂",
+        "borrowCount": 12,
+        "recommendCount": 5,
+        "inStock": true
+      }
+    ],
+    "trend": [
+      { "date": "2026-08-19", "borrowCount": 3, "returnCount": 1 }
+    ],
+    "inventory": {
+      "activeRentals": 7,
+      "borrowedRatio": 0.35,
+      "lowStockMovies": [
+        {
+          "movieId": "550e8400-e29b-41d4-a716-446655440001",
+          "title": "楚门的世界",
+          "stock": 0,
+          "totalStock": 2
+        }
+      ]
+    },
+    "moods": [{ "value": "治愈", "count": 8 }],
+    "scenes": [{ "value": "雨天", "count": 6 }],
+    "activity": { "totalUsers": 3, "activeUsers7d": 2, "newUsers7d": 1 }
+  },
+  "msg": "查询成功"
+}
+```
+
+字段说明：
+
+- `popularMovies`：按借阅次数（`Rental` 按 `movieId` 分组）降序 TOP 5；`recommendCount` 来自 RECOMMEND 行为日志 `payload.movieIds` 累计；`inStock` = `stock > 0`。
+- `trend`：最近 14 天逐日借出（`Rental.createdAt`）与归还（`status=RETURNED` 的 `updatedAt`）计数，缺失日期补 0；`date` 为 `yyyy-mm-dd`（服务器本地日期分桶）。
+- `inventory`：`activeRentals` 为当前 ACTIVE 借出数；`borrowedRatio` = 借出 / 总库存（0–1）；`lowStockMovies` 为 `stock ≤ 1` 的影片（按库存升序）。
+- `moods` / `scenes`：近 30 天被借影片的标签计数 TOP 5，仅含有数据的维度；无数据显示空数组。
+- `activity`：`totalUsers` 用户总数、`activeUsers7d` 近 7 天有行为日志的 distinct userId 数、`newUsers7d` 近 7 天注册数。
+
+#### 错误响应
+
+| 状态 | Code | 场景 |
+|---|---|---|
+| 401 | `UNAUTHORIZED` | 未认证或 token 无效。 |
+| 403 | `FORBIDDEN` | 非 admin 角色。 |
+
+---
+
 ## 4. 错误码参考
 
 | Code | HTTP 状态 | 含义 |

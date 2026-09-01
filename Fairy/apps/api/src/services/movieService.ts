@@ -22,7 +22,7 @@ const MOOD_TO_PRISMA: Record<Mood, PrismaMood> = {
   浪漫: "ROMANTIC",
 };
 
-const PRISMA_TO_MOOD: Record<PrismaMood, Mood> = {
+export const PRISMA_TO_MOOD: Record<PrismaMood, Mood> = {
   HEALING: "治愈",
   PASSIONATE: "热血",
   SUSPENSE: "悬疑",
@@ -40,7 +40,7 @@ const SCENE_TO_PRISMA: Record<Scene, PrismaScene> = {
   通勤路上: "COMMUTE",
 };
 
-const PRISMA_TO_SCENE: Record<PrismaScene, Scene> = {
+export const PRISMA_TO_SCENE: Record<PrismaScene, Scene> = {
   RAINY_DAY: "雨天",
   INSOMNIA: "失眠夜",
   WEEKEND_AFTERNOON: "周末午后",
