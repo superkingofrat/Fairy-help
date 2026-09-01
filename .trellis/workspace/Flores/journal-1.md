@@ -629,3 +629,54 @@ Delivered FU-12 storeInsightTool chat Q&A (Trellis track): admin can ask store m
 ### Status
 
 [OK] **Completed**
+
+
+## Session 13: FU-13 travel planning (chat trip generation) delivery and archive
+
+**Date**: 2026-09-01
+**Task**: FU-13 travel planning phase 1 (chat trip generation) delivery and archive
+**Branch**: `master`
+
+### Summary
+
+Delivered FU-13 travel planning phase 1: chat trip generation. `plan_trip` intent (rules before LLM) -> `planTripTool` (LLM itinerary draft + Amap POI/route validation + Trip persistence) -> SSE `trip` event -> `TripTimeline` card in chat. No-key environment degrades gracefully (validated:false).
+
+### 改动
+
+- **数据层**：`Trip` Prisma 模型（userId/destination/days/itinerary JSON/route JSON/status）+ `add_trip_model` 迁移（`@@index([userId, createdAt])`）+ `TRIP_PLANNED` 行为日志枚举。
+- **共享层**：`tripSchemas`（tripPoiSchema/itineraryDaySchema/routeLegSchema/tripResultSchema/tripEventSchema）+ 导出 + 测试（shared 68）。
+- **服务层**：`amapClient` 服务端高德 Web 服务封装（`/place/text` POI 搜索 + `/direction/driving` 驾车路线）；`AMAP_SERVER_KEY` 缺失/超时/业务失败一律 `null`（降级信号），不抛错。
+- **工具层**：`planTripTool`（LLM 草稿 `{destination, itinerary}` JSON -> Amap 校验 POI/路线 -> 事务落库 Trip + 行为日志）；`hasDestinationByRules` 目的地规则兜底：草稿为空且消息无目的地线索 -> `unresolved`（反问目的地），有线索 -> `TRIP_DRAFT_FAILED`。
+- **agent 链**：`classifyIntent` 新增 `plan_trip` 意图（TRAVEL_KEYWORD_RULES 规则先于 LLM）；`planner` -> `{tool:"trip"}`；`dispatch` trip 分支（`"unresolved" in result.data` 联合收窄修复 TS2322）；`responseSynthesizer` trip 分支（unresolved 反问 / facts + `{texts, trip}`）；`chat.ts` SSE `trip` 事件（会话落库 payload 含 trip，回放走同一渲染路径）。
+- **前端**：`TripTimeline` 时间轴卡片（Day 分组 + POI 步骤 + 路线摘要 + validated 标识）+ ChatPage 接线 + i18n + 测试（web 55）。
+- **文档**：API_CONTRACT §3.7 SSE 事件表加 `trip`；ARCHITECTURE §8 决策行（plan_trip 规则先于 LLM；Amap 校验可选降级）；docs/tools.md planTripTool 注册；openspec specs/agent-chat + travel-planning 同步。
+- 测试：api 209 / web 55 / shared 68 全绿 + 三包 typecheck + `openspec validate --all` 10/10。
+
+### 验证
+
+- 真机验收 AC-1~AC-8 全过（双 dev server）：
+  - 「帮我规划周末去杭州玩」-> `plan_trip` 识别 + SSE `trip` 事件（tripId/destination=杭州/days=2/itinerary/route/validated）+ TripTimeline 卡片；
+  - DB 落库：`Trip` 行 + `TRIP_PLANNED` 日志（payload {destination:杭州, days:2, tripId, validated:false}）；
+  - 「帮我规划个行程」（无目的地）-> 反问「想去哪儿玩呀？」（AC-5 修复：LLM 空草稿 + 无目的地线索 -> unresolved 而非报错）；
+  - 无 `AMAP_SERVER_KEY`（空值）-> 行程照常返回 + POI `validated:false`，不崩不漏栈（AC-6 降级路径）；
+  - chitchat 不建 Trip；SSE done 正常；admin（无画像）路径可用。
+- 已知非阻塞：LLM 生成文本偶尔与事件数据措辞不一致（LLM 随机性），事件数据始终准确。
+
+### 踩坑（下次直接避）
+
+1. **curl 中文乱码再次确认**：Git Bash curl 内联中文 body 按 GBK 编码 -> 服务器收到 mojibake，规则/LLM 全乱。一律 `--data-binary @req.json`（UTF-8 文件）。
+2. **tsx watch 陈旧状态**：改完源码后 curl 仍回旧行为（chitchat 而非 trip）——是 watch 实例竞争 3000 端口、跑的可能是旧代码；TaskStop 停任务本体 + 确认监听进程启动时间晚于改动。
+3. **TS 联合收窄**：`TripResult` 无 `unresolved` 属性，`result.data.unresolved` 直接 TS2322；要用 `"unresolved" in result.data` 判别联合成员。
+4. **Edit 工具片段替换易留残余**：给测试文件追加用例时 old_string 没带结尾 `});`，留下游离 `});`；补完先跑 typecheck/test 兜底。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| (see git log) | feat: fu-13 travel planning chat trip generation |
+| (see git log) | chore: archive fu-13 travel planning and record journal |
+| (see git log) | docs: move fu-13 travel planning to completed |
+
+### Status
+
+[OK] **Completed**

@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 12
+- **Total Sessions**: 13
 - **Last Active**: 2026-09-01
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~631 | Active |
+| `journal-1.md` | ~682 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 13 | 2026-09-01 | FU-13 travel planning (chat trip generation) delivery and archive | (see git log) | `master` |
 | 12 | 2026-09-01 | FU-12 store insight chat tool (storeInsightTool + admin-gated chat Q&A) delivery and archive | `802e920` | `master` |
 | 11 | 2026-09-01 | FU-11 store insights dashboard (admin overview + /admin/insights page) delivery and archive | `3fc6840` | `master` |
 | 10 | 2026-09-01 | FU-10 account closure (register / rate limit / refresh token) delivery and archive | `70a9afc` | `master` |
