@@ -3,6 +3,7 @@ import { MoviesAdminPage } from "./components/admin/MoviesAdminPage";
 import { ProfilesAdminPage } from "./components/admin/ProfilesAdminPage";
 import { BehaviorPage } from "./components/admin/BehaviorPage";
 import { ChatPage } from "./components/chat/ChatPage";
+import { MovieLibraryPage } from "./components/library/MovieLibraryPage";
 import { LoginPage } from "./components/LoginPage";
 import { useAuthStore } from "./stores/authStore";
 import { t } from "./lib/i18n";
@@ -35,6 +36,9 @@ function HeaderNav(): JSX.Element {
         <>
           <Link to="/chat" className={linkClass}>
             {t("nav.chat")}
+          </Link>
+          <Link to="/movies" className={linkClass}>
+            {t("nav.library")}
           </Link>
           {user.role === "admin" ? (
             <>
@@ -97,6 +101,14 @@ export function App(): JSX.Element {
             element={
               <RequireAuth>
                 <ChatPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/movies"
+            element={
+              <RequireAuth>
+                <MovieLibraryPage />
               </RequireAuth>
             }
           />

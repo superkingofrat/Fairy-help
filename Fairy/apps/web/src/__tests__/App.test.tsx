@@ -4,9 +4,11 @@ import { MemoryRouter } from "react-router-dom";
 import { App } from "../App";
 import { MoviesAdminPage } from "../components/admin/MoviesAdminPage";
 import * as movieApi from "../lib/movieApi";
+import * as rentalsApi from "../lib/rentalsApi";
 import { useAuthStore } from "../stores/authStore";
 
 vi.mock("../lib/movieApi");
+vi.mock("../lib/rentalsApi");
 
 afterEach(() => {
   cleanup();
@@ -27,8 +29,41 @@ describe("App", () => {
     });
     render(<App />);
     expect(screen.getByText("对话")).toBeDefined();
+    expect(screen.getByRole("link", { name: "影片库" })).toBeDefined();
     expect(screen.queryByText("影片管理")).toBeNull();
     expect(screen.getByText("退出")).toBeDefined();
+  });
+
+  it("renders the movie library page at /movies", async () => {
+    vi.mocked(rentalsApi.listRentals).mockResolvedValue([]);
+    vi.mocked(movieApi.fetchMovies).mockResolvedValue({
+      items: [
+        {
+          id: "1",
+          title: "星际穿越",
+          director: "Christopher Nolan",
+          year: 2014,
+          mood: ["治愈"],
+          scene: ["雨天"],
+          genres: ["科幻"],
+          quote: null,
+          stock: 3,
+          totalStock: 5,
+          coverUrl: null,
+          description: "测试影片",
+          createdAt: "2024-01-10T08:00:00Z",
+          updatedAt: "2024-08-01T12:30:00Z",
+        },
+      ],
+      pagination: { page: 1, limit: 12, total: 1, totalPages: 1 },
+    });
+    useAuthStore.setState({
+      token: "t",
+      user: { id: "00000000-0000-4000-8000-000000000001", email: "user@fairy.local", role: "user" },
+    });
+    window.history.pushState({}, "", "/movies");
+    render(<App />);
+    expect(await screen.findByText("星际穿越")).toBeDefined();
   });
 
   it("renders admin navigation for admin role", () => {
@@ -38,6 +73,7 @@ describe("App", () => {
     });
     render(<App />);
     expect(screen.getByText("影片管理")).toBeDefined();
+    expect(screen.getByRole("link", { name: "影片库" })).toBeDefined();
     expect(screen.getByText("画像管理")).toBeDefined();
     expect(screen.getByText("行为流水")).toBeDefined();
   });

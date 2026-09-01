@@ -19,6 +19,16 @@ interface ApiResponse<T> {
   msg: string;
 }
 
+export class ApiRequestError extends Error {
+  readonly code?: string;
+
+  constructor(message: string, code?: string) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.code = code;
+  }
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {}
@@ -39,7 +49,7 @@ async function request<T>(
     try {
       payload = JSON.parse(raw) as ApiResponse<T>;
     } catch {
-      throw new Error(
+      throw new ApiRequestError(
         response.ok
           ? "Invalid API response"
           : `Request failed (${response.status}): API returned non-JSON response. Is the API running on port 3000?`
@@ -51,19 +61,35 @@ async function request<T>(
     if (response.status === 401) {
       useAuthStore.getState().clear();
       window.location.assign("/login");
-      throw new Error("会话已失效，请重新登录");
+      throw new ApiRequestError("会话已失效，请重新登录");
     }
-    throw new Error(
+    throw new ApiRequestError(
       payload?.msg ??
-        `Request failed (${response.status}). Check that pnpm --filter=@fairy/api dev is running.`
+        `Request failed (${response.status}). Check that pnpm --filter=@fairy/api dev is running.`,
+      payload?.code
     );
   }
 
   if (!payload) {
-    throw new Error("Empty API response. Check that pnpm --filter=@fairy/api dev is running.");
+    throw new ApiRequestError(
+      "Empty API response. Check that pnpm --filter=@fairy/api dev is running."
+    );
   }
 
   return payload;
+}
+
+export interface BorrowResult {
+  rentalId: string;
+  remainingStock: number;
+}
+
+export async function borrowMovie(movieId: string): Promise<BorrowResult> {
+  const result = await request<BorrowResult>("/api/borrow", {
+    method: "POST",
+    body: JSON.stringify({ movieId }),
+  });
+  return result.data;
 }
 
 export async function fetchMovies(page = 1, limit = 20): Promise<PaginatedMovies> {

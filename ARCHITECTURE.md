@@ -334,6 +334,7 @@ ResponseSynthesizer 流式输出最终回复
 ```
 
 > 双入口（FU-6 起）：`POST /api/borrow` REST 端点复用同一 `borrowMovieTool`（服务事务 + 日志），错误映射为 201/404/409。借阅逻辑唯一，chat 与 REST 只是两个传输口。
+> 用户侧影片库页（FU-9 起）：`/movies` 浏览页（分页 + mood/scene/keyword 筛选）的借阅按钮直调 REST `POST /api/borrow`；已借标记来自 `GET /api/rentals?status=ACTIVE`；**归还仍只经 chat 工具链**（页面不提供归还按钮，双写禁令不变）。
 
 ### 5.3 旅行规划流程
 
