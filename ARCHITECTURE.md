@@ -469,6 +469,30 @@ InsightsAdminPage ── 纯 CSS 条形图 + 表格渲染（无图表库），�
 
 只读聚合，不加表、不加埋点；窗口与低库存阈值（`stock ≤ 1`）为契约常量（见 API_CONTRACT §3.13）。
 
+### 5.8 storeInsightTool 对话问数（FU-12）
+
+```
+管理员在 chat 提问（「最近什么片最火」「库存怎么样」）
+    │
+    ▼
+classifyIntent ── LLM intent=store_insight + topic；规则兜底关键词
+    │  （最火/热门→popular；库存/缺货→inventory；趋势/最近借阅→trend；心情/场景→mood_scene；
+    │    活跃/用户数→activity；店况/运营/数据/看板→overview 默认；mood/scene 枚举词优先于 insight 关键词）
+    ▼
+plan ── { tool: "insight"; topic }
+    ▼
+dispatch(plan, userId, role) ── admin 门禁
+    │  ├─ role ≠ admin → forbidden observation（不调用工具、不返回数据）
+    │  └─ admin → storeInsightTool() ── 复用 getStoreInsightsOverview()（一次返回完整 overview）
+    ▼
+synthesize ── 按 topic 从 overview 切片构造【事实】→ LLM 生成回复（兜底模板）
+    │
+    ▼
+SSE：text（纯文本回复，不新增事件类型；admin 数据/非 admin 拒绝文案均不暴露堆栈）
+```
+
+role 从 `authMiddleware` 写入的 `res.locals.role` 经 `routes/chat.ts` → `runChatTurn` → `dispatch` 透传（默认 `"user"` 保守）。工具本身零参数、零聚合逻辑；topic 切片与话术在 `responseSynthesizer` 内完成。
+
 ---
 
 ## 6. 状态管理
@@ -536,6 +560,10 @@ interface AgentState {
 | 前端 401 单飞刷新 | 共享 in-flight refresh promise，并发 401 只发一次 `/auth/refresh`，成功后重试原请求；刷新失败才清登录并跳转。SSE（chatApi）保持直连 401 → 清登录，不引入流中断重试。 |
 | 运营洞察单端点一次返回全部 | `GET /api/insights/overview`（admin-only）聚合热门影片/趋势/库存/分布/活跃五类卡片，减少 round-trip；数据量小，窗口与低库存阈值（`stock ≤ 1`）为契约常量（FU-11）。 |
 | 聚合用 Prisma groupBy/count 并行 + JS 补零 | 数据量级下 `Promise.all` 并行规避 Neon 冷启动串行延迟；趋势缺日补 0 在 JS 内存按服务器本地日期分桶完成，避免 SQL 时区逻辑（FU-11）。 |
+| insight 工具 admin 门禁放在 dispatch | 非 admin 在分发层直接拒绝，不调用工具、不返回数据；role 经 `routes/chat.ts` → `runChatTurn` → `dispatch` 透传（默认 `"user"` 保守），复用 `authMiddleware` 已写入的 `res.locals.role`（FU-12）。 |
+| insight 工具返回完整 overview，切片在 synthesizer | 工具零参数、零聚合逻辑，复用 FU-11 单端点「一次返回全部」决策；topic 只决定 synthesizer 构造哪些【事实】，回复聚焦且省 token（FU-12）。 |
+| 运营问数规则优先级：mood/scene 枚举 > insight 关键词；借/还分支内嵌 insight 判定 | 「心情不好想看治愈的」是 recommend 而非 mood_scene 洞察；「最近借阅情况」含「借」字但属 trend，借分支无唯一片名时先试 insight 再判 borrow_unresolved（FU-12）。 |
+| insight 关键词先于 LLM 判定运营问数 | 真机验收发现 deepseek 模型对严格 JSON 输出不可靠（偶发输出 177~200 token 的自创 schema 长文本），「最近什么片最火」等会被误判 chitchat，规则兜底轮不到；改为 `classifyIntent` 先跑规则，命中 store_insight 即返回（LLM 不调用），其余意图仍 LLM 优先、规则兜底——保证 AC-5 口语问数确定性（FU-12）。 |
 
 ---
 
@@ -565,17 +593,17 @@ apps/api/src/
     trips.ts
     profiles.ts
   agent/
-    stateLoop.ts
-    intentClassifier.ts
+    stateLoop.ts         # FU-12：runChatTurn 透传 role → dispatch
+    intentClassifier.ts  # FU-12：store_insight 意图 + topic（LLM 枚举 + 规则兜底）
     contextBuilder.ts  # FU-7：buildConversationHistory 历史注入
-    planner.ts
-    toolDispatcher.ts
-    responseSynthesizer.ts
+    planner.ts          # FU-12：PlannedCall 新增 { tool: "insight"; topic }
+    toolDispatcher.ts   # FU-12：kind "insight" observation + admin 门禁（role 参数）
+    responseSynthesizer.ts  # FU-12：按 topic 构造运营问数【事实】+ 非 admin 拒绝文案
   tools/
     recommendMovieTool.ts
     borrowMovieTool.ts
     planTripTool.ts
-    storeInsightTool.ts
+    storeInsightTool.ts  # FU-12：零参数，复用 insightService（对话问数）
   services/
     movieService.ts
     rentalService.ts
@@ -592,7 +620,7 @@ apps/api/src/
     validateBody.ts
 
 packages/shared/
-  schemas/             # 前端与后端使用的 Zod schema（含 sessionSchemas，FU-7；insightSchemas，FU-11）
+  schemas/             # 前端与后端使用的 Zod schema（含 sessionSchemas，FU-7；insightSchemas，FU-11；insightTopicSchema，FU-12）
   types/               # 共享 TypeScript 类型（含 sessionTypes，FU-7）
 
 packages/ai-sdk/

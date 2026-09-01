@@ -6,6 +6,7 @@ import { plan } from "./planner";
 import { dispatch, type ToolObservation } from "./toolDispatcher";
 import { returnMovieTool } from "../tools/returnMovieTool";
 import { synthesize, type SynthesizedResponse } from "./responseSynthesizer";
+import type { Role } from "../middleware/auth";
 
 export async function runChatTurn(input: {
   userId: string;
@@ -13,6 +14,7 @@ export async function runChatTurn(input: {
   movieId?: string;
   action?: "return";
   history?: string;
+  role?: Role;
 }): Promise<SynthesizedResponse> {
   if (input.action === "return" && input.movieId) {
     const result = await returnMovieTool({
@@ -51,7 +53,7 @@ export async function runChatTurn(input: {
     history: input.history,
   });
   const planned = plan(intent);
-  const observation = await dispatch(planned, input.userId);
+  const observation = await dispatch(planned, input.userId, input.role);
   const profile: Profile | null = await profileService
     .getByUserId(input.userId)
     .catch(() => null);

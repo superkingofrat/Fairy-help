@@ -1,10 +1,11 @@
-import type { Mood, Scene } from "@fairy/shared";
+import type { Mood, Scene, InsightTopic } from "@fairy/shared";
 import type { ChatIntent } from "./intentClassifier";
 
 export type PlannedCall =
   | { tool: "recommend"; moods: Mood[]; scenes: Scene[] }
   | { tool: "borrow"; movieId: string }
   | { tool: "return"; movieId: string }
+  | { tool: "insight"; topic: InsightTopic }
   | { tool: "none"; reason: "unmatched" | "borrow_unresolved" | "return_unresolved" | "chitchat" };
 
 export function plan(intent: ChatIntent): PlannedCall {
@@ -16,6 +17,9 @@ export function plan(intent: ChatIntent): PlannedCall {
   }
   if (intent.type === "return") {
     return { tool: "return", movieId: intent.movieId };
+  }
+  if (intent.type === "store_insight") {
+    return { tool: "insight", topic: intent.topic };
   }
   if (intent.type === "borrow_unresolved") {
     return { tool: "none", reason: "borrow_unresolved" };

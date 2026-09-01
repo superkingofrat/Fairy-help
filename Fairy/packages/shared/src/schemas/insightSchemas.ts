@@ -1,6 +1,18 @@
 import { z } from "zod";
 
 // FU-11：store insights 运营看板聚合响应的形状与类型。
+// FU-12：新增 InsightTopic——storeInsightTool chat 工具按主题切片回复的枚举。
+
+export const INSIGHT_TOPICS = [
+  "popular",
+  "trend",
+  "inventory",
+  "mood_scene",
+  "activity",
+  "overview",
+] as const;
+
+export const insightTopicSchema = z.enum(INSIGHT_TOPICS);
 
 export const popularMovieItemSchema = z.object({
   movieId: z.string(),
@@ -56,3 +68,4 @@ export type MoodSceneCount = z.infer<typeof moodSceneCountSchema>;
 export type ActivityOverview = z.infer<typeof activityOverviewSchema>;
 export type InventoryStatus = z.infer<typeof inventoryStatusSchema>;
 export type StoreInsightsOverview = z.infer<typeof storeInsightsOverviewSchema>;
+export type InsightTopic = z.infer<typeof insightTopicSchema>;

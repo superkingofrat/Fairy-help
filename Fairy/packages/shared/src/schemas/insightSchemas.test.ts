@@ -7,6 +7,8 @@ import {
   moodSceneCountSchema,
   activityOverviewSchema,
   inventoryStatusSchema,
+  insightTopicSchema,
+  INSIGHT_TOPICS,
 } from "./insightSchemas";
 
 const overviewFixture = {
@@ -68,6 +70,19 @@ describe("storeInsightsOverviewSchema", () => {
       inventory: { ...overviewFixture.inventory, borrowedRatio: 1.5 },
     };
     expect(storeInsightsOverviewSchema.safeParse(badRatio).success).toBe(false);
+  });
+});
+
+describe("insightTopicSchema", () => {
+  it("accepts every declared topic", () => {
+    for (const topic of INSIGHT_TOPICS) {
+      expect(insightTopicSchema.safeParse(topic).success).toBe(true);
+    }
+  });
+
+  it("rejects unknown topics", () => {
+    expect(insightTopicSchema.safeParse("sales").success).toBe(false);
+    expect(insightTopicSchema.safeParse("").success).toBe(false);
   });
 });
 

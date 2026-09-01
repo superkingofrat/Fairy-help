@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Movie, Profile } from "@fairy/shared";
+import type { Movie, Profile, StoreInsightsOverview } from "@fairy/shared";
 import type { ChatResult } from "@fairy/ai-sdk";
 import { synthesize } from "../agent/responseSynthesizer";
 import * as llmClient from "../agent/llmClient";
@@ -206,5 +206,161 @@ describe("synthesize with LLM reply", () => {
     );
 
     expect(result.texts[0].content).toBe("你目前没有借阅中的影片。");
+  });
+});
+
+describe("synthesize store insight (FU-12)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const overview: StoreInsightsOverview = {
+    popularMovies: [
+      { movieId: "m-1", title: "海蒂", borrowCount: 3, recommendCount: 5, inStock: true },
+      { movieId: "m-2", title: "楚门的世界", borrowCount: 1, recommendCount: 0, inStock: false },
+    ],
+    trend: [
+      { date: "2026-08-30", borrowCount: 1, returnCount: 0 },
+      { date: "2026-08-31", borrowCount: 2, returnCount: 1 },
+    ],
+    inventory: {
+      activeRentals: 2,
+      borrowedRatio: 0.4,
+      lowStockMovies: [{ movieId: "m-3", title: "低库存片", stock: 0, totalStock: 2 }],
+    },
+    moods: [{ value: "治愈", count: 2 }],
+    scenes: [{ value: "雨天", count: 1 }],
+    activity: { totalUsers: 3, activeUsers7d: 2, newUsers7d: 1 },
+  };
+
+  it("replies with a friendly denial for a non-admin", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const result = await synthesize(
+      {
+        kind: "insight",
+        success: false,
+        forbidden: true,
+        topic: "popular",
+        overview: null,
+        code: "FORBIDDEN",
+      },
+      { message: "最近什么片最火", profile: null }
+    );
+
+    expect(result.texts[0].content).toBe("这个功能目前只对门店管理员开放哦。");
+    expect(result.recommendation).toBeUndefined();
+  });
+
+  it("replies with the top movie when an admin asks about popularity", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const result = await synthesize(
+      {
+        kind: "insight",
+        success: true,
+        forbidden: false,
+        topic: "popular",
+        overview,
+        code: "OK",
+      },
+      { message: "最近什么片最火", profile: null }
+    );
+
+    expect(result.texts[0].content).toContain("海蒂");
+    expect(result.texts[0].content).toContain("3");
+  });
+
+  it("replies with inventory info including low-stock movies", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const result = await synthesize(
+      {
+        kind: "insight",
+        success: true,
+        forbidden: false,
+        topic: "inventory",
+        overview,
+        code: "OK",
+      },
+      { message: "库存怎么样", profile: null }
+    );
+
+    expect(result.texts[0].content).toContain("低库存片");
+    expect(result.texts[0].content).toContain("2");
+  });
+
+  it("falls back to a friendly empty state when popularity has no data", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const result = await synthesize(
+      {
+        kind: "insight",
+        success: true,
+        forbidden: false,
+        topic: "popular",
+        overview: { ...overview, popularMovies: [] },
+        code: "OK",
+      },
+      { message: "最近什么片最火", profile: null }
+    );
+
+    expect(result.texts[0].content).toContain("还没有足够的借阅数据");
+  });
+
+  it("replies with trend totals for a trend question", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const result = await synthesize(
+      {
+        kind: "insight",
+        success: true,
+        forbidden: false,
+        topic: "trend",
+        overview,
+        code: "OK",
+      },
+      { message: "最近借阅趋势", profile: null }
+    );
+
+    expect(result.texts[0].content).toContain("3");
+    expect(result.texts[0].content).toContain("1");
+  });
+
+  it("replies with a store summary for the default overview topic", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const result = await synthesize(
+      {
+        kind: "insight",
+        success: true,
+        forbidden: false,
+        topic: "overview",
+        overview,
+        code: "OK",
+      },
+      { message: "店里情况怎么样", profile: null }
+    );
+
+    expect(result.texts[0].content).toContain("海蒂");
+    expect(result.texts[0].content).toContain("3 人");
+  });
+
+  it("replies with a graceful message when aggregation failed", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const result = await synthesize(
+      {
+        kind: "insight",
+        success: false,
+        forbidden: false,
+        topic: "overview",
+        overview: null,
+        code: "INSIGHT_UNAVAILABLE",
+      },
+      { message: "店里情况怎么样", profile: null }
+    );
+
+    expect(result.texts[0].content).toContain("拉取失败");
   });
 });

@@ -6,7 +6,8 @@ import * as profileService from "../services/profileService";
 import * as rentalService from "../services/rentalService";
 import * as behaviorLogService from "../services/behaviorLogService";
 import * as sessionService from "../services/sessionService";
-import { DEV_USER_ID, type Movie, type Profile } from "@fairy/shared";
+import * as insightService from "../services/insightService";
+import { DEV_USER_ID, type Movie, type Profile, type StoreInsightsOverview } from "@fairy/shared";
 import { authHeader } from "./helpers/auth";
 
 vi.mock("../services/movieService");
@@ -14,6 +15,7 @@ vi.mock("../services/profileService");
 vi.mock("../services/rentalService");
 vi.mock("../services/behaviorLogService");
 vi.mock("../services/sessionService");
+vi.mock("../services/insightService");
 
 const SESSION_ID = "550e8400-e29b-41d4-a716-446655440000";
 
@@ -485,5 +487,50 @@ describe("POST /api/chat", () => {
     const events = parseSse(response.text);
     expect(events[events.length - 1].event).toBe("done");
     expect(response.text).not.toContain("db down");
+  });
+
+  it("answers an admin store-insight question with real data (FU-12)", async () => {
+    const overview: StoreInsightsOverview = {
+      popularMovies: [
+        { movieId: sampleMovie.id, title: "星际穿越", borrowCount: 3, recommendCount: 5, inStock: true },
+      ],
+      trend: [{ date: "2026-08-31", borrowCount: 1, returnCount: 0 }],
+      inventory: { activeRentals: 1, borrowedRatio: 0.2, lowStockMovies: [] },
+      moods: [{ value: "治愈", count: 1 }],
+      scenes: [{ value: "雨天", count: 1 }],
+      activity: { totalUsers: 3, activeUsers7d: 2, newUsers7d: 1 },
+    };
+    vi.mocked(insightService.getStoreInsightsOverview).mockResolvedValue(overview);
+
+    const response = await request(app)
+      .post("/api/chat")
+      .set("Authorization", authHeader("admin"))
+      .send({ message: "最近什么片最火" });
+
+    expect(response.status).toBe(200);
+    const events = parseSse(response.text);
+    const textEvents = events.filter((event) => event.event === "text");
+    expect(textEvents.length).toBeGreaterThan(0);
+    expect(textEvents[0].data as { content: string }).toEqual(
+      expect.objectContaining({ content: expect.stringContaining("星际穿越") })
+    );
+    expect(events[events.length - 1].event).toBe("done");
+  });
+
+  it("denies a non-admin store-insight question without leaking data (FU-12)", async () => {
+    const response = await request(app)
+      .post("/api/chat")
+      .set("Authorization", authHeader("user"))
+      .send({ message: "库存怎么样" });
+
+    expect(response.status).toBe(200);
+    const events = parseSse(response.text);
+    const textEvents = events.filter((event) => event.event === "text");
+    expect(textEvents.length).toBeGreaterThan(0);
+    expect(textEvents[0].data as { content: string }).toEqual(
+      expect.objectContaining({ content: expect.stringContaining("管理员") })
+    );
+    expect(insightService.getStoreInsightsOverview).not.toHaveBeenCalled();
+    expect(events[events.length - 1].event).toBe("done");
   });
 });

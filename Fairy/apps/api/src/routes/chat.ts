@@ -5,6 +5,7 @@ import { runChatTurn } from "../agent/stateLoop";
 import type { SynthesizedResponse } from "../agent/responseSynthesizer";
 import { buildConversationHistory } from "../agent/contextBuilder";
 import * as sessionService from "../services/sessionService";
+import type { Role } from "../middleware/auth";
 
 const router: IRouter = Router();
 
@@ -31,6 +32,7 @@ router.post("/", validateBody(chatRequestSchema), async (req, res, next) => {
   try {
     const body = req.body as ChatRequestInput;
     const userId = res.locals.userId as string;
+    const role = (res.locals.role as Role | undefined) ?? "user";
 
     // 会话解析放在 SSE 头之前，保证 404/403 能以 JSON 返回
     let sessionId: string | undefined;
@@ -67,6 +69,7 @@ router.post("/", validateBody(chatRequestSchema), async (req, res, next) => {
         movieId: body.movieId,
         action: body.action,
         history: historyText,
+        role,
       });
 
       // 落库是旁路：失败不中断 SSE（可观测性损失，非功能损失）

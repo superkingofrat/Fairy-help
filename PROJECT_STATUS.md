@@ -51,7 +51,7 @@
 
 ## In Progress（进行中）
 
-- （当前无进行中功能）FU-11 已归档交付；下一期候选见 Next Steps。
+- **FU-12 运营洞察 chat 工具（第二期：对话问数）**（实现中，Trellis 轨）— `storeInsightTool` 零参工具接入 agent 链路：`classifyIntent` 新增 `store_insight` 意图（LLM JSON `topic` 字段 + 规则兜底 `classifyStoreInsightByRules`：热门/库存/趋势/心情场景/活跃/总览关键词；**insight 关键词先于 LLM**——真机验收发现模型严格 JSON 输出不可靠会误判 chitchat，规则命中即返回保证 AC-5 确定性）；`planner` 映射 `{ tool: "insight", topic }`；`dispatch` admin 门禁（非 admin 不调用工具直接 `FORBIDDEN`，默认 role="user" 保守）；`responseSynthesizer` 按 topic 从完整 overview 切片生成回复（含空态与 `INSIGHT_UNAVAILABLE` 降级）；shared `insightTopicSchema`；测试全绿：api 180（22 文件）、shared 58；**真机验收 AC-1~AC-7 全过**（admin：最火/库存/趋势/mood/活跃/店况均返回真实数据、user：友好拒绝且工具未调用、SSE done 正常、口语问数全部落 store_insight）；待办：Trellis journal、提交。需求：[2026-09-01-store-insight-chat-tool.md](docs/requirements/2026-09-01-store-insight-chat-tool.md)（已 approved）；Trellis task `09-01-fu-12-store-insight-chat-tool`。
 
 ---
 
@@ -59,7 +59,6 @@
 
 - （挂账）旅行规划（`amapClient`/`planTripTool` 0 行，trips 占位）。
 - （技术债）memory-center（历史注入现为 `TODO(memory-center)` 纯文本旁路）。
-- （挂账→需求已起草，待批准）`storeInsightTool` chat 工具接入 agent（FU-11 第一期已交付；需求：[2026-09-01-store-insight-chat-tool.md](docs/requirements/2026-09-01-store-insight-chat-tool.md)，状态待评审——批准后走 Trellis 轨实现）。
 
 ---
 

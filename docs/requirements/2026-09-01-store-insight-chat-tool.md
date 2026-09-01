@@ -1,6 +1,6 @@
 # FU-12 storeInsightTool chat 工具（第二期：对话问数）
 
-- 状态：待评审
+- 状态：approved
 - 日期：2026-09-01
 - 负责人：Flores
 - 前置：FU-11 运营洞察看板（第一期：管理端）已交付并归档（[2026-09-01-store-insights.md](./2026-09-01-store-insights.md)）

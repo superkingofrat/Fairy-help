@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { classifyIntent } from "../agent/intentClassifier";
+import { classifyIntent, classifyStoreInsightByRules } from "../agent/intentClassifier";
 import * as llmClient from "../agent/llmClient";
 import * as movieService from "../services/movieService";
 import type { ChatResult } from "@fairy/ai-sdk";
@@ -145,5 +145,115 @@ describe("classifyIntent with LLM", () => {
     const intent = await classifyIntent({ message: "今天星期几" });
 
     expect(intent).toEqual({ type: "unmatched" });
+  });
+});
+
+describe("classifyIntent store_insight (FU-12)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(movieService.listMoviesForTitleMatch).mockResolvedValue([
+      { id: MOVIE_ID, title: "千与千寻" },
+    ]);
+  });
+
+  it("maps an LLM store_insight intent with a topic", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(
+      llmResult('{"intent":"store_insight","topic":"popular"}')
+    );
+
+    const intent = await classifyIntent({ message: "最近什么片最火" });
+
+    expect(intent).toEqual({ type: "store_insight", topic: "popular" });
+  });
+
+  it("defaults an LLM store_insight intent to overview on invalid topic", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(
+      llmResult('{"intent":"store_insight","topic":"sales"}')
+    );
+
+    const intent = await classifyIntent({ message: "店里情况怎么样" });
+
+    expect(intent).toEqual({ type: "store_insight", topic: "overview" });
+  });
+
+  it("classifies a top-movie question as popular via rules", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const intent = await classifyIntent({ message: "最近什么片最火" });
+
+    expect(intent).toEqual({ type: "store_insight", topic: "popular" });
+  });
+
+  it("classifies an inventory question via rules", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const intent = await classifyIntent({ message: "店里库存怎么样" });
+
+    expect(intent).toEqual({ type: "store_insight", topic: "inventory" });
+  });
+
+  it("treats 最近借阅情况 as trend instead of a borrow attempt", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const intent = await classifyIntent({ message: "最近借阅情况怎么样" });
+
+    expect(intent).toEqual({ type: "store_insight", topic: "trend" });
+  });
+
+  it("keeps mood/scene phrasing as recommend even when it mentions 心情", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const intent = await classifyIntent({ message: "心情不好想看治愈的" });
+
+    expect(intent).toEqual({ type: "recommend", moods: ["治愈"], scenes: [] });
+  });
+
+  it("maps 运营/数据 questions to overview via rules", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const intent = await classifyIntent({ message: "店里运营数据怎么样" });
+
+    expect(intent).toEqual({ type: "store_insight", topic: "overview" });
+  });
+
+  it("maps an activity question via rules", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const intent = await classifyIntent({ message: "最近活跃用户多吗" });
+
+    expect(intent).toEqual({ type: "store_insight", topic: "activity" });
+  });
+
+  it("classifies an insight-keyword question before consulting the LLM", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(
+      llmResult('{"intent":"chitchat","movieTitle":null,"moods":[],"scenes":[]}')
+    );
+
+    const intent = await classifyIntent({ message: "最近什么片最火" });
+
+    expect(intent).toEqual({ type: "store_insight", topic: "popular" });
+    expect(llmClient.tryChat).not.toHaveBeenCalled();
+  });
+
+  it("keeps an LLM chitchat verdict when rules match nothing", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(
+      llmResult('{"intent":"chitchat","movieTitle":null,"moods":[],"scenes":[]}')
+    );
+
+    const intent = await classifyIntent({ message: "你好呀" });
+
+    expect(intent).toEqual({ type: "chitchat" });
+  });
+});
+
+describe("classifyStoreInsightByRules topic mapping", () => {
+  it("returns the most specific matching topic", () => {
+    expect(classifyStoreInsightByRules("最火的片子")).toBe("popular");
+    expect(classifyStoreInsightByRules("库存缺货")).toBe("inventory");
+    expect(classifyStoreInsightByRules("借阅趋势")).toBe("trend");
+    expect(classifyStoreInsightByRules("心情分布")).toBe("mood_scene");
+    expect(classifyStoreInsightByRules("活跃用户数")).toBe("activity");
+    expect(classifyStoreInsightByRules("运营看板")).toBe("overview");
+    expect(classifyStoreInsightByRules("今天天气不错")).toBeNull();
   });
 });
