@@ -12,6 +12,8 @@
 
 ## Completed Modules（已完成模块）
 
+- **FU-13 旅行规划（第一期：对话行程生成）**（2026-09-01）— `Trip` Prisma 模型 + `add_trip_model` 迁移（`@@index([userId, createdAt])`）+ `TRIP_PLANNED` 行为日志；shared `tripSchemas`（`tripResultSchema`/`tripEventSchema` 等 + 测试）；`amapClient` 服务端高德 Web 服务封装（POI 搜索 + 驾车路线，`AMAP_SERVER_KEY` 注入、缺失/超时/报错一律 `null` 降级不抛错）；`planTripTool`（LLM 草稿 JSON `{destination, itinerary}` + Amap 校验 POI/路线 + 落库，`hasDestinationByRules` 目的地规则兜底——草稿为空且消息无目的地线索 → `unresolved` 反问目的地，有线索 → `TRIP_DRAFT_FAILED`）；agent 链：`plan_trip` 意图（规则先于 LLM）→ planner `{tool:"trip"}` → dispatch（`"unresolved" in result.data` 联合收窄）→ synthesize（trip 分支 facts + `{texts, trip}`）+ chat.ts SSE `trip` 事件；web `TripTimeline` 时间轴卡片 + ChatPage 接线 + i18n；`docs/tools.md` 工具注册表；测试全绿：api 209 / web 55 / shared 68 + 三包 typecheck + `openspec validate --all` 10/10；真机验收 AC-1~AC-8 全过（`plan_trip` 识别、SSE trip 事件形状 `{tripId,destination,days,itinerary,route,validated}`、DB Trip 落库 + `TRIP_PLANNED` 日志、无目的地反问、**无 key 降级路径**：行程照常返回 + `validated:false` 不崩不漏栈、chitchat 不建 Trip、SSE done 正常）；需求：[2026-09-01-travel-planning.md](docs/requirements/2026-09-01-travel-planning.md)；OpenSpec 归档：[2026-09-01-travel-planning](openspec/changes/archive/2026-09-01-travel-planning/)；Trellis task `09-01-fu-13-travel-planning`（已归档）。
+
 - **FU-12 运营洞察 chat 工具（第二期：对话问数）**（2026-09-01）— `storeInsightTool` 零参工具接入 agent 链路：`classifyIntent` 新增 `store_insight` 意图（LLM JSON `topic` + 提示词口语示例；规则兜底 `classifyStoreInsightByRules`，**insight 关键词先于 LLM**——真机验收发现模型严格 JSON 输出不可靠会误判 chitchat，规则命中即返回保证 AC-5 确定性，其余意图仍 LLM 优先）；`planner` 映射 `{ tool: "insight", topic }`；`dispatch` admin 门禁（非 admin 不调用工具直接 `FORBIDDEN`，role 经 chat→stateLoop→dispatch 透传，默认 "user" 保守）；`responseSynthesizer` 按 topic 从完整 overview 切片生成回复（空态 + `INSIGHT_UNAVAILABLE` 降级）；shared `insightTopicSchema`；`docs/tools.md` 工具注册表填充；测试：api 180（22 文件：intentClassifier 22 / planner 4 / toolDispatcher 6 / responseSynthesizer +7 / chat +2）、shared 58 全绿 + 三包 typecheck；真机验收 AC-1~AC-7 全过（admin：最火/库存/趋势/mood/活跃/店况均返回真实数据；user：友好拒绝且工具未调用、SSE done 正常；口语问数全部落 store_insight）；需求：[2026-09-01-store-insight-chat-tool.md](docs/requirements/2026-09-01-store-insight-chat-tool.md)；Trellis task `09-01-fu-12-store-insight-chat-tool`（已归档）。
 
 - **FU-11 运营洞察看板（第一期：管理端）**（2026-09-01）— admin-only `GET /api/insights/overview` 单端点一次返回看板全部卡片（热门影片 TOP 5 按 RECOMMEND `payload.movieIds` 统计推荐次数、借阅/归还趋势 14 天缺日补 0（服务器本地日期分桶）、库存状态与低库存 `stock ≤ 1`、mood/scene 30 天分布 TOP 5、活跃概况），`Promise.all` 并行聚合规避 Neon 冷启动串行延迟；shared `insightSchemas`（7 个 schema + 类型）；web `/admin/insights` 看板页（纯 CSS 卡片与条形图、不引图表库，加载/错误/空态齐全 + i18n + 刷新按钮）；导航与路由挂 `RequireAuth role="admin"`（user 跳转首页）；测试：api 154（insightService 6 + insights routes 3）、web 50（InsightsAdminPage 3 + App 更新）、shared 56（insightSchemas 3）全绿；真机验收 AC-1~AC-8 全过（admin 导航 + 看板数据正确（08-19 等缺日补 0、低库存 stock≤1）、user 访问 403、无 token 401、mood/scene 分布、加载/错误/空态 + 中文本地化）；需求：[2026-09-01-store-insights.md](docs/requirements/2026-09-01-store-insights.md)；OpenSpec 归档：[2026-09-01-fu-11-store-insights](openspec/changes/archive/2026-09-01-fu-11-store-insights/)
@@ -53,14 +55,14 @@
 
 ## In Progress（进行中）
 
-- （当前无进行中功能）FU-12 已归档交付；下一期候选见 Next Steps。
+（无 — FU-13 已归档至 Completed Modules）
 
 ---
 
 ## Next Steps（下一步）
 
-- （挂账）旅行规划（`amapClient`/`planTripTool` 0 行，trips 占位）。
-- （技术债）memory-center（历史注入现为 `TODO(memory-center)` 纯文本旁路）。
+- （技术债）memory-center（历史注入现为 `TODO(memory-center)` 纯文本旁路；embed() 已存在未使用）。
+- （二期候选）旅行规划二期：REST `POST /api/trips` + 历史行程回放 + Amap JS 地图叠加路线（本期非目标）。
 
 ---
 
