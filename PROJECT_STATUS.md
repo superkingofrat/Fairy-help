@@ -6,11 +6,13 @@
 
 **Development（开发中）**
 
-> Monorepo 脚手架、影片库 CRUD MVP、Phase 2 Agent 推荐与借阅、FU-1 画像写接口与管理 CRUD、FU-2 真实 LLM 意图与回复、FU-3 行为流水查询与管理页、FU-4 归还（聊天文本）、FU-5 真实 JWT 认证、FU-6 REST 借阅、FU-7 会话表与对话历史回放、FU-8 一键归还 UI、FU-9 影片库浏览页、FU-10 账号体系闭环（注册/限流/refresh token）、FU-11 运营洞察看板（管理端）已交付。
+> Monorepo 脚手架、影片库 CRUD MVP、Phase 2 Agent 推荐与借阅、FU-1 画像写接口与管理 CRUD、FU-2 真实 LLM 意图与回复、FU-3 行为流水查询与管理页、FU-4 归还（聊天文本）、FU-5 真实 JWT 认证、FU-6 REST 借阅、FU-7 会话表与对话历史回放、FU-8 一键归还 UI、FU-9 影片库浏览页、FU-10 账号体系闭环（注册/限流/refresh token）、FU-11 运营洞察看板（管理端）、FU-12 运营洞察 chat 工具（对话问数）已交付。
 
 ---
 
 ## Completed Modules（已完成模块）
+
+- **FU-12 运营洞察 chat 工具（第二期：对话问数）**（2026-09-01）— `storeInsightTool` 零参工具接入 agent 链路：`classifyIntent` 新增 `store_insight` 意图（LLM JSON `topic` + 提示词口语示例；规则兜底 `classifyStoreInsightByRules`，**insight 关键词先于 LLM**——真机验收发现模型严格 JSON 输出不可靠会误判 chitchat，规则命中即返回保证 AC-5 确定性，其余意图仍 LLM 优先）；`planner` 映射 `{ tool: "insight", topic }`；`dispatch` admin 门禁（非 admin 不调用工具直接 `FORBIDDEN`，role 经 chat→stateLoop→dispatch 透传，默认 "user" 保守）；`responseSynthesizer` 按 topic 从完整 overview 切片生成回复（空态 + `INSIGHT_UNAVAILABLE` 降级）；shared `insightTopicSchema`；`docs/tools.md` 工具注册表填充；测试：api 180（22 文件：intentClassifier 22 / planner 4 / toolDispatcher 6 / responseSynthesizer +7 / chat +2）、shared 58 全绿 + 三包 typecheck；真机验收 AC-1~AC-7 全过（admin：最火/库存/趋势/mood/活跃/店况均返回真实数据；user：友好拒绝且工具未调用、SSE done 正常；口语问数全部落 store_insight）；需求：[2026-09-01-store-insight-chat-tool.md](docs/requirements/2026-09-01-store-insight-chat-tool.md)；Trellis task `09-01-fu-12-store-insight-chat-tool`（已归档）。
 
 - **FU-11 运营洞察看板（第一期：管理端）**（2026-09-01）— admin-only `GET /api/insights/overview` 单端点一次返回看板全部卡片（热门影片 TOP 5 按 RECOMMEND `payload.movieIds` 统计推荐次数、借阅/归还趋势 14 天缺日补 0（服务器本地日期分桶）、库存状态与低库存 `stock ≤ 1`、mood/scene 30 天分布 TOP 5、活跃概况），`Promise.all` 并行聚合规避 Neon 冷启动串行延迟；shared `insightSchemas`（7 个 schema + 类型）；web `/admin/insights` 看板页（纯 CSS 卡片与条形图、不引图表库，加载/错误/空态齐全 + i18n + 刷新按钮）；导航与路由挂 `RequireAuth role="admin"`（user 跳转首页）；测试：api 154（insightService 6 + insights routes 3）、web 50（InsightsAdminPage 3 + App 更新）、shared 56（insightSchemas 3）全绿；真机验收 AC-1~AC-8 全过（admin 导航 + 看板数据正确（08-19 等缺日补 0、低库存 stock≤1）、user 访问 403、无 token 401、mood/scene 分布、加载/错误/空态 + 中文本地化）；需求：[2026-09-01-store-insights.md](docs/requirements/2026-09-01-store-insights.md)；OpenSpec 归档：[2026-09-01-fu-11-store-insights](openspec/changes/archive/2026-09-01-fu-11-store-insights/)
 
@@ -51,7 +53,7 @@
 
 ## In Progress（进行中）
 
-- **FU-12 运营洞察 chat 工具（第二期：对话问数）**（实现中，Trellis 轨）— `storeInsightTool` 零参工具接入 agent 链路：`classifyIntent` 新增 `store_insight` 意图（LLM JSON `topic` 字段 + 规则兜底 `classifyStoreInsightByRules`：热门/库存/趋势/心情场景/活跃/总览关键词；**insight 关键词先于 LLM**——真机验收发现模型严格 JSON 输出不可靠会误判 chitchat，规则命中即返回保证 AC-5 确定性）；`planner` 映射 `{ tool: "insight", topic }`；`dispatch` admin 门禁（非 admin 不调用工具直接 `FORBIDDEN`，默认 role="user" 保守）；`responseSynthesizer` 按 topic 从完整 overview 切片生成回复（含空态与 `INSIGHT_UNAVAILABLE` 降级）；shared `insightTopicSchema`；测试全绿：api 180（22 文件）、shared 58；**真机验收 AC-1~AC-7 全过**（admin：最火/库存/趋势/mood/活跃/店况均返回真实数据、user：友好拒绝且工具未调用、SSE done 正常、口语问数全部落 store_insight）；待办：Trellis journal、提交。需求：[2026-09-01-store-insight-chat-tool.md](docs/requirements/2026-09-01-store-insight-chat-tool.md)（已 approved）；Trellis task `09-01-fu-12-store-insight-chat-tool`。
+- （当前无进行中功能）FU-12 已归档交付；下一期候选见 Next Steps。
 
 ---
 
