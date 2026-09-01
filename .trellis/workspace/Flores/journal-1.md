@@ -333,3 +333,51 @@ Delivered FU-8 end to end: one-click return UI — `GET /api/rentals` query endp
 ### Status
 
 [OK] **Completed**
+
+
+## Session 8: FU-9 movie library page delivery and archive
+
+**Date**: 2026-09-01
+**Task**: FU-9 movie library page delivery and archive
+**Branch**: `master`
+
+### Summary
+
+Delivered FU-9 end to end: /movies library page with REST borrow and borrowed marking; return kept chat-only. Acceptance passed; archive completed with movie-rental main spec sync.
+
+### Main Changes
+
+### 改动
+
+- **FU-9 影片库浏览页 + 直接借阅（纯 web，OpenSpec 轨）**：新增 `/movies` 导航页（MovieLibraryPage + 独立 MovieCard）——目录分页 + mood/scene chips + 关键词搜索（筛选即搜）；借阅按钮直调既有 `POST /api/borrow` REST 端点（`movieApi.borrowMovie`，类型化 `ApiRequestError` 按 code 映射 i18n 文案）；已借标记来自既有 `GET /api/rentals?status=ACTIVE`（refreshRentals → Set，借出卡片按钮禁用置灰）；**归还仍只经 chat 工具链**（双写禁令在 spec/测试双面强化：`queryByText("归还")` 断言为 null）。后端零改动——所有端点均系 FU-2/FU-6/FU-8 已有，本次仅编排 web 侧。
+- **测试**：web 31/31 全绿（新增 MovieLibraryPage.test.tsx 7 个：目录渲染、筛选组合请求、重置回目录、借阅成功、code 冲突文案、已借禁用、无归还控件；App.test.tsx 补 `/movies` 路由与导航链接断言）。
+- **归档**：主 spec `movie-rental` 同步新增 2 个 ADDED 需求（Library page lists catalog with filters and direct borrow / Library page marks actively borrowed titles，7 scenarios 全保，总量 8 → 10）；change dir 移入 `archive/2026-09-01-fu-9-movie-library-page`；PROJECT_STATUS 更新（FU-9 → Completed 顶部，Next Steps 剩 FU-7/挂账）。
+
+### 验证
+
+- web 31/31 + 三包 typecheck + `openspec validate` 通过；`openspec status` 4/4 artifacts done、13/13 任务勾选。
+- 真机验收点：/movies 目录浏览、筛选组合、借阅成功库存回补、已借卡片禁用、无归还入口——用户已验收通过。
+
+### 踩坑（下次直接避）
+
+1. **`vi.mock` automock 会吞掉自建错误类字段**——`ApiRequestError` 被替换成空 vi.fn() 后 `code`/`message` 全丢，测试渲染出兜底文案而不是预期 code 文案；构造带 code 的错误要用原生 `Error` + 类型断言再赋值 `error.code`。
+2. **Vitest 未加载 jest-dom matchers**——`toBeDisabled` 是无效 Chai property（不报错但恒 pass）；用 `(el as HTMLButtonElement).disabled` 直接断言。
+3. **Windows 下 python 读不到 Git Bash 的 `/tmp`**——临时 JSON 指令文件放本地相对路径，不要走 `/tmp`。
+4. **archive 同步 delta 用 `tail -n +3` 接**（Session 7 教训 +4 吞标题）——append 后立刻 `grep -n '^### Requirement'` 对账需求头数量（本次 10，全保）。
+
+### 下一步
+
+- FU-7 Session 表与对话历史回放。
+- 挂账：登录限速；注册/建号流程；refresh token；种子固定密码上线前必须改密。
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `479b17b` | (see git log) |
+| `1a25eac` | (see git log) |
+
+### Status
+
+[OK] **Completed**

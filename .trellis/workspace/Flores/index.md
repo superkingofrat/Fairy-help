@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 7
+- **Total Sessions**: 8
 - **Last Active**: 2026-09-01
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~335 | Active |
+| `journal-1.md` | ~383 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 8 | 2026-09-01 | FU-9 movie library page delivery and archive | `479b17b`, `1a25eac` | `master` |
 | 7 | 2026-09-01 | Session 7: FU-8 one-click return UI delivery and archive | `3e363df`, `a8ea7cd` | `master` |
 | 6 | 2026-09-01 | FU-6 REST 借阅交付：REST 端点复用 chat 事务 + 全流程归档 | `86fd91a`, `ecc0c3a` | `master` |
 | 5 | 2026-08-31 | FU-5 真实 JWT 认证交付（仅登录）：stub 移除 + 全栈身份改造 | `0182cb4`, `3e90280`, `35c72a2` | `master` |

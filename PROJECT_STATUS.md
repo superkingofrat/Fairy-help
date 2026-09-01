@@ -6,11 +6,13 @@
 
 **Development（开发中）**
 
-> Monorepo 脚手架、影片库 CRUD MVP、Phase 2 Agent 推荐与借阅、FU-1 画像写接口与管理 CRUD、FU-2 真实 LLM 意图与回复、FU-3 行为流水查询与管理页、FU-4 归还（聊天文本）、FU-5 真实 JWT 认证、FU-6 REST 借阅、FU-8 一键归还 UI 已交付。后续为 FU-7。
+> Monorepo 脚手架、影片库 CRUD MVP、Phase 2 Agent 推荐与借阅、FU-1 画像写接口与管理 CRUD、FU-2 真实 LLM 意图与回复、FU-3 行为流水查询与管理页、FU-4 归还（聊天文本）、FU-5 真实 JWT 认证、FU-6 REST 借阅、FU-8 一键归还 UI、FU-9 影片库浏览页已交付。后续为 FU-7。
 
 ---
 
 ## Completed Modules（已完成模块）
+
+- **FU-9 影片库浏览页（直接借阅）**（2026-09-01）— `/movies` 用户页（RequireAuth，user+admin）+ 顶部导航「影片库」；分页目录 + mood/scene 标签筛选 + keyword 搜索（复用 `GET /api/movies` / `/api/movies/search`）；借阅按钮直调 REST `POST /api/borrow`（成功标记「已借」+ 轻提示 + refetch rentals/目录；失败卡片内按 code 映射友好文案，无 500）；已借标记取自 `GET /api/rentals?status=ACTIVE`（已借卡片置灰「已借」，跨页一致）；库页**无归还按钮**（归还仍只经 chat 工具链，双写禁令不变）；纯 web 改动、后端/shared 零改动；web 31 测试（新增 MovieLibraryPage 7 + App 2）；需求：[2026-09-01-fu-9-movie-library-page.md](docs/requirements/2026-09-01-fu-9-movie-library-page.md)；OpenSpec 归档：[2026-09-01-fu-9-movie-library-page](openspec/changes/archive/2026-09-01-fu-9-movie-library-page/)
 
 - **FU-8 一键归还 UI（含 rentals 查询端点）**（2026-09-01）— `GET /api/rentals`（Bearer-only、本人或 admin `?userId=` 代查、`?status=ACTIVE` 过滤、`RentalListItem` 行形状含 `movieTitle`、403/404/400/401 错误映射、无分页）；chat 请求 `action: "return"` + `movieId` 确定性归还（绕过 LLM 意图分类、直接复用 `returnMovieTool` + synthesize，无新增回复分支）；chat 页「我的借阅」条（空态整条隐藏）+ 推荐卡片借/还切换（归还按钮在 stock=0 时也可用）；SSE `return` 成功乐观移除/失败刷新；需求：[2026-08-29-fu-8-return-button-ui.md](docs/requirements/2026-08-29-fu-8-return-button-ui.md)；OpenSpec 归档：[2026-09-01-fu-8-return-button-ui](openspec/changes/archive/2026-09-01-fu-8-return-button-ui/)
 
@@ -49,7 +51,6 @@
 
 ## Next Steps（下一步）
 
-- FU-9 影片库浏览页（直接借阅）— **需求已批准**：[2026-09-01-fu-9-movie-library-page.md](docs/requirements/2026-09-01-fu-9-movie-library-page.md)（2026-09-01 grill-me 收敛四项决策：独立 /movies 页 / REST 借阅 / 分页+筛选+搜索 / 已借标记归还留 chat）；待 `/opsx:propose`
 - FU-7 Session 表与对话历史回放
 - （FU 外挂账）登录限速；注册/建号流程；refresh token
 
