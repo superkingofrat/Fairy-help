@@ -434,3 +434,58 @@ Delivered FU-7 end to end: Session/ChatMessage persistence, /api/sessions CRUD, 
 ### Status
 
 [OK] **Completed**
+
+
+## Session 10: FU-10 账号体系闭环交付与归档
+
+**Date**: 2026-09-01
+**Task**: FU-10 account closure (register / rate limit / refresh token) delivery and archive
+**Branch**: `master`
+
+### Summary
+
+Delivered FU-10 end to end: self-service registration (role=user, register-and-login), login/register IP rate limiting, refresh token rotation + reuse revocation. Tests green across shared/api/web, spine docs updated, live HTTP + browser + rate-limit acceptance all passed; archived with user-auth main spec merged.
+
+### Main Changes
+
+### 改动
+
+- **注册 `POST /api/auth/register`（OpenSpec 轨）**：仅开放 `role=user`（admin 仅 seed），bcrypt cost 10，201 返回 `{ token, refreshToken, user }` 注册即登录；409 `EMAIL_ALREADY_EXISTS` / 400 `VALIDATION_ERROR`；shared 新增 `registerSchema`/`refreshTokenSchema` + 测试。
+- **登录/注册限流**：express-rate-limit（login 10 次/15 分钟、register 20 次/小时、429 `TOO_MANY_REQUESTS`）；限流器在 `createApp()` 内创建保证测试隔离；生产反代后须 `trust proxy`。
+- **refresh token 旋转 + 复用吊销**：`RefreshToken` 表只存 sha256 哈希（随机 48B base64url）、30 天过期；旋转在 `$transaction` 内置旧 `revokedAt`+`replacedByTokenId` 并新建；复用已吊销 token → 401 `INVALID_REFRESH_TOKEN` 并吊销该用户全部 refresh token；`POST /api/auth/logout` 吊销当前 token；login 响应新增 `refreshToken`。
+- **Web**：`RegisterPage` + `/register` 公开路由 + 登录页注册链接、authStore `refreshToken` 持久化、`lib/http.ts` 统一认证客户端（401 单飞刷新 → 重试一次 → 刷新失败才 `clear()`+跳 `/login`）、movieApi/profileApi/sessionApi/behaviorApi/rentalsApi 迁移（导出签名不变）、chatApi SSE 保持原样（401 仍直接清登录，注明取舍）。
+- **测试**：api 145（auth 14：register 201/409/400、login 带 refreshToken、rotation、复用→全家吊销、过期、logout 幂等、第 11 次 429）、web 47（RegisterPage 4、http 单飞刷新 6、LoginPage/App 更新）、shared 47（authSchemas 11）。
+- **归档**：user-auth 主 spec 合并 MODIFIED/ADDED 需求（含 web 路由守卫单飞刷新场景）；change dir 移入 `archive/2026-09-01-fu-10-account-closure`；PROJECT_STATUS 更新（FU-10 → Completed 顶部，In Progress 清空）。
+
+### 验证
+
+- 三包 typecheck 干净 + 测试全绿（api 145 / web 47 / shared 47）+ `openspec validate --all` 8/8（change 归档后并入主 spec 项）。
+- 真机 HTTP 11/11：register 201/409/400、login 带 refreshToken、refresh 旋转、复用旧 token → 401 且新 token 也死（全家吊销）、登出后 refresh 401、ghost token 401。
+- 浏览器 E2E：注册即自动登录 `/chat`（user 角色导航）、重复邮箱「该邮箱已注册」、短密码/两次不一致前端校验、登录页「还没有账号？注册一个」链接、登录成功。
+- 限流实测：窗口内第 11 次起 429（前 10 次 401/200），`touch` API 源文件 reload 后限流器重置恢复 200。
+
+### 踩坑（下次直接避）
+
+1. **`@fairy/shared` 未 build 导致 api 测试 `safeParse` undefined**——新增/修改 shared schema 后必须先 `pnpm --filter=@fairy/shared build` 再跑 api/web 测试，否则 dist 里没有新 schema。
+2. **`git mv` 对 untracked 文件失败**——change 目录从未提交时（`??`），归档直接用 `mv` 移动文件即可，随 archive 提交一起 add；`git mv` 会报 "not under version control"。
+3. **浏览器 strict mode 定位歧义**——`getByLabel("密码")` 同时命中「密码」「确认密码」；用 `{ exact: true }`。
+4. **express-rate-limit v8 API 变更**——named export `rateLimit`、`limit` 选项（非 v7 `max`）；限流器必须在 `createApp()` 内创建，否则单例计数跨测试串扰。
+5. **限流验收会耗尽 budget**——先做 register/refresh/logout 的 curl 验收，login 调用最小化，最后做限流测试；`touch` API 源文件 reload 可重置 in-memory 计数。
+6. **`http.test.ts` mock 参数类型**——`fetchMock.mock.calls[0]` 需给 mock 声明 `(_input, _init?)` 签名，否则被推断为 `[]` 导致 TS2352。
+7. **Windows curl 中文乱码**——验收继续用 python urllib UTF-8（同 FU-7）。
+
+### 下一步
+
+- 种子固定密码上线前改密（FU-5 挂账，仍待处理）。
+- store insights 运营看板（`storeInsightTool` 0 行）、旅行规划（`amapClient`/`planTripTool` 0 行）挂账。
+- memory-center 技术债：续聊最近 10 条历史注入（`contextBuilder.ts` 内联查询）待记忆中心统一替换。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `70a9afc` | (see git log) |
+
+### Status
+
+[OK] **Completed**

@@ -6,11 +6,13 @@
 
 **Development（开发中）**
 
-> Monorepo 脚手架、影片库 CRUD MVP、Phase 2 Agent 推荐与借阅、FU-1 画像写接口与管理 CRUD、FU-2 真实 LLM 意图与回复、FU-3 行为流水查询与管理页、FU-4 归还（聊天文本）、FU-5 真实 JWT 认证、FU-6 REST 借阅、FU-7 会话表与对话历史回放、FU-8 一键归还 UI、FU-9 影片库浏览页已交付。
+> Monorepo 脚手架、影片库 CRUD MVP、Phase 2 Agent 推荐与借阅、FU-1 画像写接口与管理 CRUD、FU-2 真实 LLM 意图与回复、FU-3 行为流水查询与管理页、FU-4 归还（聊天文本）、FU-5 真实 JWT 认证、FU-6 REST 借阅、FU-7 会话表与对话历史回放、FU-8 一键归还 UI、FU-9 影片库浏览页、FU-10 账号体系闭环（注册/限流/refresh token）已交付。
 
 ---
 
 ## Completed Modules（已完成模块）
+
+- **FU-10 账号体系闭环（注册 / 登录限速 / refresh token）**（2026-09-01）— 注册 `POST /api/auth/register`（仅开放 `role=user`、bcrypt cost 10、201 返回 `{ token, refreshToken, user }` 注册即登录、409 `EMAIL_ALREADY_EXISTS`、400 `VALIDATION_ERROR`）；登录/注册 IP 限流（express-rate-limit，login 10 次/15 分钟、register 20 次/小时，429 `TOO_MANY_REQUESTS`；限流器在 `createApp()` 内创建保证测试隔离，生产反代后须 `trust proxy`）；refresh token 旋转 + 复用吊销（`RefreshToken` 表只存 sha256 哈希、30 天过期、旋转在事务内置 `revokedAt`+`replacedByTokenId`、复用已吊销 token 即吊销该用户全部 refresh token、`POST /api/auth/logout` 吊销当前 token）；shared `registerSchema`/`refreshTokenSchema`；Web：`RegisterPage` + `/register` 公开路由 + 登录页注册链接、authStore `refreshToken` 持久化、`lib/http.ts` 统一认证客户端（401 单飞刷新 → 重试一次 → 刷新失败才 `clear()` + 跳 `/login`；movieApi/profileApi/sessionApi/behaviorApi/rentalsApi 迁移、导出签名不变）、chatApi SSE 保持原样（401 仍直接清登录，注明取舍）；测试：api 145（auth 14：register 201/409/400、login 带 refreshToken、rotation 更新+新建断言、复用→全家吊销、过期、logout 幂等、第 11 次 429）、web 47（RegisterPage 4、http 单飞刷新 6、LoginPage/App 更新）、shared 47（authSchemas 新增 11）；真机验收全过：HTTP 11/11（注册 201/409/400、登录带 refreshToken、刷新旋转、复用旧 token → 401 且新 token 也死、登出后 refresh 401、ghost token 401）+ 浏览器 E2E（注册即自动登录 `/chat`、重复邮箱文案「该邮箱已注册」、短密码/两次不一致前端校验、登录页「还没有账号？注册一个」链接、登录成功）+ 限流实测（窗口内第 11 次起 429，`touch` API 源文件 reload 后重置）；需求：[2026-09-01-fu-10-account-closure.md](docs/requirements/2026-09-01-fu-10-account-closure.md)；OpenSpec 归档：[2026-09-01-fu-10-account-closure](openspec/changes/archive/2026-09-01-fu-10-account-closure/)
 
 - **FU-7 Session 表与对话历史回放**（2026-09-01）— `Session`/`ChatMessage` Prisma 模型 + 迁移（消息 `role`/`payload` JSON/索引）；shared session schemas/types（`chatEventSchema`/`chatMessageDto`/`sessionListItem`）；API：`sessionService`（createSession/listSessions/getOwnedSession/getSessionMessages/getRecentMessages/appendTurn 事务，标题首条消息前 20 字派生）+ `/api/sessions` 三端点（POST 201 / GET 列表按 `updatedAt` 倒序含消息数 / GET `:id` 回放）+ chat 落库旁路（`appendTurn` 失败仅记日志不中断 SSE，done 事件携带 `sessionId`）+ `chatRequestSchema` 可选 `sessionId` + 404 `SESSION_NOT_FOUND` / 403 `SESSION_FORBIDDEN`（SSE 前返回）+ `contextBuilder.buildConversationHistory` 注入最近 10 条纯文本（`TODO(memory-center)` 技术债）；Web：`sessionApi` + ChatPage 会话侧栏（新建/切换/恢复）+ 历史回放（文本 + 推荐卡借还事件走同一渲染路径，刷新后重取）+ i18n；测试：api 135（17 文件，新增 sessionService 8 / sessions routes 5 / contextBuilder 1，chat +6）、web 36（ChatPage 12）、shared 36（sessionSchemas 12 / chatSchemas +3）全绿；真机验收 AC-1~AC-7 全过（含跨用户 403、刷新恢复、回放卡借阅落当前会话、admin 全链路）；需求：[2026-09-01-fu-7-session-history.md](docs/requirements/2026-09-01-fu-7-session-history.md)；OpenSpec 归档：[2026-09-01-fu-7-session-history](openspec/changes/archive/2026-09-01-fu-7-session-history/)
 
@@ -47,13 +49,15 @@
 
 ## In Progress（进行中）
 
-- 无进行中功能（挂账项见 Next Steps）。
+（无进行中项；FU-10 已于 2026-09-01 交付并归档。）
 
 ---
 
 ## Next Steps（下一步）
 
-- （FU 外挂账）登录限速；注册/建号流程；refresh token
+- （挂账）store insights 运营看板（`storeInsightTool` 0 行）。
+- （挂账）旅行规划（`amapClient`/`planTripTool` 0 行，trips 占位）。
+- （技术债）memory-center（历史注入现为 `TODO(memory-center)` 纯文本旁路）。
 
 ---
 
@@ -76,6 +80,9 @@
 | 2026-08-20 | 本地双 `.env` 须同步 | Project Lead | `packages/database/.env` 与 `apps/api/.env` 的 `DATABASE_URL` 必须一致。 |
 | 2026-09-01 | 会话落库为旁路 + 标题首条消息派生 | Flores | FU-7：`appendTurn` 失败仅记日志不中断 SSE；空标题会话在首条消息落库时取前 20 字。 |
 | 2026-09-01 | 历史注入为纯文本旁路 | Flores | FU-7：最近 10 条以「用户/Fairy」文本注入 intent+合成 prompt，不注入 `payload` 事件；`TODO(memory-center)` 已登记技术债。 |
+| 2026-09-01 | 注册仅开放 user 角色 + 注册即登录 | Flores | FU-10：注册恒建 `role=user`（admin 仅 seed），成功即签发 `{ token, refreshToken, user }`，不自动建 Profile。 |
+| 2026-09-01 | 登录/注册按 IP 限流 | Flores | FU-10：express-rate-limit，login 10 次/15 分钟、register 20 次/小时；限流器在 `createApp()` 内创建保证测试隔离，生产反代后须 trust proxy。 |
+| 2026-09-01 | refresh token 旋转 + 复用吊销 | Flores | FU-10：DB 只存 sha256 哈希；旋转置 `revokedAt`+`replacedByTokenId`；复用已吊销 token 即吊销该用户全部 refresh token。 |
 
 ---
 
