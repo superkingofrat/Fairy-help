@@ -413,6 +413,37 @@ ResponseSynthesizer ──► SSE `return` 事件 + `text` 回复
 
 红线：归还与借阅共用「库存变更仅经 chat 工具链」约束；`RENTAL_NOT_FOUND` 为幂等安全（重复归还第二次即拒绝）。一键归还按钮（FU-8）复用本流程：chat 请求带 `action: "return"` + `movieId` 时绕过意图分类，直达 `returnMovieTool`，SSE 事件与合成回复形状不变。
 
+### 5.6 会话持久化与历史回放（FU-7）
+
+```
+用户发送消息（无 sessionId）
+    │
+    ▼
+POST /api/chat ── 会话解析（SSE 头之前，404/403 返回 JSON）
+    │  ├─ 携带 sessionId → sessionService.getOwnedSession 校验归属
+    │  └─ 普通消息缺省 → sessionService.createSession 自动建会话（标题为空）
+    │
+    ▼
+getRecentMessages(userId, sessionId, 10) ── 最近 10 条（desc take 后 reverse 为升序）
+    │
+    ▼
+buildConversationHistory ── 纯文本「用户：…/Fairy：…」注入 prompt 上下文
+    │
+    ▼
+runChatTurn（原流程不变）
+    │
+    ▼
+appendTurn（旁路事务，失败不中断 SSE）
+    │  ├─ session.update：title = 现有值 || 首条非空用户消息前 20 字（顺带 touch updatedAt）
+    │  ├─ chatMessage.create（USER，纯文本 content）
+    │  └─ chatMessage.create（ASSISTANT，content + payload.events 结构化事件）
+    │
+    ▼
+SSE：... → done { sessionId }
+```
+
+回放路径：`GET /api/sessions/:id` 按 `createdAt` 升序返回消息 DTO，前端 `dtoToMessage` 从 `payload.events` 的 `recommendation` 事件还原推荐卡片。
+
 ---
 
 ## 6. 状态管理
@@ -439,7 +470,8 @@ interface AgentState {
 
 | 状态类型 | 存储 | TTL / 范围 |
 |---|---|---|
-| 工作会话上下文 | 每个 SSE 请求的内存（Phase 2 无 `Session` 表） | 单次请求 |
+| 工作会话上下文 | 每个 SSE 请求的内存 | 单次请求 |
+| 会话与消息历史 | PostgreSQL `Session` / `ChatMessage` 表（FU-7 起） | 持久 |
 | 用户画像 | PostgreSQL `Profile` 表 | 持久 |
 | 活动历史 | PostgreSQL `BehaviorLog` 表 | 持久 |
 | 工具结果缓存 | 供地图 POI 的可选 Redis/内存 | 短 TTL（分钟级） |
@@ -471,6 +503,9 @@ interface AgentState {
 | 服务端校验 AI 生成的地点 | 防止幻觉目的地触达用户。 |
 | 库存写入统一经 `rentalService.borrow` | chat 工具与 REST（FU-6 `POST /api/borrow`）只是两个传输口，无第二套借阅逻辑。 |
 | 租借记录只有只读查询端口 | FU-8 `GET /api/rentals` 仅读租借表（本人或 admin 代查）；归还写操作无 REST 端点，仍只经 chat 工具链，避免第二套库存变更路径。 |
+| 会话落库为旁路（side-channel） | `appendTurn` 在 SSE 响应前执行但失败仅记日志、不中断流；可观测性损失而非功能损失，保证持久化故障不阻塞对话。 |
+| 会话标题由首条消息派生 | 新建会话标题为空，首次落库时取首条非空用户消息前 20 字；避免创建会话时的额外输入步骤。 |
+| 历史注入为纯文本旁路（`TODO(memory-center)`） | 最近 10 条消息以「用户/Fairy」文本注入 intent + 合成 prompt；不注入 `payload` 结构化事件。memory-center 实现后迁移（AGENTS §6 临时内联查询已登记技术债）。 |
 
 ---
 
@@ -479,17 +514,20 @@ interface AgentState {
 ```
 apps/web/src/
   components/
-    chat/              # ChatPage, MessageStream, RecommendationCard, TripTimeline
+    chat/              # ChatPage（含会话侧栏）, MessageStream, RecommendationCard, TripTimeline
     fairy/             # FairyAvatar, expressions
     admin/             # MoviesAdminPage, ProfilesAdminPage, BehaviorPage
   hooks/
     useSSE.ts          # SSE 流消费
+  lib/
+    sessionApi.ts      # FU-7：/api/sessions 客户端
   stores/
     chatStore.ts
 
 apps/api/src/
   routes/
-    chat.ts            # POST /api/chat
+    chat.ts            # POST /api/chat（SSE）
+    sessions.ts        # /api/sessions（FU-7：创建/列表/消息回放）
     movies.ts
     rentals.ts
     trips.ts
@@ -497,7 +535,7 @@ apps/api/src/
   agent/
     stateLoop.ts
     intentClassifier.ts
-    contextBuilder.ts
+    contextBuilder.ts  # FU-7：buildConversationHistory 历史注入
     planner.ts
     toolDispatcher.ts
     responseSynthesizer.ts
@@ -511,14 +549,17 @@ apps/api/src/
     rentalService.ts
     profileService.ts
     behaviorLogService.ts
+    sessionService.ts  # FU-7：会话 CRUD + appendTurn 事务
     amapClient.ts
+  controllers/
+    sessionsController.ts  # FU-7
   middleware/
     auth.ts
     validateBody.ts
 
 packages/shared/
-  schemas/             # 前端与后端使用的 Zod schema
-  types/               # 共享 TypeScript 类型
+  schemas/             # 前端与后端使用的 Zod schema（含 sessionSchemas，FU-7）
+  types/               # 共享 TypeScript 类型（含 sessionTypes，FU-7）
 
 packages/ai-sdk/
   providers/           # OpenAI/Claude 客户端封装

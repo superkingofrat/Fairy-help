@@ -4,9 +4,10 @@ import { ChatPage } from "../components/chat/ChatPage";
 import { RecommendationCard } from "../components/chat/RecommendationCard";
 import * as chatApi from "../lib/chatApi";
 import { parseSseBuffer } from "../lib/chatApi";
+import * as sessionApi from "../lib/sessionApi";
 import { listRentals } from "../lib/rentalsApi";
 import { useChatStore } from "../stores/chatStore";
-import type { Movie } from "@fairy/shared";
+import type { ChatMessageDto, Movie, SessionListItem } from "@fairy/shared";
 
 vi.mock("../lib/chatApi", async () => {
   const actual = await vi.importActual<typeof import("../lib/chatApi")>("../lib/chatApi");
@@ -16,8 +17,12 @@ vi.mock("../lib/chatApi", async () => {
   };
 });
 vi.mock("../lib/rentalsApi");
+vi.mock("../lib/sessionApi");
 
 const MOVIE_ID = "550e8400-e29b-41d4-a716-446655440000";
+const SESSION_ID = "660e8400-e29b-41d4-a716-446655440000";
+const OTHER_SESSION_ID = "770e8400-e29b-41d4-a716-446655440000";
+const SESSION_STORAGE_KEY = "fairy.sessionId";
 
 const activeRental = {
   rentalId: "880e8400-e29b-41d4-a716-446655440000",
@@ -45,9 +50,29 @@ const movie: Movie = {
   updatedAt: "2024-08-01T12:30:00Z",
 };
 
+const sampleSession: SessionListItem = {
+  id: SESSION_ID,
+  title: "雨天",
+  messageCount: 1,
+  createdAt: "2026-09-01T08:00:00.000Z",
+  updatedAt: "2026-09-01T09:00:00.000Z",
+};
+
+const assistantDto: ChatMessageDto = {
+  id: "990e8400-e29b-41d4-a716-446655440000",
+  sessionId: SESSION_ID,
+  role: "assistant",
+  content: "找到了这些片子",
+  payload: {
+    events: [{ type: "recommendation", items: [movie] }],
+  },
+  createdAt: "2026-09-01T09:00:00.000Z",
+};
+
 afterEach(() => {
   cleanup();
   useChatStore.setState({ messages: [], activeRentals: [] });
+  localStorage.clear();
 });
 
 describe("parseSseBuffer", () => {
@@ -61,6 +86,9 @@ describe("ChatPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(listRentals).mockResolvedValue([]);
+    vi.mocked(sessionApi.listSessions).mockResolvedValue([]);
+    vi.mocked(sessionApi.createSession).mockResolvedValue(sampleSession);
+    vi.mocked(sessionApi.getSessionMessages).mockResolvedValue([]);
   });
 
   it("posts movieId when borrowing from a card", async () => {
@@ -70,7 +98,7 @@ describe("ChatPage", () => {
         data: {
           items: [
             {
-              id: "550e8400-e29b-41d4-a716-446655440000",
+              id: MOVIE_ID,
               title: "星际穿越",
               director: "Nolan",
               year: 2014,
@@ -101,9 +129,11 @@ describe("ChatPage", () => {
     expect(await screen.findByText("星际穿越")).toBeDefined();
     fireEvent.click(screen.getByRole("button", { name: "借阅" }));
 
-    expect(chatApi.postChat).toHaveBeenLastCalledWith(
-      { message: "", movieId: "550e8400-e29b-41d4-a716-446655440000" },
-      expect.any(Function)
+    await waitFor(() =>
+      expect(chatApi.postChat).toHaveBeenLastCalledWith(
+        { message: "", movieId: MOVIE_ID, sessionId: SESSION_ID },
+        expect.any(Function)
+      )
     );
   });
 
@@ -141,11 +171,90 @@ describe("ChatPage", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "归还" }));
 
+    await waitFor(() =>
+      expect(chatApi.postChat).toHaveBeenLastCalledWith(
+        { message: "", movieId: MOVIE_ID, action: "return" },
+        expect.any(Function)
+      )
+    );
+    expect(sessionApi.createSession).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByText("盗梦空间")).toBeNull());
+  });
+
+  it("creates a session before the first message and sends its sessionId", async () => {
+    vi.mocked(chatApi.postChat).mockImplementation(async (_body, onEvent) => {
+      onEvent({ event: "text", data: { content: "你好" } });
+      onEvent({ event: "done", data: {} });
+    });
+
+    render(<ChatPage />);
+    fireEvent.change(screen.getByPlaceholderText("和 Fairy 说点什么吧..."), {
+      target: { value: "你好呀" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+
+    await waitFor(() => expect(sessionApi.createSession).toHaveBeenCalled());
     expect(chatApi.postChat).toHaveBeenLastCalledWith(
-      { message: "", movieId: MOVIE_ID, action: "return" },
+      { message: "你好呀", sessionId: SESSION_ID },
       expect.any(Function)
     );
-    await waitFor(() => expect(screen.queryByText("盗梦空间")).toBeNull());
+  });
+
+  it("shows the empty state when there are no sessions", async () => {
+    render(<ChatPage />);
+
+    expect(await screen.findByText("还没有会话，点「新建」开始聊天")).toBeDefined();
+  });
+
+  it("restores the stored session and replays text and cards", async () => {
+    localStorage.setItem(SESSION_STORAGE_KEY, SESSION_ID);
+    vi.mocked(sessionApi.listSessions).mockResolvedValue([sampleSession]);
+    vi.mocked(sessionApi.getSessionMessages).mockResolvedValue([assistantDto]);
+
+    render(<ChatPage />);
+
+    expect(await screen.findByText("找到了这些片子")).toBeDefined();
+    expect(screen.getByText("盗梦空间")).toBeDefined();
+    expect(sessionApi.getSessionMessages).toHaveBeenCalledWith(SESSION_ID);
+
+    fireEvent.click(screen.getByRole("button", { name: "借阅" }));
+    await waitFor(() =>
+      expect(chatApi.postChat).toHaveBeenLastCalledWith(
+        { message: "", movieId: MOVIE_ID, sessionId: SESSION_ID },
+        expect.any(Function)
+      )
+    );
+  });
+
+  it("opens a session from the sidebar", async () => {
+    vi.mocked(sessionApi.listSessions).mockResolvedValue([
+      sampleSession,
+      { ...sampleSession, id: OTHER_SESSION_ID, title: "通勤" },
+    ]);
+
+    render(<ChatPage />);
+
+    fireEvent.click(await screen.findByText("通勤"));
+
+    await waitFor(() =>
+      expect(sessionApi.getSessionMessages).toHaveBeenCalledWith(OTHER_SESSION_ID)
+    );
+  });
+
+  it("creates and switches to a blank session via the new button", async () => {
+    vi.mocked(sessionApi.createSession).mockResolvedValue({
+      ...sampleSession,
+      id: OTHER_SESSION_ID,
+      title: "",
+      messageCount: 0,
+    });
+
+    render(<ChatPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "新建" }));
+
+    expect(sessionApi.createSession).toHaveBeenCalled();
+    expect(await screen.findByText("新会话")).toBeDefined();
   });
 });
 

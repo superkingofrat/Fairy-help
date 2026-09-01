@@ -5,13 +5,17 @@ import * as movieService from "../services/movieService";
 import * as profileService from "../services/profileService";
 import * as rentalService from "../services/rentalService";
 import * as behaviorLogService from "../services/behaviorLogService";
-import type { Movie, Profile } from "@fairy/shared";
+import * as sessionService from "../services/sessionService";
+import { DEV_USER_ID, type Movie, type Profile } from "@fairy/shared";
 import { authHeader } from "./helpers/auth";
 
 vi.mock("../services/movieService");
 vi.mock("../services/profileService");
 vi.mock("../services/rentalService");
 vi.mock("../services/behaviorLogService");
+vi.mock("../services/sessionService");
+
+const SESSION_ID = "550e8400-e29b-41d4-a716-446655440000";
 
 const sampleMovie: Movie = {
   id: "550e8400-e29b-41d4-a716-446655440000",
@@ -74,6 +78,20 @@ describe("POST /api/chat", () => {
     vi.mocked(movieService.listMoviesForTitleMatch).mockResolvedValue([
       { id: sampleMovie.id, title: sampleMovie.title },
     ]);
+    vi.mocked(sessionService.createSession).mockResolvedValue({
+      id: SESSION_ID,
+      title: "",
+      messageCount: 0,
+      createdAt: "2026-09-01T08:00:00.000Z",
+      updatedAt: "2026-09-01T08:00:00.000Z",
+    });
+    vi.mocked(sessionService.getOwnedSession).mockResolvedValue({
+      ok: true,
+      id: SESSION_ID,
+      title: "",
+    });
+    vi.mocked(sessionService.getRecentMessages).mockResolvedValue([]);
+    vi.mocked(sessionService.appendTurn).mockResolvedValue({ ok: true });
   });
 
   afterEach(() => {
@@ -357,5 +375,115 @@ describe("POST /api/chat", () => {
     expect(events[events.length - 1].event).toBe("done");
     expect(events.some((event) => event.event === "text")).toBe(true);
     expect(response.text).not.toContain("db exploded");
+  });
+
+  it("auto-creates a session for a message without sessionId and echoes it in done", async () => {
+    vi.mocked(movieService.listMoviesForRecommend).mockResolvedValue([sampleMovie]);
+
+    const response = await request(app)
+      .post("/api/chat")
+      .set("Authorization", authHeader("user"))
+      .send({ message: "雨天" });
+
+    expect(sessionService.createSession).toHaveBeenCalledWith(DEV_USER_ID);
+    expect(sessionService.getRecentMessages).toHaveBeenCalledWith(
+      DEV_USER_ID,
+      SESSION_ID,
+      10
+    );
+    const events = parseSse(response.text);
+    const done = events[events.length - 1];
+    expect(done.event).toBe("done");
+    expect((done.data as { sessionId: string }).sessionId).toBe(SESSION_ID);
+  });
+
+  it("persists the turn with content and recommendation events as a side channel", async () => {
+    vi.mocked(movieService.listMoviesForRecommend).mockResolvedValue([sampleMovie]);
+
+    const response = await request(app)
+      .post("/api/chat")
+      .set("Authorization", authHeader("user"))
+      .send({ message: "雨天" });
+
+    expect(response.status).toBe(200);
+    expect(sessionService.appendTurn).toHaveBeenCalledWith(
+      DEV_USER_ID,
+      SESSION_ID,
+      expect.objectContaining({
+        userContent: "雨天",
+        events: expect.arrayContaining([
+          expect.objectContaining({ type: "recommendation" }),
+        ]),
+      })
+    );
+  });
+
+  it("does not create or persist a session for a one-click return without sessionId", async () => {
+    vi.mocked(rentalService.returnRental).mockResolvedValue({
+      ok: true,
+      rentalId: "880e8400-e29b-41d4-a716-446655440000",
+      remainingStock: 4,
+    });
+
+    const response = await request(app)
+      .post("/api/chat")
+      .set("Authorization", authHeader("user"))
+      .send({ message: "", movieId: sampleMovie.id, action: "return" });
+
+    expect(sessionService.createSession).not.toHaveBeenCalled();
+    expect(sessionService.appendTurn).not.toHaveBeenCalled();
+    const events = parseSse(response.text);
+    expect((events[events.length - 1].data as { sessionId: null }).sessionId).toBeNull();
+  });
+
+  it("rejects an unknown sessionId with 404 JSON before any SSE", async () => {
+    vi.mocked(sessionService.getOwnedSession).mockResolvedValue({
+      ok: false,
+      code: "SESSION_NOT_FOUND",
+    });
+
+    const response = await request(app)
+      .post("/api/chat")
+      .set("Authorization", authHeader("user"))
+      .send({ message: "雨天", sessionId: SESSION_ID });
+
+    expect(response.status).toBe(404);
+    expect(response.headers["content-type"]).toMatch(/json/);
+    expect(response.body).toEqual({
+      code: "SESSION_NOT_FOUND",
+      data: null,
+      msg: "会话不存在",
+    });
+    expect(sessionService.createSession).not.toHaveBeenCalled();
+  });
+
+  it("rejects another user's session with 403 JSON", async () => {
+    vi.mocked(sessionService.getOwnedSession).mockResolvedValue({
+      ok: false,
+      code: "SESSION_FORBIDDEN",
+    });
+
+    const response = await request(app)
+      .post("/api/chat")
+      .set("Authorization", authHeader("user"))
+      .send({ message: "雨天", sessionId: SESSION_ID });
+
+    expect(response.status).toBe(403);
+    expect(response.body.code).toBe("SESSION_FORBIDDEN");
+  });
+
+  it("still completes the stream when persisting the turn fails", async () => {
+    vi.mocked(movieService.listMoviesForRecommend).mockResolvedValue([sampleMovie]);
+    vi.mocked(sessionService.appendTurn).mockRejectedValue(new Error("db down"));
+
+    const response = await request(app)
+      .post("/api/chat")
+      .set("Authorization", authHeader("user"))
+      .send({ message: "雨天" });
+
+    expect(response.status).toBe(200);
+    const events = parseSse(response.text);
+    expect(events[events.length - 1].event).toBe("done");
+    expect(response.text).not.toContain("db down");
   });
 });

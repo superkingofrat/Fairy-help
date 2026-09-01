@@ -23,7 +23,7 @@ export interface BorrowSseEvent {
 }
 
 export interface DoneSseEvent {
-  [key: string]: never;
+  sessionId?: string | null;
 }
 
 export interface ReturnSseEvent {

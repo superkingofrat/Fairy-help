@@ -37,6 +37,11 @@ enum BehaviorAction {
   RETURN_SUCCESS
 }
 
+enum ChatRole {
+  USER
+  ASSISTANT
+}
+
 model User {
   id           String        @id @default(uuid())
   email        String        @unique
@@ -47,6 +52,7 @@ model User {
   profile      Profile?
   rentals      Rental[]
   behaviorLogs BehaviorLog[]
+  sessions     Session[]
 
   @@map("users")
 }
@@ -113,4 +119,30 @@ model BehaviorLog {
 
   @@index([createdAt])
   @@map("behavior_logs")
+}
+
+model Session {
+  id        String        @id @default(uuid())
+  userId    String
+  title     String        @default("")
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  ChatMessage[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([userId, updatedAt])
+  @@map("sessions")
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid())
+  sessionId String
+  role      ChatRole
+  content   String
+  payload   Json?
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([sessionId, createdAt])
+  @@map("chat_messages")
 }

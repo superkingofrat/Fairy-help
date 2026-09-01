@@ -9,6 +9,7 @@ import { moviesRouter } from "./routes/movies";
 import { profilesRouter } from "./routes/profiles";
 import { behaviorLogsRouter } from "./routes/behaviorLogs";
 import { chatRouter } from "./routes/chat";
+import { sessionsRouter } from "./routes/sessions";
 
 export function createApp(): express.Application {
   const app = express();
@@ -28,6 +29,7 @@ export function createApp(): express.Application {
   app.use("/api/profiles", authMiddleware, profilesRouter);
   app.use("/api/behavior-logs", authMiddleware, behaviorLogsRouter);
   app.use("/api/chat", authMiddleware, chatRouter);
+  app.use("/api/sessions", authMiddleware, sessionsRouter);
 
   app.use(
     (

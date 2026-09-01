@@ -4,3 +4,4 @@ export * from "./profileSchemas";
 export * from "./chatSchemas";
 export * from "./behaviorLogSchemas";
 export * from "./authSchemas";
+export * from "./sessionSchemas";

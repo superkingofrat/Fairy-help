@@ -71,17 +71,21 @@ async function resolveTitleToId(title: string): Promise<string | null> {
   return matches.length === 1 ? matches[0].id : null;
 }
 
-async function classifyIntentWithLlm(message: string): Promise<ChatIntent | null> {
+async function classifyIntentWithLlm(
+  message: string,
+  history?: string
+): Promise<ChatIntent | null> {
   const text = sanitizeUserInput(message);
   if (!text) {
     return null;
   }
 
+  const historyLine = history ? `对话历史：\n${history}\n\n` : "";
   const result = await tryChat(
     "agent.intent",
     [
       { role: "system", content: INTENT_SYSTEM_PROMPT },
-      { role: "user", content: text },
+      { role: "user", content: `${historyLine}用户说：「${text}」` },
     ],
     { maxTokens: 200, temperature: 0 }
   );
@@ -163,12 +167,13 @@ export async function classifyIntentByRules(message: string): Promise<ChatIntent
 export async function classifyIntent(input: {
   message: string;
   movieId?: string;
+  history?: string;
 }): Promise<ChatIntent> {
   if (input.movieId && UUID_RE.test(input.movieId)) {
     return { type: "borrow", movieId: input.movieId };
   }
 
-  const llm = await classifyIntentWithLlm(input.message);
+  const llm = await classifyIntentWithLlm(input.message, input.history);
   if (llm) {
     return llm;
   }

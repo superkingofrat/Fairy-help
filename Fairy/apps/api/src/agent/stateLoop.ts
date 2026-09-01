@@ -12,6 +12,7 @@ export async function runChatTurn(input: {
   message: string;
   movieId?: string;
   action?: "return";
+  history?: string;
 }): Promise<SynthesizedResponse> {
   if (input.action === "return" && input.movieId) {
     const result = await returnMovieTool({
@@ -37,10 +38,18 @@ export async function runChatTurn(input: {
     const profile: Profile | null = await profileService
       .getByUserId(input.userId)
       .catch(() => null);
-    return synthesize(observation, { message: input.message, profile });
+    return synthesize(observation, {
+      message: input.message,
+      profile,
+      history: input.history,
+    });
   }
 
-  const intent = await classifyIntent({ message: input.message, movieId: input.movieId });
+  const intent = await classifyIntent({
+    message: input.message,
+    movieId: input.movieId,
+    history: input.history,
+  });
   const planned = plan(intent);
   const observation = await dispatch(planned, input.userId);
   const profile: Profile | null = await profileService
@@ -53,8 +62,13 @@ export async function runChatTurn(input: {
       message: input.message,
       profile,
       activeRentals,
+      history: input.history,
     });
   }
 
-  return synthesize(observation, { message: input.message, profile });
+  return synthesize(observation, {
+    message: input.message,
+    profile,
+    history: input.history,
+  });
 }

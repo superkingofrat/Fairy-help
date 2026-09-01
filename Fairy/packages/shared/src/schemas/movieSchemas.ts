@@ -37,6 +37,25 @@ export const createMovieSchema = movieFieldsSchema.refine(
 
 export const updateMovieSchema = movieFieldsSchema.partial();
 
+export const movieDtoSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string(),
+  director: z.string(),
+  year: z.number().int(),
+  mood: z.array(moodSchema),
+  scene: z.array(sceneSchema),
+  genres: z.array(z.string()),
+  quote: z.string().nullable(),
+  stock: z.number().int().min(0),
+  totalStock: z.number().int().min(0),
+  coverUrl: z.string().nullable(),
+  description: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type MovieDto = z.infer<typeof movieDtoSchema>;
+
 export type MovieWriteField = keyof z.infer<typeof movieFieldsSchema>;
 
 export type ParseCreateMovieResult =

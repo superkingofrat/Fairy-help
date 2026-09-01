@@ -254,11 +254,17 @@ Authorization: Bearer <jwt>
   message: string;     // 可为空（仅 movieId 借阅 / action 归还时）
   movieId?: string;    // UUID，一键借阅或 action 归还
   action?: "return";   // FU-8：确定性归还，必须携带 movieId（否则 400）
-  sessionId?: string;  // 可选；本阶段不落库
+  sessionId?: string;  // FU-7：可选；普通消息缺省时后端自动创建会话
 }
 ```
 
 `action: "return"` 与 `movieId` 必须同时出现；缺失其一返回 400 `VALIDATION_ERROR`。
+
+会话行为（FU-7 起）：
+
+- 携带 `sessionId`：必须是当前用户拥有的会话，否则在开启 SSE 前返回 JSON 错误（404 `SESSION_NOT_FOUND` / 403 `SESSION_FORBIDDEN`）。
+- 普通消息缺省 `sessionId`：后端自动创建会话，标题由首条用户消息派生（trim 后前 20 字）。
+- `action: "return"` 缺省 `sessionId`：不创建会话（归还无上下文写入）。
 
 #### SSE 事件
 
@@ -268,7 +274,7 @@ Authorization: Bearer <jwt>
 | `recommendation` | `{ items: Movie[] }`（仅有可借匹配时） |
 | `borrow` | `{ success, remainingStock, rentalId, code }` |
 | `return` | `{ success, remainingStock, rentalId, code }`（FU-4 起；归还成功/失败） |
-| `done` | `{}` |
+| `done` | `{ sessionId: string \| null }`（FU-7 起；本次消息所属会话，未建会话时为 `null`） |
 
 `borrow.code` 成功为 `OK`；失败为 `OUT_OF_STOCK`、`ALREADY_BORROWED`、`MOVIE_NOT_FOUND`。`return.code` 成功为 `OK`；失败为 `RENTAL_NOT_FOUND`。
 
@@ -285,6 +291,8 @@ Authorization: Bearer <jwt>
 | 状态 | Code | 场景 |
 |---|---|---|
 | 400 | `VALIDATION_ERROR` | 请求体不合法（如 `movieId` 不是 UUID）。 |
+| 403 | `SESSION_FORBIDDEN` | `sessionId` 属于其他用户（FU-7 起）。 |
+| 404 | `SESSION_NOT_FOUND` | `sessionId` 不存在（FU-7 起）。 |
 
 借阅可经本端点调度工具，也可直接调用 REST `POST /borrow`（§3.10）；归还仅经本端点的 `action: "return"` 调度（无 REST 归还写端点）。
 
@@ -542,6 +550,121 @@ BehaviorLog 的只读分页流水，仅 `admin` 可调用；append-only，**不�
 | 400 | `VALIDATION_ERROR` | `status` 取值非法。 |
 | 400 | `INVALID_USER_ID` | `userId` 不是合法 UUID。 |
 | 401 | `UNAUTHORIZED` | 未认证。 |
+
+---
+
+### 3.12 会话资源 `/api/sessions`（FU-7）
+
+会话与对话历史回放的 REST 资源。所有端点需认证（Bearer）；数据归属为 token 中的 `userId`。
+
+#### 3.12.1 创建会话
+
+**POST** `/sessions`
+
+```http
+POST /api/sessions
+Authorization: Bearer <jwt>
+```
+
+请求体为空。新建会话标题为空字符串，标题在第一条消息落库时派生。
+
+#### 成功响应 — 201 Created
+
+```json
+{
+  "code": "OK",
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "title": "",
+    "messageCount": 0,
+    "createdAt": "2026-09-01T08:00:00.000Z",
+    "updatedAt": "2026-09-01T08:00:00.000Z"
+  },
+  "msg": "会话已创建"
+}
+```
+
+#### 3.12.2 会话列表
+
+**GET** `/sessions`
+
+按 `updatedAt` 倒序返回当前用户的会话。
+
+```http
+GET /api/sessions
+Authorization: Bearer <jwt>
+```
+
+#### 成功响应 — 200 OK
+
+```json
+{
+  "code": "OK",
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "title": "雨天",
+      "messageCount": 3,
+      "createdAt": "2026-09-01T08:00:00.000Z",
+      "updatedAt": "2026-09-01T09:00:00.000Z"
+    }
+  ],
+  "msg": "查询成功"
+}
+```
+
+#### 3.12.3 读取会话消息
+
+**GET** `/sessions/:id`
+
+按 `createdAt` 升序返回该会话的完整消息历史。
+
+```http
+GET /api/sessions/550e8400-e29b-41d4-a716-446655440000
+Authorization: Bearer <jwt>
+```
+
+#### 成功响应 — 200 OK
+
+```json
+{
+  "code": "OK",
+  "data": [
+    {
+      "id": "770e8400-e29b-41d4-a716-446655440000",
+      "sessionId": "550e8400-e29b-41d4-a716-446655440000",
+      "role": "user",
+      "content": "雨天想看点什么",
+      "payload": null,
+      "createdAt": "2026-09-01T08:05:00.000Z"
+    },
+    {
+      "id": "990e8400-e29b-41d4-a716-446655440000",
+      "sessionId": "550e8400-e29b-41d4-a716-446655440000",
+      "role": "assistant",
+      "content": "为你找到这些片子",
+      "payload": {
+        "events": [
+          { "type": "recommendation", "items": [] }
+        ]
+      },
+      "createdAt": "2026-09-01T08:05:01.000Z"
+    }
+  ],
+  "msg": "查询成功"
+}
+```
+
+`role` 取值 `user` / `assistant`。`payload` 为消息附带的结构化事件（当前仅 `recommendation` 卡片），无事件时为 `null`。
+
+#### 错误响应
+
+| 状态 | Code | 场景 |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | `:id` 不是合法 UUID。 |
+| 401 | `UNAUTHORIZED` | 未认证。 |
+| 403 | `SESSION_FORBIDDEN` | 会话属于其他用户。 |
+| 404 | `SESSION_NOT_FOUND` | 会话不存在。 |
 | 403 | `FORBIDDEN` | 非 admin 携带 `userId` 代查。 |
 | 404 | `USER_NOT_FOUND` | 代查的 `userId` 不存在。 |
 
@@ -564,6 +687,8 @@ BehaviorLog 的只读分页流水，仅 `admin` 可调用；append-only，**不�
 | `OUT_OF_STOCK` | SSE `borrow` / `POST /borrow` | 影片无法借阅。 |
 | `ALREADY_BORROWED` | SSE `borrow` / `POST /borrow` | 存在重复的进行中租赁。 |
 | `RENTAL_NOT_FOUND` | SSE `return` | 该用户没有进行中的这笔借阅（未借先还/重复归还）。 |
+| `SESSION_NOT_FOUND` | 404 | 会话不存在（FU-7 起）。 |
+| `SESSION_FORBIDDEN` | 403 | 会话属于其他用户（FU-7 起）。 |
 | `INTERNAL_ERROR` | 500 | 未处理的服务器错误。 |
 
 ---

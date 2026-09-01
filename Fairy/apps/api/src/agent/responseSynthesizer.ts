@@ -20,6 +20,7 @@ export interface SynthesisContext {
   message: string;
   profile: Profile | null;
   activeRentals?: Array<{ movieTitle: string }>;
+  history?: string;
 }
 
 const REPLY_SYSTEM_PROMPT = `你是 Fairy，一家录像带门店的 AI 助理，语气温暖自然，用中文回复，一到两句。你只能使用【事实】中给出的信息；不得编造片名、库存数字或做出无法兑现的承诺；事实为空时自然回应，并引导用户说出心情、场景或想借的影片。`;
@@ -49,7 +50,8 @@ async function generateReply(
   facts: string
 ): Promise<string | null> {
   const message = sanitizeUserInput(context.message);
-  const userContent = `用户说：「${message}」\n${profileLine(context.profile)}\n【事实】${facts}`;
+  const historyLine = context.history ? `对话历史：\n${context.history}\n` : "";
+  const userContent = `${historyLine}用户说：「${message}」\n${profileLine(context.profile)}\n【事实】${facts}`;
 
   const result = await tryChat(
     "agent.reply",

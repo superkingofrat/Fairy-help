@@ -42,4 +42,27 @@ describe("chatRequestSchema", () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it("accepts an optional sessionId", () => {
+    const result = chatRequestSchema.safeParse({
+      message: "雨天",
+      sessionId: "550e8400-e29b-41d4-a716-446655440000",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts sessionId together with action return", () => {
+    const result = chatRequestSchema.safeParse({
+      message: "",
+      movieId: "550e8400-e29b-41d4-a716-446655440000",
+      action: "return",
+      sessionId: "550e8400-e29b-41d4-a716-446655440000",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a blank sessionId", () => {
+    const result = chatRequestSchema.safeParse({ message: "雨天", sessionId: "" });
+    expect(result.success).toBe(false);
+  });
 });
