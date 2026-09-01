@@ -6,11 +6,13 @@
 
 **Development（开发中）**
 
-> Monorepo 脚手架、影片库 CRUD MVP、Phase 2 Agent 推荐与借阅、FU-1 画像写接口与管理 CRUD、FU-2 真实 LLM 意图与回复、FU-3 行为流水查询与管理页、FU-4 归还（聊天文本）、FU-5 真实 JWT 认证、FU-6 REST 借阅、FU-7 会话表与对话历史回放、FU-8 一键归还 UI、FU-9 影片库浏览页、FU-10 账号体系闭环（注册/限流/refresh token）已交付。
+> Monorepo 脚手架、影片库 CRUD MVP、Phase 2 Agent 推荐与借阅、FU-1 画像写接口与管理 CRUD、FU-2 真实 LLM 意图与回复、FU-3 行为流水查询与管理页、FU-4 归还（聊天文本）、FU-5 真实 JWT 认证、FU-6 REST 借阅、FU-7 会话表与对话历史回放、FU-8 一键归还 UI、FU-9 影片库浏览页、FU-10 账号体系闭环（注册/限流/refresh token）、FU-11 运营洞察看板（管理端）已交付。
 
 ---
 
 ## Completed Modules（已完成模块）
+
+- **FU-11 运营洞察看板（第一期：管理端）**（2026-09-01）— admin-only `GET /api/insights/overview` 单端点一次返回看板全部卡片（热门影片 TOP 5 按 RECOMMEND `payload.movieIds` 统计推荐次数、借阅/归还趋势 14 天缺日补 0（服务器本地日期分桶）、库存状态与低库存 `stock ≤ 1`、mood/scene 30 天分布 TOP 5、活跃概况），`Promise.all` 并行聚合规避 Neon 冷启动串行延迟；shared `insightSchemas`（7 个 schema + 类型）；web `/admin/insights` 看板页（纯 CSS 卡片与条形图、不引图表库，加载/错误/空态齐全 + i18n + 刷新按钮）；导航与路由挂 `RequireAuth role="admin"`（user 跳转首页）；测试：api 154（insightService 6 + insights routes 3）、web 50（InsightsAdminPage 3 + App 更新）、shared 56（insightSchemas 3）全绿；真机验收 AC-1~AC-8 全过（admin 导航 + 看板数据正确（08-19 等缺日补 0、低库存 stock≤1）、user 访问 403、无 token 401、mood/scene 分布、加载/错误/空态 + 中文本地化）；需求：[2026-09-01-store-insights.md](docs/requirements/2026-09-01-store-insights.md)；OpenSpec 归档：[2026-09-01-fu-11-store-insights](openspec/changes/archive/2026-09-01-fu-11-store-insights/)
 
 - **FU-10 账号体系闭环（注册 / 登录限速 / refresh token）**（2026-09-01）— 注册 `POST /api/auth/register`（仅开放 `role=user`、bcrypt cost 10、201 返回 `{ token, refreshToken, user }` 注册即登录、409 `EMAIL_ALREADY_EXISTS`、400 `VALIDATION_ERROR`）；登录/注册 IP 限流（express-rate-limit，login 10 次/15 分钟、register 20 次/小时，429 `TOO_MANY_REQUESTS`；限流器在 `createApp()` 内创建保证测试隔离，生产反代后须 `trust proxy`）；refresh token 旋转 + 复用吊销（`RefreshToken` 表只存 sha256 哈希、30 天过期、旋转在事务内置 `revokedAt`+`replacedByTokenId`、复用已吊销 token 即吊销该用户全部 refresh token、`POST /api/auth/logout` 吊销当前 token）；shared `registerSchema`/`refreshTokenSchema`；Web：`RegisterPage` + `/register` 公开路由 + 登录页注册链接、authStore `refreshToken` 持久化、`lib/http.ts` 统一认证客户端（401 单飞刷新 → 重试一次 → 刷新失败才 `clear()` + 跳 `/login`；movieApi/profileApi/sessionApi/behaviorApi/rentalsApi 迁移、导出签名不变）、chatApi SSE 保持原样（401 仍直接清登录，注明取舍）；测试：api 145（auth 14：register 201/409/400、login 带 refreshToken、rotation 更新+新建断言、复用→全家吊销、过期、logout 幂等、第 11 次 429）、web 47（RegisterPage 4、http 单飞刷新 6、LoginPage/App 更新）、shared 47（authSchemas 新增 11）；真机验收全过：HTTP 11/11（注册 201/409/400、登录带 refreshToken、刷新旋转、复用旧 token → 401 且新 token 也死、登出后 refresh 401、ghost token 401）+ 浏览器 E2E（注册即自动登录 `/chat`、重复邮箱文案「该邮箱已注册」、短密码/两次不一致前端校验、登录页「还没有账号？注册一个」链接、登录成功）+ 限流实测（窗口内第 11 次起 429，`touch` API 源文件 reload 后重置）；需求：[2026-09-01-fu-10-account-closure.md](docs/requirements/2026-09-01-fu-10-account-closure.md)；OpenSpec 归档：[2026-09-01-fu-10-account-closure](openspec/changes/archive/2026-09-01-fu-10-account-closure/)
 
@@ -49,15 +51,15 @@
 
 ## In Progress（进行中）
 
-（无进行中项；FU-10 已于 2026-09-01 交付并归档。）
+- （当前无进行中功能）FU-11 已归档交付；下一期候选见 Next Steps。
 
 ---
 
 ## Next Steps（下一步）
 
-- （挂账）store insights 运营看板（`storeInsightTool` 0 行）。
 - （挂账）旅行规划（`amapClient`/`planTripTool` 0 行，trips 占位）。
 - （技术债）memory-center（历史注入现为 `TODO(memory-center)` 纯文本旁路）。
+- （挂账）`storeInsightTool` chat 工具接入 agent（FU-11 第一期已交付，管理员可在对话中直接问店内数据）。
 
 ---
 
@@ -83,6 +85,8 @@
 | 2026-09-01 | 注册仅开放 user 角色 + 注册即登录 | Flores | FU-10：注册恒建 `role=user`（admin 仅 seed），成功即签发 `{ token, refreshToken, user }`，不自动建 Profile。 |
 | 2026-09-01 | 登录/注册按 IP 限流 | Flores | FU-10：express-rate-limit，login 10 次/15 分钟、register 20 次/小时；限流器在 `createApp()` 内创建保证测试隔离，生产反代后须 trust proxy。 |
 | 2026-09-01 | refresh token 旋转 + 复用吊销 | Flores | FU-10：DB 只存 sha256 哈希；旋转置 `revokedAt`+`replacedByTokenId`；复用已吊销 token 即吊销该用户全部 refresh token。 |
+| 2026-09-01 | 运营洞察单端点一次返回全部 | Flores | FU-11：`GET /api/insights/overview`（admin-only）一次返回看板全部卡片；窗口与低库存阈值（`stock ≤ 1`）为契约常量。 |
+| 2026-09-01 | 聚合用 Prisma groupBy/count 并行 + JS 补零 | Flores | FU-11：`Promise.all` 并行规避 Neon 冷启动串行延迟；趋势缺日补 0 按服务器本地日期分桶在 JS 完成，避免 SQL 时区逻辑。 |
 
 ---
 

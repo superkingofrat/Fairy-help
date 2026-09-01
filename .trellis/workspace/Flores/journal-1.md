@@ -489,3 +489,82 @@ Delivered FU-10 end to end: self-service registration (role=user, register-and-l
 ### Status
 
 [OK] **Completed**
+
+
+## Session 11: FU-11 store insights dashboard (admin overview + /admin/insights page) delivery and archive
+
+**Date**: 2026-09-01
+**Task**: FU-11 store insights dashboard (admin overview + /admin/insights page) delivery and archive
+**Branch**: `master`
+
+### Summary
+
+Delivered FU-11 end to end: admin-only /api/insights/overview aggregation + /admin/insights dashboard page. Tests green (api 154 / web 50 / shared 56), live HTTP + browser acceptance AC-1~AC-8 all passed, archived with store-insights main spec.
+
+### Main Changes
+
+## Session 11: FU-11 运营洞察看板交付与归档
+
+**Date**: 2026-09-01
+**Task**: FU-11 store insights dashboard (admin overview + /admin/insights page) delivery and archive
+**Branch**: `master`
+
+### Summary
+
+Delivered FU-11 end to end: admin-only `GET /api/insights/overview` aggregation endpoint (popular top 5, 14-day zero-filled borrow/return trend, inventory + low-stock `stock ≤ 1`, mood/scene 30-day top 5, activity) and the `/admin/insights` dashboard page (pure-CSS cards/bars, loading/error/empty states, i18n). Tests green across shared/api/web, spine docs updated, live HTTP + browser acceptance all passed (AC-1~AC-8); archived with store-insights main spec created.
+
+### Main Changes
+
+### 改动
+
+- **shared 契约**：`insightSchemas.ts` 7 个 schema + 类型（`storeInsightsOverview` 及行类型 `popularMovieItem`/`dailyBorrowPoint`/`lowStockMovieItem`/`moodSceneCount`/`activityOverview`/`inventoryStatus`），经 `schemas/index.ts` 导出 + 3 个 schema 测试。
+- **API 聚合 `GET /api/insights/overview`（admin-only）**：`insightService.getStoreInsightsOverview` 一次返回看板全部卡片——热门影片 TOP 5（按 RECOMMEND `payload.movieIds` 统计推荐次数）、借阅/归还 14 天趋势（服务器本地日期分桶、缺日补 0）、库存状态（available/outOfStock + 低库存 `stock ≤ 1` 列表）、mood/scene 30 天分布 TOP 5、活跃概况（totalUsers/activeUsers/newUsers7d/borrows7d）；11 个 Prisma 查询 `Promise.all` 并行规避 Neon 冷启动串行延迟。路由挂 `authMiddleware` + `requireRole("admin")`（user 403 `FORBIDDEN`、无 token 401 `UNAUTHORIZED`）。
+- **Prisma groupBy 类型坑修复**：`_count` 结果类型为 `true | {...}` 联合需 cast；`orderBy: { _count: { _all } }` 在 Prisma 5.17 非法（`RentalCountOrderByAggregateInput` 无 `_all`），改为按具体列 `movieId` 排序（非空必填列，等价于 _all）。
+- **Web `/admin/insights` 看板页**：`InsightsAdminPage` 纯 CSS 卡片与条形图（不引图表库）、统计卡 5 张、热门影片/低库存表格、14 天趋势双色条形（indigo 借阅/emerald 归还 + 图例）、mood/scene 分布列表、刷新按钮；加载/错误/空态齐全；`insightApi.ts` 走 `request()` 认证客户端；admin 导航 + 路由（`RequireAuth role="admin"`，user 跳转首页）；i18n `insights.*` keys（修复「心情 · 心情 / 场景分布」标题重复 → 拆独立 distribution key）。
+- **测试**：api 154（insightService 6：空数据/缺日补 0/TOP 排序；insights routes 3：admin 200 / user 403 / 无 token 401）、web 50（InsightsAdminPage 3：渲染/空态/错误态；App 更新）、shared 56（insightSchemas 3）。
+- **文档**：API_CONTRACT §3.13（端点 + 成功 JSON + 401/403 错误表 + 低库存阈值标注）、ARCHITECTURE §5.7 数据流 + §8 两条决策 + §9 模块映射、PROJECT_STATUS In Progress 更新。
+- **归档**：`openspec archive` 同步 6 条需求至 `openspec/specs/store-insights/spec.md`（5 scenarios），change dir 移入 `archive/2026-09-01-fu-11-store-insights`；PROJECT_STATUS FU-11 → Completed 顶部，In Progress 清空。
+
+### 验证
+
+- 三包 typecheck 干净 + 测试全绿（api 154 / web 50 / shared 56）+ `openspec validate --all` 通过。
+- 真机 HTTP：admin 200（真实数据：趋势缺日补 0、低库存 stock≤1）、user 403、无 token 401。
+- 浏览器 E2E（admin）：导航「运营看板」→ 看板页数据正确（08-19 等缺日补 0 显示、低库存行、分布列表、统计卡）；user 登录后无「运营看板」入口、直访 `/admin/insights` 跳首页。
+- 踩坑修复验证：distribution 卡片标题重复已修复（专用 i18n key）；stale API server（`tsx src/index.ts` 无 watch 不热重载）导致 500 → `taskkill` 后重启 dev server 恢复。
+
+### 踩坑（下次直接避）
+
+1. **`tsx src/index.ts`（无 watch）不热重载**——改动服务端代码后必须手动重启 dev server，否则跑的是旧代码（本次 insights 500 根因）；`Get-CimInstance Win32_Process` 看命令行可确认启动方式。
+2. **Prisma 5.17 groupBy 类型坑**——`_count` 结果 `_all` 是 `true | {...}` 联合，取值须 cast `(group._count as { _all: number })._all`；`orderBy: { _count: { _all } }` 非法，按具体非空列（如 `movieId`）排序等价。
+3. **临时调试脚本别放 /tmp**——Windows 下相对导入会解析到临时目录；放 apps/api 内跑完即删。
+4. **归档后 tasks.md 在 archive 目录**——5.5/5.6 验收/归档勾选要更新 archive 目录里的 tasks.md（原 change 目录已移动）。
+5. **浏览器验证优先用 DOM snapshot**——本环境模型无法看图，截图存 artifact 仅作记录，验收以可访问性树/DOM 断言为准。
+6. **`@fairy/shared` 改动后先 build**——新增 shared schema 后必须先 `pnpm --filter=@fairy/shared build` 再跑 api/web typecheck（延续 FU-10 坑 #1）。
+
+### 下一步
+
+- `storeInsightTool` chat 工具接入 agent（FU-11 第一期已交付，管理员可对话问店内数据）。
+- 种子固定密码上线前改密（FU-5 挂账，仍待处理）。
+- 旅行规划（`amapClient`/`planTripTool` 0 行）挂账。
+- memory-center 技术债：续聊最近 10 条历史注入（`contextBuilder.ts` 内联查询）待记忆中心统一替换。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3fc6840` | (see git log) |
+
+### Status
+
+[OK] **Completed**
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3fc6840` | (see git log) |
+
+### Status
+
+[OK] **Completed**

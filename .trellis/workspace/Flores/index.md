@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 10
+- **Total Sessions**: 11
 - **Last Active**: 2026-09-01
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~491 | Active |
+| `journal-1.md` | ~570 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 11 | 2026-09-01 | FU-11 store insights dashboard (admin overview + /admin/insights page) delivery and archive | `3fc6840` | `master` |
 | 10 | 2026-09-01 | FU-10 account closure (register / rate limit / refresh token) delivery and archive | `70a9afc` | `master` |
 | 9 | 2026-09-01 | FU-7 session table and chat history replay delivery and archive | `e9fe777`, `974fad8` | `master` |
 | 8 | 2026-09-01 | FU-9 movie library page delivery and archive | `479b17b`, `1a25eac` | `master` |
