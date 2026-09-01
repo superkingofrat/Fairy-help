@@ -189,6 +189,23 @@ describe("planTripTool", () => {
     expect(prisma.trip.create).not.toHaveBeenCalled();
   });
 
+  it("retries the draft once before giving up on invalid JSON", async () => {
+    vi.mocked(llmClient.tryChat)
+      .mockResolvedValueOnce(llmResult("抱歉，我无法生成行程。"))
+      .mockResolvedValueOnce(llmResult(draftJson));
+    vi.mocked(amapClient.searchPoi).mockResolvedValue(null);
+    vi.mocked(amapClient.planRoute).mockResolvedValue(null);
+
+    const result = await planTripTool({ userId: USER_ID, message: "帮我规划周末去杭州玩" });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).not.toHaveProperty("unresolved");
+    }
+    expect(llmClient.tryChat).toHaveBeenCalledTimes(2);
+    expect(prisma.trip.create).toHaveBeenCalledTimes(1);
+  });
+
   it("asks for the destination when the LLM draft fails and the message has no destination", async () => {
     vi.mocked(llmClient.tryChat).mockResolvedValue(null);
 

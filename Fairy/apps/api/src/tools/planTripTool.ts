@@ -25,7 +25,7 @@ const tripDraftSchema = z.object({
     .array(
       z.object({
         day: z.number().int().min(1),
-        title: z.string(),
+        title: z.string().nullish(),
         steps: z
           .array(
             z.object({
@@ -84,19 +84,25 @@ async function draftTrip(message: string, travelStyle: string | null): Promise<T
     return null;
   }
   const styleLine = travelStyle ? `用户画像旅行风格：${travelStyle}。` : "";
-  const result = await tryChat(
-    "agent.trip",
-    [
-      { role: "system", content: TRIP_SYSTEM_PROMPT },
-      { role: "user", content: `${styleLine}用户说：「${text}」` },
-    ],
-    { maxTokens: 800, temperature: 0.7 }
-  );
-  if (!result) {
-    return null;
+  const messages = [
+    { role: "system" as const, content: TRIP_SYSTEM_PROMPT },
+    { role: "user" as const, content: `${styleLine}用户说：「${text}」` },
+  ];
+  // 严格 JSON 输出：低温度提高稳定性；失败重试一次再降级（模型偶发非法 JSON/截断）
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const result = await tryChat("agent.trip", messages, {
+      maxTokens: 1200,
+      temperature: 0.2,
+    });
+    if (!result) {
+      continue;
+    }
+    const parsed = tripDraftSchema.safeParse(extractJson(result.text));
+    if (parsed.success) {
+      return parsed.data;
+    }
   }
-  const parsed = tripDraftSchema.safeParse(extractJson(result.text));
-  return parsed.success ? parsed.data : null;
+  return null;
 }
 
 export async function planTripTool(input: {
@@ -160,7 +166,7 @@ export async function planTripTool(input: {
 
   const itinerary = draft.itinerary.map((day, index) => ({
     day: day.day,
-    title: day.title,
+    title: day.title ?? "",
     steps: steps[index],
   }));
 
