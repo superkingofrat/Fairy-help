@@ -410,7 +410,7 @@ BehaviorLog RETURN_SUCCESS（仅成功时）
 ResponseSynthesizer ──► SSE `return` 事件 + `text` 回复
 ```
 
-红线：归还与借阅共用「库存变更仅经 chat 工具链」约束；`RENTAL_NOT_FOUND` 为幂等安全（重复归还第二次即拒绝）。一键归还按钮（FU-8）将复用本流程，经 chat 请求 `action` 参数直达工具。
+红线：归还与借阅共用「库存变更仅经 chat 工具链」约束；`RENTAL_NOT_FOUND` 为幂等安全（重复归还第二次即拒绝）。一键归还按钮（FU-8）复用本流程：chat 请求带 `action: "return"` + `movieId` 时绕过意图分类，直达 `returnMovieTool`，SSE 事件与合成回复形状不变。
 
 ---
 
@@ -469,6 +469,7 @@ interface AgentState {
 | 只追加行为日志 | 为 agent 记忆与业务分析提供可观测历史。 |
 | 服务端校验 AI 生成的地点 | 防止幻觉目的地触达用户。 |
 | 库存写入统一经 `rentalService.borrow` | chat 工具与 REST（FU-6 `POST /api/borrow`）只是两个传输口，无第二套借阅逻辑。 |
+| 租借记录只有只读查询端口 | FU-8 `GET /api/rentals` 仅读租借表（本人或 admin 代查）；归还写操作无 REST 端点，仍只经 chat 工具链，避免第二套库存变更路径。 |
 
 ---
 

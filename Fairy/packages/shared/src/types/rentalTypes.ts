@@ -15,3 +15,12 @@ export type BorrowErrorCode =
   | "ALREADY_BORROWED";
 
 export type ReturnErrorCode = "RENTAL_NOT_FOUND";
+
+export interface RentalListItem {
+  rentalId: string;
+  movieId: string;
+  movieTitle: string;
+  status: RentalStatus;
+  borrowedAt: string;
+  returnedAt: string | null;
+}

@@ -1,9 +1,8 @@
 import { Router, type IRouter } from "express";
+import { listRentalsHandler } from "../controllers/rentalsController";
 
 const router: IRouter = Router();
 
-router.post("/", (_req, res) => {
-  res.json({ code: "OK", data: null, msg: "Rentals endpoint placeholder." });
-});
+router.get("/", listRentalsHandler);
 
 export { router as rentalsRouter };

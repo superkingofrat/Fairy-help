@@ -90,6 +90,64 @@ describe("POST /api/chat", () => {
     expect(response.body.code).toBe("VALIDATION_ERROR");
   });
 
+  it("rejects action return without movieId with 400", async () => {
+    const response = await request(app)
+      .post("/api/chat")
+      .set("Authorization", authHeader("user"))
+      .send({ message: "", action: "return" });
+
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe("VALIDATION_ERROR");
+    expect(rentalService.returnRental).not.toHaveBeenCalled();
+  });
+
+  it("one-click return executes deterministically with action, ignoring message", async () => {
+    vi.mocked(rentalService.returnRental).mockResolvedValue({
+      ok: true,
+      rentalId: "880e8400-e29b-41d4-a716-446655440000",
+      remainingStock: 4,
+    });
+
+    const response = await request(app)
+      .post("/api/chat")
+      .set("Authorization", authHeader("user"))
+      .send({ message: "随便说点什么", movieId: sampleMovie.id, action: "return" });
+
+    const events = parseSse(response.text);
+    expect(events.find((event) => event.event === "return")?.data).toMatchObject({
+      success: true,
+      remainingStock: 4,
+      rentalId: "880e8400-e29b-41d4-a716-446655440000",
+      code: "OK",
+    });
+    expect(events.some((event) => event.event === "text")).toBe(true);
+    expect(behaviorLogService.append).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "RETURN_SUCCESS" })
+    );
+  });
+
+  it("one-click return failure degrades to apologetic text without 500", async () => {
+    vi.mocked(rentalService.returnRental).mockResolvedValue({
+      ok: false,
+      code: "RENTAL_NOT_FOUND",
+    });
+
+    const response = await request(app)
+      .post("/api/chat")
+      .set("Authorization", authHeader("user"))
+      .send({ message: "", movieId: sampleMovie.id, action: "return" });
+
+    expect(response.status).toBe(200);
+    const events = parseSse(response.text);
+    expect(events.find((event) => event.event === "return")?.data).toMatchObject({
+      success: false,
+      code: "RENTAL_NOT_FOUND",
+    });
+    const text = events.find((event) => event.event === "text");
+    expect((text?.data as { content: string }).content).toBe("你目前没有借这部片子。");
+    expect(behaviorLogService.append).not.toHaveBeenCalled();
+  });
+
   it("recommends in-stock mood/scene matches and writes a log", async () => {
     vi.mocked(movieService.listMoviesForRecommend).mockResolvedValue([
       sampleMovie,

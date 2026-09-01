@@ -16,3 +16,9 @@ export const borrowRequestSchema = z.object({
 });
 
 export type BorrowRequestInput = z.infer<typeof borrowRequestSchema>;
+
+export const rentalsQuerySchema = z.object({
+  status: z.enum(["ACTIVE"]).optional(),
+});
+
+export type RentalsQueryInput = z.infer<typeof rentalsQuerySchema>;

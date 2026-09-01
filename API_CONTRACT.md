@@ -251,11 +251,14 @@ Authorization: Bearer <jwt>
 
 ```ts
 {
-  message: string;     // 可为空（仅 movieId 借阅时）
-  movieId?: string;    // UUID，一键借阅
+  message: string;     // 可为空（仅 movieId 借阅 / action 归还时）
+  movieId?: string;    // UUID，一键借阅或 action 归还
+  action?: "return";   // FU-8：确定性归还，必须携带 movieId（否则 400）
   sessionId?: string;  // 可选；本阶段不落库
 }
 ```
+
+`action: "return"` 与 `movieId` 必须同时出现；缺失其一返回 400 `VALIDATION_ERROR`。
 
 #### SSE 事件
 
@@ -283,7 +286,7 @@ Authorization: Bearer <jwt>
 |---|---|---|
 | 400 | `VALIDATION_ERROR` | 请求体不合法（如 `movieId` 不是 UUID）。 |
 
-本阶段**不提供** `POST /borrow`。借阅只经本端点调度工具。
+借阅可经本端点调度工具，也可直接调用 REST `POST /borrow`（§3.10）；归还仅经本端点的 `action: "return"` 调度（无 REST 归还写端点）。
 
 ---
 
@@ -498,6 +501,52 @@ BehaviorLog 的只读分页流水，仅 `admin` 可调用；append-only，**不�
 
 ---
 
+### 3.11 借阅列表（FU-8）
+
+**GET** `/rentals` — 需认证（Bearer）
+
+返回租借记录，按借出时间倒序。默认查当前登录用户；admin 可携带 `userId` 代查。
+
+#### 查询参数
+
+| 参数 | 类型 | 说明 |
+|---|---|---|
+| `status` | `"ACTIVE"`（可选） | 仅返回进行中（未归还）的租借。 |
+| `userId` | UUID（可选，仅 admin） | 代查指定用户的租借记录；非 admin 携带则 403。 |
+
+#### 成功响应 — 200 OK
+
+```json
+{
+  "code": "OK",
+  "data": [
+    {
+      "rentalId": "880e8400-e29b-41d4-a716-446655440000",
+      "movieId": "550e8400-e29b-41d4-a716-446655440000",
+      "movieTitle": "星际穿越",
+      "status": "ACTIVE",
+      "borrowedAt": "2026-08-29T08:00:00.000Z",
+      "returnedAt": null
+    }
+  ],
+  "msg": "查询成功"
+}
+```
+
+`status` 取值：`ACTIVE`（进行中）、`RETURNED`（已归还）。`returnedAt` 仅已归还记录非空。
+
+#### 错误响应
+
+| 状态 | Code | 场景 |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | `status` 取值非法。 |
+| 400 | `INVALID_USER_ID` | `userId` 不是合法 UUID。 |
+| 401 | `UNAUTHORIZED` | 未认证。 |
+| 403 | `FORBIDDEN` | 非 admin 携带 `userId` 代查。 |
+| 404 | `USER_NOT_FOUND` | 代查的 `userId` 不存在。 |
+
+---
+
 ## 4. 错误码参考
 
 | Code | HTTP 状态 | 含义 |
@@ -512,9 +561,9 @@ BehaviorLog 的只读分页流水，仅 `admin` 可调用；append-only，**不�
 | `PROFILE_NOT_FOUND` | 404 | 目标画像缺失。 |
 | `USER_NOT_FOUND` | 404 | 目标用户缺失（画像补建时）。 |
 | `PROFILE_ALREADY_EXISTS` | 409 | 该用户已有画像（补建冲突）。 |
-| `OUT_OF_STOCK` | SSE `borrow` / 未来 REST | 影片无法借阅。 |
-| `ALREADY_BORROWED` | SSE `borrow` / 未来 REST | 存在重复的进行中租赁。 |
-| `RENTAL_NOT_FOUND` | SSE `return` / 未来 REST | 该用户没有进行中的这笔借阅（未借先还/重复归还）。 |
+| `OUT_OF_STOCK` | SSE `borrow` / `POST /borrow` | 影片无法借阅。 |
+| `ALREADY_BORROWED` | SSE `borrow` / `POST /borrow` | 存在重复的进行中租赁。 |
+| `RENTAL_NOT_FOUND` | SSE `return` | 该用户没有进行中的这笔借阅（未借先还/重复归还）。 |
 | `INTERNAL_ERROR` | 500 | 未处理的服务器错误。 |
 
 ---

@@ -3,14 +3,43 @@ import * as profileService from "../services/profileService";
 import * as rentalService from "../services/rentalService";
 import { classifyIntent } from "./intentClassifier";
 import { plan } from "./planner";
-import { dispatch } from "./toolDispatcher";
+import { dispatch, type ToolObservation } from "./toolDispatcher";
+import { returnMovieTool } from "../tools/returnMovieTool";
 import { synthesize, type SynthesizedResponse } from "./responseSynthesizer";
 
 export async function runChatTurn(input: {
   userId: string;
   message: string;
   movieId?: string;
+  action?: "return";
 }): Promise<SynthesizedResponse> {
+  if (input.action === "return" && input.movieId) {
+    const result = await returnMovieTool({
+      userId: input.userId,
+      movieId: input.movieId,
+    });
+    const observation: ToolObservation =
+      result.success && result.data
+        ? {
+            kind: "return",
+            success: true,
+            remainingStock: result.data.remainingStock,
+            rentalId: result.data.rentalId,
+            code: "OK",
+          }
+        : {
+            kind: "return",
+            success: false,
+            remainingStock: null,
+            rentalId: null,
+            code: result.error ?? "INTERNAL_ERROR",
+          };
+    const profile: Profile | null = await profileService
+      .getByUserId(input.userId)
+      .catch(() => null);
+    return synthesize(observation, { message: input.message, profile });
+  }
+
   const intent = await classifyIntent({ message: input.message, movieId: input.movieId });
   const planned = plan(intent);
   const observation = await dispatch(planned, input.userId);

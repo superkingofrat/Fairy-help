@@ -1,5 +1,9 @@
 import { prisma } from "@fairy/database";
-import type { BorrowErrorCode, ReturnErrorCode } from "@fairy/shared";
+import type {
+  BorrowErrorCode,
+  RentalListItem,
+  ReturnErrorCode,
+} from "@fairy/shared";
 
 export type BorrowResult =
   | { ok: true; rentalId: string; remainingStock: number }
@@ -94,5 +98,29 @@ export async function listActiveRentals(userId: string): Promise<ActiveRental[]>
     movieId: rental.movieId,
     movieTitle: rental.movie.title,
     createdAt: rental.createdAt.toISOString(),
+  }));
+}
+
+export interface RentalListOptions {
+  status?: "ACTIVE";
+}
+
+export async function listRentals(
+  userId: string,
+  opts: RentalListOptions = {}
+): Promise<RentalListItem[]> {
+  const rentals = await prisma.rental.findMany({
+    where: { userId, ...(opts.status ? { status: opts.status } : {}) },
+    include: { movie: { select: { title: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return rentals.map((rental) => ({
+    rentalId: rental.id,
+    movieId: rental.movieId,
+    movieTitle: rental.movie.title,
+    status: rental.status,
+    borrowedAt: rental.createdAt.toISOString(),
+    returnedAt: rental.status === "RETURNED" ? rental.updatedAt.toISOString() : null,
   }));
 }

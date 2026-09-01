@@ -10,6 +10,8 @@
   "chat.placeholder": "和 Fairy 说点什么吧...",
   "chat.send": "发送",
   "chat.borrow": "借阅",
+  "chat.return": "归还",
+  "chat.myRentals": "我的借阅",
   "chat.stock": "库存",
   "chat.empty": "说说心情或场景，例如「雨天」。",
   "chat.error": "对话失败，请确认 API 已启动。",

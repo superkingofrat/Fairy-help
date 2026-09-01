@@ -25,6 +25,7 @@ router.post("/", validateBody(chatRequestSchema), async (req, res, next) => {
       userId,
       message: body.message,
       movieId: body.movieId,
+      action: body.action,
     });
 
     for (const text of result.texts) {

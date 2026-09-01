@@ -4,6 +4,7 @@ export interface ChatRequest {
   message: string;
   movieId?: string;
   sessionId?: string;
+  action?: "return";
 }
 
 export interface TextSseEvent {

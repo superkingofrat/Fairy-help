@@ -19,4 +19,27 @@ describe("chatRequestSchema", () => {
     const result = chatRequestSchema.safeParse({ message: "", movieId: "not-a-uuid" });
     expect(result.success).toBe(false);
   });
+
+  it("accepts action return with movieId", () => {
+    const result = chatRequestSchema.safeParse({
+      message: "",
+      movieId: "550e8400-e29b-41d4-a716-446655440000",
+      action: "return",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects action return without movieId", () => {
+    const result = chatRequestSchema.safeParse({ message: "", action: "return" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects an unknown action value", () => {
+    const result = chatRequestSchema.safeParse({
+      message: "",
+      movieId: "550e8400-e29b-41d4-a716-446655440000",
+      action: "borrow",
+    });
+    expect(result.success).toBe(false);
+  });
 });
