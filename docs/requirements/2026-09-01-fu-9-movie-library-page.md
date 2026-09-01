@@ -1,7 +1,7 @@
 # FU-9 影片库浏览页（直接借阅）
 
-**Date:** 2026-09-01（grill-me 收敛：2026-09-01）
-**Status:** draft
+**Date:** 2026-09-01（grill-me 收敛：2026-09-01；批准：2026-09-01）
+**Status:** approved
 **Complexity:** low（web-only，零后端改动）
 
 ## Goal

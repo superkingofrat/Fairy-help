@@ -49,6 +49,7 @@
 
 ## Next Steps（下一步）
 
+- FU-9 影片库浏览页（直接借阅）— **需求已批准**：[2026-09-01-fu-9-movie-library-page.md](docs/requirements/2026-09-01-fu-9-movie-library-page.md)（2026-09-01 grill-me 收敛四项决策：独立 /movies 页 / REST 借阅 / 分页+筛选+搜索 / 已借标记归还留 chat）；待 `/opsx:propose`
 - FU-7 Session 表与对话历史回放
 - （FU 外挂账）登录限速；注册/建号流程；refresh token
 

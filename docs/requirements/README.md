@@ -4,7 +4,7 @@ Structured requirement docs produced by grill-me sessions. Each doc feeds OpenSp
 
 | Date | Feature | Status | Doc |
 |---|---|---|---|
-| 2026-09-01 | FU-9 影片库浏览页（直接借阅） | draft | [2026-09-01-fu-9-movie-library-page.md](./2026-09-01-fu-9-movie-library-page.md) |
+| 2026-09-01 | FU-9 影片库浏览页（直接借阅） | approved | [2026-09-01-fu-9-movie-library-page.md](./2026-09-01-fu-9-movie-library-page.md) |
 | 2026-08-31 | FU-6 REST `POST /api/borrow` | approved | [2026-08-31-fu-6-rest-borrow.md](./2026-08-31-fu-6-rest-borrow.md) |
 | 2026-08-30 | FU-5 真实 JWT 认证（仅登录） | approved | [2026-08-30-fu-5-jwt-auth.md](./2026-08-30-fu-5-jwt-auth.md) |
 | 2026-08-29 | FU-8 一键归还 UI（含 rentals 查询端点） | approved | [2026-08-29-fu-8-return-button-ui.md](./2026-08-29-fu-8-return-button-ui.md) |
