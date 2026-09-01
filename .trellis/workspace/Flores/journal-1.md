@@ -281,3 +281,55 @@ Delivered FU-6 end to end: POST /api/borrow sharing the borrowMovieTool transact
 ### Status
 
 [OK] **Completed**
+
+
+## Session 7: Session 7: FU-8 one-click return UI delivery and archive
+
+**Date**: 2026-09-01
+**Task**: Session 7: FU-8 one-click return UI delivery and archive
+**Branch**: `master`
+
+### Summary
+
+Delivered FU-8 end to end: one-click return UI (GET /api/rentals + chat action deterministic return + rentals strip/card toggle). Acceptance passed; archive completed with movie-rental main spec sync.
+
+### Main Changes
+
+### Summary
+
+Delivered FU-8 end to end: one-click return UI — `GET /api/rentals` query endpoint + chat `action: "return"` deterministic path + chat page rentals strip / card borrow-return toggle. Acceptance passed; archive completed with movie-rental main spec sync.
+
+### Main Changes
+
+### 改动
+
+- **FU-8 一键归还 UI**：`GET /api/rentals`（Bearer-only、本人或 admin `?userId=` 代查、`?status=ACTIVE` 过滤、行形状含 `movieTitle`、403/404/400/401 错误映射、无分页）；chat 请求新增 `action: "return"` + `movieId`（refine 强制成对，缺一 400）确定性归还——绕过 LLM 意图分类，直接复用 `returnMovieTool` + `synthesize` 归还分支，**零新增回复逻辑**，与文本「还 X」共用同一事务与日志；chat 页「我的借阅」条（空态整条隐藏）+ 推荐卡片借/还切换（归还按钮 stock=0 也可用）；SSE `return` 成功乐观移除 / 失败刷新。
+- **测试**：shared 3（action 校验）、api 11（rentals 8 + chat 3）、web 5（条渲染/隐藏、归还点击载荷、卡片切换）；19/19 任务勾选。
+- **文档**：API_CONTRACT §3.7 请求体加 `action` 字段 + §3.11 GET /api/rentals + §4 错误码「未来 REST」标注修正；ARCHITECTURE §5.5 一键归还路径 + §8 新增「租借记录只有只读查询端口」决策。
+- **归档**：主 spec `movie-rental` 同步新增 3 个 ADDED 需求（Rental list queryable / One-click return deterministic / Chat page surfaces active rentals，共 9 scenarios 全保）；change dir 移入 `archive/2026-09-01-fu-8-return-button-ui`；PROJECT_STATUS 更新（FU-8 → Completed 顶部，Next Steps 剩 FU-7/挂账）。
+
+### 验证
+
+- 四包测试全绿（shared 21 / api 107 / web 23）+ 三包 typecheck + `openspec validate` 通过。
+- 真机验收点 AC-1~AC-6（条显示/隐藏、归还确认+库存回补、卡片借还切换、重复归还道歉无 500、admin 代查、REST 借入后按钮还与文本还共用日志）——用户已验收通过。
+
+### 踩坑（下次直接避）
+
+1. **archive 同步 delta spec 别用 `tail -n +4` 接**——`## ADDED Requirements` + 空行占 3 行，需求标题在第 3 行，`+4` 会把第一段需求标题吃掉，正文和 scenarios 变成无头孤儿段。append 后立刻 `grep -n '^### Requirement'` 对账需求头数量（本次 7 → 应为 8，已补回）。
+
+### 下一步
+
+- FU-7 Session 历史；FU-9 影片库浏览页 + 直接借阅（grill-me 已开启）。
+- 挂账：登录限速；注册/建号流程；refresh token；种子固定密码上线前必须改密。
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3e363df` | (see git log) |
+| `a8ea7cd` | (see git log) |
+
+### Status
+
+[OK] **Completed**

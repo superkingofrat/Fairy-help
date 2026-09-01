@@ -6,11 +6,13 @@
 
 **Development（开发中）**
 
-> Monorepo 脚手架、影片库 CRUD MVP、Phase 2 Agent 推荐与借阅、FU-1 画像写接口与管理 CRUD、FU-2 真实 LLM 意图与回复、FU-3 行为流水查询与管理页、FU-4 归还（聊天文本）、FU-5 真实 JWT 认证、FU-6 REST 借阅已交付。后续为 FU-8、FU-7。
+> Monorepo 脚手架、影片库 CRUD MVP、Phase 2 Agent 推荐与借阅、FU-1 画像写接口与管理 CRUD、FU-2 真实 LLM 意图与回复、FU-3 行为流水查询与管理页、FU-4 归还（聊天文本）、FU-5 真实 JWT 认证、FU-6 REST 借阅、FU-8 一键归还 UI 已交付。后续为 FU-7。
 
 ---
 
 ## Completed Modules（已完成模块）
+
+- **FU-8 一键归还 UI（含 rentals 查询端点）**（2026-09-01）— `GET /api/rentals`（Bearer-only、本人或 admin `?userId=` 代查、`?status=ACTIVE` 过滤、`RentalListItem` 行形状含 `movieTitle`、403/404/400/401 错误映射、无分页）；chat 请求 `action: "return"` + `movieId` 确定性归还（绕过 LLM 意图分类、直接复用 `returnMovieTool` + synthesize，无新增回复分支）；chat 页「我的借阅」条（空态整条隐藏）+ 推荐卡片借/还切换（归还按钮在 stock=0 时也可用）；SSE `return` 成功乐观移除/失败刷新；需求：[2026-08-29-fu-8-return-button-ui.md](docs/requirements/2026-08-29-fu-8-return-button-ui.md)；OpenSpec 归档：[2026-09-01-fu-8-return-button-ui](openspec/changes/archive/2026-09-01-fu-8-return-button-ui/)
 
 - **FU-6 REST 借阅接口**（2026-09-01）— `POST /api/borrow`（Bearer-only、body `{ movieId }`、借阅人=token subject、body 内 `userId` 忽略、201/404 `MOVIE_NOT_FOUND`/409 `ALREADY_BORROWED`/409 `OUT_OF_STOCK`/400 `VALIDATION_ERROR`/401）、直接复用 `borrowMovieTool` 同一事务+行为日志组合（无第二套借阅实现）、7 个路由测试、共享 `borrowRequestSchema`；需求：[2026-08-31-fu-6-rest-borrow.md](docs/requirements/2026-08-31-fu-6-rest-borrow.md)；OpenSpec 归档：[2026-09-01-fu-6-rest-borrow](openspec/changes/archive/2026-09-01-fu-6-rest-borrow/)
 
@@ -47,7 +49,6 @@
 
 ## Next Steps（下一步）
 
-- FU-8 一键归还 UI（含 rentals 查询端点）— **需求已批准**：[2026-08-29-fu-8-return-button-ui.md](docs/requirements/2026-08-29-fu-8-return-button-ui.md)（2026-09-01 grill-me 收敛四项决策）；待 `/opsx:propose`
 - FU-7 Session 表与对话历史回放
 - （FU 外挂账）登录限速；注册/建号流程；refresh token
 
