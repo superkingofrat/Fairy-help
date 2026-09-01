@@ -441,6 +441,18 @@ describe("synthesize trip planning (FU-13)", () => {
     expect(result.trip).toBeUndefined();
   });
 
+  it("declines trip planning for non-agent identities without a trip event", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const result = await synthesize(
+      { kind: "trip", success: false, unresolved: false, trip: null, code: "TRIP_FORBIDDEN" },
+      { message: "帮我规划周末去北京玩", profile: null }
+    );
+
+    expect(result.texts[0].content).toContain("不是我的专长");
+    expect(result.trip).toBeUndefined();
+  });
+
   it("degrades to an apology when the trip tool fails", async () => {
     vi.mocked(llmClient.tryChat).mockResolvedValue(null);
 

@@ -16,6 +16,11 @@ export async function runChatTurn(input: {
   history?: string;
   role?: Role;
 }): Promise<SynthesizedResponse> {
+  // 画像一次查询：dispatch（行程身份门禁）与 synthesize（回复人设）共用
+  const profile: Profile | null = await profileService
+    .getByUserId(input.userId)
+    .catch(() => null);
+
   if (input.action === "return" && input.movieId) {
     const result = await returnMovieTool({
       userId: input.userId,
@@ -37,9 +42,6 @@ export async function runChatTurn(input: {
             rentalId: null,
             code: result.error ?? "INTERNAL_ERROR",
           };
-    const profile: Profile | null = await profileService
-      .getByUserId(input.userId)
-      .catch(() => null);
     return synthesize(observation, {
       message: input.message,
       profile,
@@ -53,10 +55,13 @@ export async function runChatTurn(input: {
     history: input.history,
   });
   const planned = plan(intent);
-  const observation = await dispatch(planned, input.userId, input.role, input.message);
-  const profile: Profile | null = await profileService
-    .getByUserId(input.userId)
-    .catch(() => null);
+  const observation = await dispatch(
+    planned,
+    input.userId,
+    input.role,
+    input.message,
+    profile
+  );
 
   if (observation.kind === "none" && observation.reason === "return_unresolved") {
     const activeRentals = await rentalService.listActiveRentals(input.userId).catch(() => []);

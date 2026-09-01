@@ -254,6 +254,15 @@ export async function synthesize(
   }
 
   if (observation.kind === "trip") {
+    // 非代理人（绳匠/其他用户）请求行程规划：仅影片服务，婉拒并引导推荐
+    if (observation.code === "TRIP_FORBIDDEN") {
+      const template =
+        "行程规划可不是我的专长哦，不过如果你想找旅行或目的地相关的片子，我可以帮你推荐几部。";
+      const facts =
+        "用户（非代理人）请求规划行程，已婉拒：行程规划不在门店服务范围；应表示这不是专长，并引导推荐影片。";
+      const text = (await generateReply(context, facts)) ?? template;
+      return { texts: [{ content: text }] };
+    }
     if (observation.unresolved) {
       const template = "想去哪儿玩呀？告诉我一个目的地（比如城市名），我来帮你规划。";
       const facts = "用户请求规划行程但未能确定目的地；应引导用户说出目的地。";

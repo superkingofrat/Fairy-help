@@ -4,7 +4,7 @@ import { returnMovieTool } from "../tools/returnMovieTool";
 import { storeInsightTool } from "../tools/storeInsightTool";
 import { planTripTool } from "../tools/planTripTool";
 import type { PlannedCall } from "./planner";
-import type { Movie, StoreInsightsOverview, InsightTopic, TripResult } from "@fairy/shared";
+import type { Movie, StoreInsightsOverview, InsightTopic, TripResult, Profile } from "@fairy/shared";
 import type { Role } from "../middleware/auth";
 
 export type ToolObservation =
@@ -47,7 +47,8 @@ export async function dispatch(
   plan: PlannedCall,
   userId: string,
   role: Role = "user",
-  message?: string
+  message?: string,
+  profile: Profile | null = null
 ): Promise<ToolObservation> {
   if (plan.tool === "recommend") {
     const result = await recommendMovieTool({
@@ -132,6 +133,16 @@ export async function dispatch(
   }
 
   if (plan.tool === "trip") {
+    // 行程规划仅对代理人「铃」开放；其余身份（绳匠、其他用户）仅影片服务，不调用工具
+    if (profile?.name !== "铃") {
+      return {
+        kind: "trip",
+        success: false,
+        unresolved: false,
+        trip: null,
+        code: "TRIP_FORBIDDEN",
+      };
+    }
     const result = await planTripTool({ userId, message: message ?? "" });
     if (!result.success) {
       return {

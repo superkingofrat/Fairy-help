@@ -680,3 +680,8 @@ Delivered FU-13 travel planning phase 1: chat trip generation. `plan_trip` inten
 ### Status
 
 [OK] **Completed**
+
+### 补充（Session 13 行为修正）
+
+- **身份分流**：用户明确两个身份定义不同——「铃」（画像名 `铃`，seed `user@fairy.local`）享受全能管家服务，行程规划直接执行并呈现；其余身份（绳匠 admin、其他用户）仅影片服务，行程规划婉拒（"不是我的专长"）并引导推荐影片。实现：`dispatch` trip 分支按画像名门禁（非「铃」不调用 `planTripTool`，返回 `TRIP_FORBIDDEN`），`stateLoop` 画像查询提前一次供 dispatch/synthesize 共用；`responseSynthesizer` trip 分支处理 `TRIP_FORBIDDEN`（模板 + facts，无 `trip` 事件）。真机复验：admin 问北京行程 → 婉拒转影片 + 无 trip 事件；铃 → 完整行程 + trip 事件。
+- **回复人设**：`REPLY_SYSTEM_PROMPT` 由"录像带门店的 AI 助理"改为"绳匠的全能管家"——行程规划好直接呈现，绝不说"不是我的专长"，绝不转而推荐影片（修复模型把行程规划当职责外而推诿的问题）。测试：toolDispatcher +4、responseSynthesizer +1，api 211 全绿。
