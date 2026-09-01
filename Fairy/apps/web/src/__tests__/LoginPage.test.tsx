@@ -9,7 +9,7 @@ vi.mock("../lib/authApi");
 
 afterEach(() => {
   cleanup();
-  useAuthStore.setState({ token: null, user: null });
+  useAuthStore.setState({ token: null, refreshToken: null, user: null });
 });
 
 describe("LoginPage", () => {
@@ -20,6 +20,7 @@ describe("LoginPage", () => {
   it("submits credentials and stores the session", async () => {
     vi.mocked(authApi.login).mockResolvedValue({
       token: "t",
+      refreshToken: "rt",
       user: { id: "00000000-0000-4000-8000-000000000001", email: "user@fairy.local", role: "user" },
     });
 
@@ -37,6 +38,7 @@ describe("LoginPage", () => {
       expect(authApi.login).toHaveBeenCalledWith("user@fairy.local", "user123456");
     });
     expect(useAuthStore.getState().token).toBe("t");
+    expect(useAuthStore.getState().refreshToken).toBe("rt");
     expect(useAuthStore.getState().user?.role).toBe("user");
   });
 

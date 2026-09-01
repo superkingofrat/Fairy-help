@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import { rateLimit } from "express-rate-limit";
 import { authMiddleware } from "./middleware/auth";
 import { authRouter } from "./routes/auth";
 import { borrowRouter } from "./routes/borrow";
@@ -10,6 +11,10 @@ import { profilesRouter } from "./routes/profiles";
 import { behaviorLogsRouter } from "./routes/behaviorLogs";
 import { chatRouter } from "./routes/chat";
 import { sessionsRouter } from "./routes/sessions";
+
+function tooManyRequests(_req: express.Request, res: express.Response): void {
+  res.status(429).json({ code: "TOO_MANY_REQUESTS", data: null, msg: "尝试过于频繁，请稍后再试" });
+}
 
 export function createApp(): express.Application {
   const app = express();
@@ -22,6 +27,24 @@ export function createApp(): express.Application {
     res.json({ code: "OK", data: { status: "healthy" }, msg: "ok" });
   });
 
+  // 限流器在 createApp() 内创建，保证测试隔离；生产部署在反向代理后须设置 trust proxy
+  const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: tooManyRequests,
+  });
+  const registerLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    limit: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: tooManyRequests,
+  });
+
+  app.use("/api/auth/login", loginLimiter);
+  app.use("/api/auth/register", registerLimiter);
   app.use("/api/auth", authRouter);
   app.use("/api/movies", authMiddleware, moviesRouter);
   app.use("/api/borrow", authMiddleware, borrowRouter);

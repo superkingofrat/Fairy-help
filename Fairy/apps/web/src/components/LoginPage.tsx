@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { login } from "../lib/authApi";
 import { useAuthStore } from "../stores/authStore";
 import { t } from "../lib/i18n";
@@ -18,8 +18,8 @@ export function LoginPage(): JSX.Element {
     setSubmitting(true);
 
     try {
-      const { token, user } = await login(email.trim(), password);
-      setSession(token, user);
+      const { token, refreshToken, user } = await login(email.trim(), password);
+      setSession(token, user, refreshToken);
       navigate(user.role === "admin" ? "/admin/movies" : "/chat");
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : t("login.error"));
@@ -63,6 +63,12 @@ export function LoginPage(): JSX.Element {
             {submitting ? t("login.submitting") : t("login.submit")}
           </button>
         </form>
+
+        <p className="mt-4 text-center text-sm text-slate-500">
+          <Link to="/register" className="text-indigo-600 hover:text-indigo-700">
+            {t("login.registerLink")}
+          </Link>
+        </p>
       </div>
     </div>
   );

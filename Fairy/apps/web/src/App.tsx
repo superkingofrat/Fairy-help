@@ -5,6 +5,8 @@ import { BehaviorPage } from "./components/admin/BehaviorPage";
 import { ChatPage } from "./components/chat/ChatPage";
 import { MovieLibraryPage } from "./components/library/MovieLibraryPage";
 import { LoginPage } from "./components/LoginPage";
+import { RegisterPage } from "./components/RegisterPage";
+import { logout } from "./lib/authApi";
 import { useAuthStore } from "./stores/authStore";
 import { t } from "./lib/i18n";
 
@@ -23,9 +25,17 @@ function RequireAuth({ children, role }: { children: JSX.Element; role?: "admin"
 
 function HeaderNav(): JSX.Element {
   const user = useAuthStore((state) => state.user);
+  const refreshToken = useAuthStore((state) => state.refreshToken);
   const clear = useAuthStore((state) => state.clear);
 
   const linkClass = "text-slate-600 hover:text-indigo-600";
+
+  function handleLogout(): void {
+    if (refreshToken) {
+      void logout(refreshToken);
+    }
+    clear();
+  }
 
   return (
     <nav className="flex items-center gap-4 text-sm">
@@ -55,18 +65,21 @@ function HeaderNav(): JSX.Element {
           ) : null}
           <button
             type="button"
-            onClick={() => {
-              clear();
-            }}
+            onClick={handleLogout}
             className="text-slate-500 hover:text-indigo-600"
           >
             {t("nav.logout")}
           </button>
         </>
       ) : (
-        <Link to="/login" className={linkClass}>
-          {t("nav.login")}
-        </Link>
+        <>
+          <Link to="/login" className={linkClass}>
+            {t("nav.login")}
+          </Link>
+          <Link to="/register" className={linkClass}>
+            {t("nav.register")}
+          </Link>
+        </>
       )}
     </nav>
   );
@@ -96,6 +109,7 @@ export function App(): JSX.Element {
             }
           />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
           <Route
             path="/chat"
             element={

@@ -12,7 +12,7 @@ vi.mock("../lib/rentalsApi");
 
 afterEach(() => {
   cleanup();
-  useAuthStore.setState({ token: null, user: null });
+  useAuthStore.setState({ token: null, refreshToken: null, user: null });
   window.history.pushState({}, "", "/");
 });
 
@@ -82,6 +82,12 @@ describe("App", () => {
     window.history.pushState({}, "", "/admin/movies");
     render(<App />);
     expect(screen.getByText("登录 Fairy")).toBeDefined();
+  });
+
+  it("renders the register page at /register without authentication", () => {
+    window.history.pushState({}, "", "/register");
+    render(<App />);
+    expect(screen.getByText("注册 Fairy 账号")).toBeDefined();
   });
 });
 

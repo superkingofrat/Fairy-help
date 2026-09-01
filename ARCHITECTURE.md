@@ -126,6 +126,7 @@ Fairy 是一个由 LLM 驱动的智能体，通过一个闭环操作真实的业
 - 所有聊天流量都经由 `/api/chat`。客户端不得直接调用工具。
 - 领域路由面向管理/维护 UI，而非 agent 逻辑。
 - 认证（FU-5 起）：`POST /api/auth/login` 签发 HS256 JWT（12h），`authMiddleware` 只认 `Authorization: Bearer` 并注入 `userId`/`role`；dev stub（`X-Dev-Role`/`Bearer dev-*`）已移除。`JWT_SECRET` 缺失时 API 拒绝启动。密码以 bcrypt 哈希存储。
+- 账号闭环（FU-10 起）：`POST /api/auth/register` 自助注册（仅 `user` 角色，bcrypt cost 10）；`POST /api/auth/login` 与 `/register` 成功后随 access token 一并签发 **refresh token**（30 天，DB 只存 sha256 哈希），`POST /api/auth/refresh` 旋转（旧 token 置 `revokedAt` + `replacedByTokenId`，复用已吊销 token 触发该用户全部 refresh token 吊销），`POST /api/auth/logout` 吊销。登录/注册端点按 IP 限流（express-rate-limit，限流器在 `createApp()` 内创建）。
 
 ### 3.3 智能体编排层（`apps/api/src/agent/`）
 
@@ -506,6 +507,9 @@ interface AgentState {
 | 会话落库为旁路（side-channel） | `appendTurn` 在 SSE 响应前执行但失败仅记日志、不中断流；可观测性损失而非功能损失，保证持久化故障不阻塞对话。 |
 | 会话标题由首条消息派生 | 新建会话标题为空，首次落库时取首条非空用户消息前 20 字；避免创建会话时的额外输入步骤。 |
 | 历史注入为纯文本旁路（`TODO(memory-center)`） | 最近 10 条消息以「用户/Fairy」文本注入 intent + 合成 prompt；不注入 `payload` 结构化事件。memory-center 实现后迁移（AGENTS §6 临时内联查询已登记技术债）。 |
+| 登录/注册按 IP 限流 | express-rate-limit，login 10 次/15 分钟、register 20 次/小时；限流器在 `createApp()` 内创建保证测试隔离。生产反代后须启用 trust proxy（见 API_CONTRACT §3.0）。 |
+| refresh token 旋转 + 复用吊销 | DB 只存 sha256 哈希（不明文）；旋转时旧 token 置 `revokedAt` + `replacedByTokenId`，检测到复用已吊销 token 即吊销该用户全部 refresh token，压缩 token 泄露窗口。 |
+| 前端 401 单飞刷新 | 共享 in-flight refresh promise，并发 401 只发一次 `/auth/refresh`，成功后重试原请求；刷新失败才清登录并跳转。SSE（chatApi）保持直连 401 → 清登录，不引入流中断重试。 |
 
 ---
 

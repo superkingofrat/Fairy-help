@@ -64,19 +64,40 @@ interface Profile {
 
 ## 3. 端点
 
-### 3.0 认证（FU-5）
+### 3.0 认证（FU-5 / FU-10）
 
 **POST** `/auth/login` — **Public**
 
-请求体 `{ email, password }`；成功返回 `{ code, data: { token, user: { id, email, role } } }`。`token` 为 HS256 JWT（payload `{ userId, role }`，12h 过期）。凭证错误（密码错/邮箱不存在）统一返回 401 `UNAUTHORIZED`，不区分原因。
+请求体 `{ email, password }`；成功返回 `{ code, data: { token, refreshToken, user: { id, email, role } } }`。`token` 为 HS256 JWT（payload `{ userId, role }`，12h 过期）；`refreshToken` 为不透明随机令牌（30 天有效，仅可用于 `/auth/refresh`）。凭证错误（密码错/邮箱不存在）统一返回 401 `UNAUTHORIZED`，不区分原因。
+
+**POST** `/auth/register` — **Public**（FU-10）
+
+请求体 `{ email, password }`（password 6–72 字符）；密码 bcrypt(cost 10) 存储，注册用户角色恒为 `user`（admin 仅经 seed 创建，不开放注册）。注册成功即登录：201 `{ code, data: { token, refreshToken, user } }`，与 `/auth/login` 同形状。不自动创建 Profile。
+
+**POST** `/auth/refresh` — **Public**（FU-10）
+
+请求体 `{ refreshToken }`。校验通过后**旋转**：旧 token 立即失效（`revokedAt` + 记录 `replacedByTokenId`），返回新的一对 `{ code, data: { token, refreshToken, user } }`。**复用检测**：已吊销/已替换的 token 再次出现 → 401 `INVALID_REFRESH_TOKEN`，并吊销该用户全部 refresh token（强制重新登录）。过期/不存在的 token 同样 401。
+
+**POST** `/auth/logout` — **Public**（FU-10）
+
+请求体 `{ refreshToken }`；吊销该 token（幂等，未知 token 也返回 200）。access token 不做服务端吊销，自然过期。
 
 **GET** `/auth/me` — 需认证
 
 返回当前 token 对应的用户摘要 `{ id, email, role }`；token 无效/过期 → 401。
 
+#### 限流（FU-10）
+
+登录与注册按 IP 限流（默认不信任代理，生产部署在反向代理后须启用 trust proxy）：
+
+| 端点 | 窗口 | 上限 | 超限响应 |
+|---|---|---|---|
+| `POST /auth/login` | 15 分钟 | 10 次 | 429 `TOO_MANY_REQUESTS` |
+| `POST /auth/register` | 1 小时 | 20 次 | 429 `TOO_MANY_REQUESTS` |
+
 #### 认证约定（FU-5 起）
 
-- 除 `/health` 与 `/auth/login` 外，所有端点都需要 `Authorization: Bearer <jwt>`。
+- 除 `/health` 与 `/auth/login`、`/auth/register`、`/auth/refresh`、`/auth/logout` 外，所有端点都需要 `Authorization: Bearer <jwt>`。
 - dev auth stub（`X-Dev-Role` 头 / `Bearer dev-<role>`）已**移除**，携带者一律 401。
 - 角色语义不变：admin-only 端点对 user 角色 403 `FORBIDDEN`；chat 说话人 = token 中的 userId。
 
@@ -689,6 +710,9 @@ Authorization: Bearer <jwt>
 | `RENTAL_NOT_FOUND` | SSE `return` | 该用户没有进行中的这笔借阅（未借先还/重复归还）。 |
 | `SESSION_NOT_FOUND` | 404 | 会话不存在（FU-7 起）。 |
 | `SESSION_FORBIDDEN` | 403 | 会话属于其他用户（FU-7 起）。 |
+| `EMAIL_ALREADY_EXISTS` | 409 | 注册邮箱已存在（FU-10 起）。 |
+| `INVALID_REFRESH_TOKEN` | 401 | refresh token 无效/过期/已吊销（FU-10 起）。 |
+| `TOO_MANY_REQUESTS` | 429 | 登录或注册频率超限（FU-10 起）。 |
 | `INTERNAL_ERROR` | 500 | 未处理的服务器错误。 |
 
 ---

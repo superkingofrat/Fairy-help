@@ -43,18 +43,35 @@ enum ChatRole {
 }
 
 model User {
-  id           String        @id @default(uuid())
-  email        String        @unique
-  role         String        @default("user")
-  passwordHash String @default("")
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id           String         @id @default(uuid())
+  email        String         @unique
+  role         String         @default("user")
+  passwordHash String         @default("")
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
   profile      Profile?
   rentals      Rental[]
   behaviorLogs BehaviorLog[]
   sessions     Session[]
+  refreshTokens RefreshToken[]
 
   @@map("users")
+}
+
+// FU-10：refresh token 只存 sha256 哈希，明文仅在签发时返回一次
+model RefreshToken {
+  id                String        @id @default(uuid())
+  tokenHash         String        @unique
+  userId            String
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt         DateTime
+  revokedAt         DateTime?
+  replacedByTokenId String?
+  createdAt         DateTime      @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
 }
 
 model Movie {

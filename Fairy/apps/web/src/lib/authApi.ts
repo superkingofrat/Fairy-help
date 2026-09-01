@@ -1,44 +1,36 @@
 import type { AuthUser } from "@fairy/shared";
+import { rawRequest, refreshSession, type AuthSessionData } from "./http";
 
-const API_BASE = import.meta.env.VITE_API_URL ?? "";
-
-interface ApiResponse<T> {
-  code: string;
-  data: T;
-  msg: string;
-}
-
-export interface LoginResult {
-  token: string;
-  user: AuthUser;
-}
+export type LoginResult = AuthSessionData;
 
 export async function login(email: string, password: string): Promise<LoginResult> {
-  const response = await fetch(`${API_BASE}/api/auth/login`, {
+  return rawRequest<LoginResult>("/api/auth/login", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
+}
 
-  const payload = (await response.json().catch(() => null)) as ApiResponse<LoginResult> | null;
+export async function register(email: string, password: string): Promise<LoginResult> {
+  return rawRequest<LoginResult>("/api/auth/register", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+}
 
-  if (!response.ok || !payload || payload.code !== "OK") {
-    throw new Error(payload?.msg ?? `Login failed (${response.status})`);
-  }
+export async function logout(refreshToken: string): Promise<void> {
+  // 尽力而为：本地已登出，即使撤销失败也不阻塞用户
+  await rawRequest<null>("/api/auth/logout", {
+    method: "POST",
+    body: JSON.stringify({ refreshToken }),
+  }).catch(() => null);
+}
 
-  return payload.data;
+export function refresh(refreshToken: string): Promise<AuthSessionData | null> {
+  return refreshSession(refreshToken);
 }
 
 export async function fetchMe(token: string): Promise<AuthUser> {
-  const response = await fetch(`${API_BASE}/api/auth/me`, {
+  return rawRequest<AuthUser>("/api/auth/me", {
     headers: { Authorization: `Bearer ${token}` },
   });
-
-  const payload = (await response.json().catch(() => null)) as ApiResponse<AuthUser> | null;
-
-  if (!response.ok || !payload || payload.code !== "OK") {
-    throw new Error(payload?.msg ?? `Session restore failed (${response.status})`);
-  }
-
-  return payload.data;
 }
