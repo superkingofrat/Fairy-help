@@ -568,3 +568,64 @@ Delivered FU-11 end to end: admin-only `GET /api/insights/overview` aggregation 
 ### Status
 
 [OK] **Completed**
+
+
+## Session 12: FU-12 store insight chat tool (storeInsightTool + admin-gated chat Q&A) delivery and archive
+
+**Date**: 2026-09-01
+**Task**: FU-12 store insight chat tool (storeInsightTool + admin-gated chat Q&A) delivery and archive
+**Branch**: `master`
+
+### Summary
+
+Session summary was not supplied.
+
+### Main Changes
+
+### Summary
+
+Delivered FU-12 storeInsightTool chat Q&A (Trellis track): admin can ask store metrics in chat (popular movies / trend / inventory / mood-scene / activity / overview), reusing FU-11 `insightService.getStoreInsightsOverview()` with topic slicing in the synthesizer; non-admin gets a friendly denial without the tool being called. Shared `insightTopicSchema` added.
+
+### 改动
+
+- **意图层**：`ChatIntent` 新增 `store_insight`（含 `topic`）；LLM 提示词加口语映射示例；规则兜底 `classifyStoreInsightByRules`（最火/热门→popular，库存/缺货→inventory，趋势/最近借阅→trend，心情/场景→mood_scene，活跃/注册→activity，店况/运营/数据→overview）；借/还分支内嵌 insight 判定（「最近借阅情况」不误判 borrow）。
+- **规则优先（真机偏差）**：真机验收发现 deepseek 模型对严格 JSON 输出不可靠（偶发 177~200 token 自创 schema 长文本），「最近什么片最火」被误判 chitchat，规则兜底轮不到。改为 `classifyIntent` 先跑规则，命中 store_insight 即返回（不调 LLM）；其余意图仍 LLM 优先。已记入 ARCHITECTURE §8 决策行。
+- **执行层**：`planner` 映射 `{ tool: "insight", topic }`；`dispatch` admin 门禁（非 admin 不调用工具，直接 `FORBIDDEN` observation，role 默认 "user" 保守）；`stateLoop`/`routes/chat` 透传 role。
+- **合成层**：`responseSynthesizer` insight 分支按 topic 构造【事实】+ LLM 生成（兜底模板）；forbidden/失败降级文案；空态（无热门数据/无趋势）处理。
+- **共享**：`insightTopicSchema`（zod enum popular|trend|inventory|mood_scene|activity|overview）+ 导出 + 测试。
+- **文档**：`docs/tools.md` 工具注册表填充；ARCHITECTURE §5.8 数据流 + §8 决策 + §9 映射；PROJECT_STATUS In Progress→验收通过。
+- 测试：api 180（22 文件：intentClassifier 22 / planner 4 / toolDispatcher 6 / responseSynthesizer 含 insight 7 / chat +2）、shared 58 全绿；api/shared/web typecheck 通过。
+
+### 验证
+
+- 真机验收 AC-1~AC-7 全过（双 dev server、admin token 提问）：
+  - admin「最近什么片最火」→「最近最火的是《千与千寻》和《星际穿越》，都借出过两次」；
+  - 「库存怎么样」→ 当前借出数与低库存《123》《海蒂》各剩 1；
+  - 「最近借阅情况怎么样」→ 14 天合计借 7 还 6 + 最近三天明细；
+  - 「最近大家看电影都喜欢什么心情」→ 治愈系第一；
+  - 「最近活跃用户多吗」→ 4 注册/2 活跃/2 新增；
+  - 「店况怎么样」→ 默认 overview 摘要；
+  - user「库存怎么样」→「抱歉呀铃，店里的库存数据不方便透露呢」+ SSE done，diag 确认工具未调用（FORBIDDEN）。
+- Trellis task `09-01-fu-12-store-insight-chat-tool` 已 `task.py archive`（含自动提交）。
+
+### 踩坑（下次直接避）
+
+1. **Git Bash curl 发中文 body 会按 GBK 编码**，服务器收到乱码 → 规则/LLM 全乱，表现为「chitchat 回复 + 莫名 123」。中文请求体必须 `printf > file` 后 `--data-binary @file`（UTF-8），或直接用 node/tsx 脚本发。排查时先怀疑编码，别先改代码。
+2. **后台 dev server 会互相抢 3000 端口**：旧会话的后台任务（pnpm→tsx watch）被 kill 子进程后监督进程会自动 respawn，多个 watch 实例竞争端口 → 改文件后 reload 报 EADDRINUSE，且**看似在跑的 server 可能是旧代码**。清理要用 TaskStop 停任务本体（而非只 kill 子进程），确认监听者创建时间晚于代码改动。
+3. **判断 server 是否载入新代码**：`tsx watch` 的 child 命令行里没有 `watch` 字样；要看父进程 cmdline 含 `tsx watch`。用 usage 日志（`agent.intent` 是否被调）可反推规则优先是否生效。
+4. **模型严格 JSON 不可靠要留确定性后门**：LLM 意图分类对运营问数不可信时，让关键词规则先于 LLM 判定（AC-5 这类确定性验收必须走规则）。
+
+### Status
+
+[OK] **Completed**
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `802e920` | (see git log) |
+
+### Status
+
+[OK] **Completed**
