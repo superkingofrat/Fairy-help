@@ -47,7 +47,7 @@
 
 ## Next Steps（下一步）
 
-- FU-8 一键归还 UI（含 rentals 查询端点）— 从 FU-4 拆分的占位需求：[2026-08-29-fu-8-return-button-ui.md](docs/requirements/2026-08-29-fu-8-return-button-ui.md)；排在 FU-6 之后实施，实施前走一轮 grill-me
+- FU-8 一键归还 UI（含 rentals 查询端点）— **需求已批准**：[2026-08-29-fu-8-return-button-ui.md](docs/requirements/2026-08-29-fu-8-return-button-ui.md)（2026-09-01 grill-me 收敛四项决策）；待 `/opsx:propose`
 - FU-7 Session 表与对话历史回放
 - （FU 外挂账）登录限速；注册/建号流程；refresh token
 
