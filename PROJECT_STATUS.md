@@ -59,7 +59,7 @@
 
 - （挂账）旅行规划（`amapClient`/`planTripTool` 0 行，trips 占位）。
 - （技术债）memory-center（历史注入现为 `TODO(memory-center)` 纯文本旁路）。
-- （挂账）`storeInsightTool` chat 工具接入 agent（FU-11 第一期已交付，管理员可在对话中直接问店内数据）。
+- （挂账→需求已起草，待批准）`storeInsightTool` chat 工具接入 agent（FU-11 第一期已交付；需求：[2026-09-01-store-insight-chat-tool.md](docs/requirements/2026-09-01-store-insight-chat-tool.md)，状态待评审——批准后走 Trellis 轨实现）。
 
 ---
 
