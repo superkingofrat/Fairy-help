@@ -3,6 +3,11 @@ import {
   memoryKindSchema,
   memoryRecordSchema,
   memoryExtractionSchema,
+  memoryListItemSchema,
+  memoryQuerySchema,
+  memoryCreateSchema,
+  memoryUpdateSchema,
+  memoryListFeedSchema,
 } from "./memorySchemas";
 
 describe("memoryKindSchema", () => {
@@ -100,3 +105,150 @@ describe("memoryExtractionSchema", () => {
     ).toBe(false);
   });
 });
+
+describe("memoryQuerySchema", () => {
+  it("coerces numeric defaults and accepts filters", () => {
+    const parsed = memoryQuerySchema.safeParse({
+      page: "2",
+      limit: "50",
+      userId: "00000000-0000-4000-8000-000000000001",
+      kind: "preference",
+      keyword: " 科幻 ",
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.page).toBe(2);
+      expect(parsed.data.limit).toBe(50);
+      expect(parsed.data.keyword).toBe("科幻");
+    }
+  });
+
+  it("defaults page/limit when absent", () => {
+    const parsed = memoryQuerySchema.safeParse({});
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.page).toBe(1);
+      expect(parsed.data.limit).toBe(20);
+    }
+  });
+
+  it("rejects invalid kind or out-of-range limit", () => {
+    expect(memoryQuerySchema.safeParse({ kind: "wish" }).success).toBe(false);
+    expect(memoryQuerySchema.safeParse({ limit: "0" }).success).toBe(false);
+    expect(memoryQuerySchema.safeParse({ limit: "200" }).success).toBe(false);
+  });
+});
+
+describe("memoryListItemSchema", () => {
+  it("accepts a full admin list item", () => {
+    expect(
+      memoryListItemSchema.safeParse({
+        id: "550e8400-e29b-41d4-a716-446655440000",
+        userId: "00000000-0000-4000-8000-000000000001",
+        email: "user@fairy.local",
+        kind: "preference",
+        content: "喜欢科幻片",
+        sessionId: null,
+        createdAt: "2026-09-01T10:00:00Z",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects a non-uuid userId or missing email", () => {
+    expect(
+      memoryListItemSchema.safeParse({
+        id: "x",
+        userId: "not-a-uuid",
+        email: "user@fairy.local",
+        kind: "preference",
+        content: "喜欢科幻片",
+        sessionId: null,
+        createdAt: "2026-09-01T10:00:00Z",
+      }).success,
+    ).toBe(false);
+    expect(
+      memoryListItemSchema.safeParse({
+        id: "x",
+        userId: "00000000-0000-4000-8000-000000000001",
+        kind: "preference",
+        content: "喜欢科幻片",
+        sessionId: null,
+        createdAt: "2026-09-01T10:00:00Z",
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe("memoryListFeedSchema", () => {
+  it("accepts an empty feed with pagination", () => {
+    expect(
+      memoryListFeedSchema.safeParse({
+        items: [],
+        pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+      }).success,
+    ).toBe(true);
+  });
+});
+
+describe("memoryCreateSchema", () => {
+  it("accepts a valid create body", () => {
+    expect(
+      memoryCreateSchema.safeParse({
+        userId: "00000000-0000-4000-8000-000000000001",
+        kind: "fact",
+        content: "家住上海",
+        sessionId: "550e8400-e29b-41d4-a716-446655440001",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("accepts a create body without sessionId", () => {
+    expect(
+      memoryCreateSchema.safeParse({
+        userId: "00000000-0000-4000-8000-000000000001",
+        kind: "fact",
+        content: "家住上海",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects invalid kind, empty content, or non-uuid userId", () => {
+    expect(
+      memoryCreateSchema.safeParse({
+        userId: "00000000-0000-4000-8000-000000000001",
+        kind: "wish",
+        content: "x",
+      }).success,
+    ).toBe(false);
+    expect(
+      memoryCreateSchema.safeParse({
+        userId: "00000000-0000-4000-8000-000000000001",
+        kind: "fact",
+        content: "",
+      }).success,
+    ).toBe(false);
+    expect(
+      memoryCreateSchema.safeParse({
+        userId: "not-a-uuid",
+        kind: "fact",
+        content: "x",
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe("memoryUpdateSchema", () => {
+  it("accepts kind and/or content", () => {
+    expect(memoryUpdateSchema.safeParse({ kind: "intent" }).success).toBe(true);
+    expect(memoryUpdateSchema.safeParse({ content: "新内容" }).success).toBe(true);
+    expect(
+      memoryUpdateSchema.safeParse({ kind: "fact", content: "新内容" }).success,
+    ).toBe(true);
+  });
+
+  it("rejects an empty body or empty content", () => {
+    expect(memoryUpdateSchema.safeParse({}).success).toBe(false);
+    expect(memoryUpdateSchema.safeParse({ content: "" }).success).toBe(false);
+  });
+});
+

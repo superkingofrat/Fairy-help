@@ -76,6 +76,7 @@ describe("App", () => {
     expect(screen.getByRole("link", { name: "影片库" })).toBeDefined();
     expect(screen.getByText("画像管理")).toBeDefined();
     expect(screen.getByText("行为流水")).toBeDefined();
+    expect(screen.getByText("记忆管理")).toBeDefined();
     expect(screen.getByText("运营看板")).toBeDefined();
   });
 
@@ -83,6 +84,23 @@ describe("App", () => {
     window.history.pushState({}, "", "/admin/movies");
     render(<App />);
     expect(screen.getByText("登录 Fairy")).toBeDefined();
+  });
+
+  it("redirects unauthenticated access of the memories admin page to login", () => {
+    window.history.pushState({}, "", "/admin/memories");
+    render(<App />);
+    expect(screen.getByText("登录 Fairy")).toBeDefined();
+  });
+
+  it("redirects non-admin access of the memories admin page to home", async () => {
+    useAuthStore.setState({
+      token: "t",
+      user: { id: "00000000-0000-4000-8000-000000000001", email: "user@fairy.local", role: "user" },
+    });
+    window.history.pushState({}, "", "/admin/memories");
+    render(<App />);
+
+    expect(await screen.findByText(/欢迎使用 Fairy/)).toBeDefined();
   });
 
   it("renders the register page at /register without authentication", () => {

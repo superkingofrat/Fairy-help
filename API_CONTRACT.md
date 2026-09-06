@@ -314,7 +314,7 @@ Authorization: Bearer <jwt>
 
 - 每轮对话 SSE 完成后，服务端后台从本轮（用户消息 + Fairy 回复）抽取值得记住的偏好/事实/意图并落库 `Memory`（按 `profileId` 用户隔离，`sessionId` 可空）；抽取失败静默跳过，对响应零影响。
 - 下一轮回复合成 prompt 注入该用户最近记忆（≤5 条）与近期会话历史；记忆不跨用户泄漏、不改变 SSE 事件形状。
-- 无公开 REST 记忆端点、无新增环境变量；管理 UI 与向量检索为二期候选。
+- 记忆的查看与维护经 admin-only REST `/api/memories`（FU-15 起，见 §3.14）与管理页 `/admin/memories`；向量化检索（pgvector）仍为候选，未引入。
 
 #### 错误响应（非流）
 
@@ -770,6 +770,126 @@ Authorization: Bearer <jwt>
 
 ---
 
+### 3.14 记忆管理 `/api/memories`（FU-15）
+
+Memory 的 admin 管理面 REST 资源。需认证（Bearer）且角色为 admin；user 角色 → 403 `FORBIDDEN`，无 token → 401 `UNAUTHORIZED`。手动新增/编辑/删除的记忆与 FU-14 对话抽取的记忆同表同链路：一经落库即被既有检索（≤5 条注入）使用。管理端点不依赖 LLM 或 embedding，抽取不可用不影响管理面。删除为硬删。
+
+#### 3.14.1 列表
+
+**GET** `/api/memories`
+
+分页列出全部用户记忆，行按 `createdAt` 倒序，条目带所属用户 `email`（经 `Memory.profileId → Profile → User` join；`userId` == `Memory.profileId`）。
+
+#### 查询参数
+
+| 名称 | 类型 | 必填 | 描述 |
+|---|---|---|---|
+| `page` | `number` | 否 | 页码，从 1 开始。默认：`1`。 |
+| `limit` | `number` | 否 | 每页条数。默认：`20`，最大：`100`。 |
+| `userId` | `string` | 否 | 按用户 UUID 过滤（`profileId`）。 |
+| `kind` | `string` | 否 | 按类型过滤：`preference`、`fact`、`intent`。 |
+| `keyword` | `string` | 否 | 匹配 `content` 包含，最长 100。 |
+
+#### 成功响应 — 200 OK
+
+```json
+{
+  "code": "OK",
+  "data": {
+    "items": [
+      {
+        "id": "965d65a1-70df-443f-9a69-7e031968ac20",
+        "userId": "00000000-0000-4000-8000-000000000001",
+        "email": "user@fairy.local",
+        "kind": "preference",
+        "content": "喜欢太空题材科幻片",
+        "sessionId": null,
+        "createdAt": "2026-09-06T13:53:42.634Z"
+      }
+    ],
+    "pagination": { "page": 1, "limit": 20, "total": 1, "totalPages": 1 }
+  },
+  "msg": "查询成功"
+}
+```
+
+#### 错误响应
+
+| 状态 | Code | 场景 |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | 查询参数不合法（含未知 `kind`）。 |
+| 401 | `UNAUTHORIZED` | 未认证。 |
+| 403 | `FORBIDDEN` | 非 admin 角色。 |
+
+#### 3.14.2 创建
+
+**POST** `/api/memories`
+
+admin 为指定用户手动补录记忆。请求体：
+
+```ts
+{
+  userId: string;       // 目标用户 UUID（必须已有 Profile，否则 404）
+  kind: "preference" | "fact" | "intent";
+  content: string;      // 1–2000 字
+  sessionId?: string;   // 可选来源会话
+}
+```
+
+#### 成功响应 — 201 Created
+
+`data` 为落库后的 Memory 记录（`id`/`profileId`/`sessionId`/`kind`/`content`/`metadata`/`createdAt`，`profileId` 即传入的 `userId`）。
+
+#### 错误响应
+
+| 状态 | Code | 场景 |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | 请求体不合法（非法 `kind`、空 `content`、`userId` 非 UUID）。 |
+| 401 | `UNAUTHORIZED` | 未认证。 |
+| 403 | `FORBIDDEN` | 非 admin 角色。 |
+| 404 | `PROFILE_NOT_FOUND` | 目标用户不存在画像。 |
+
+#### 3.14.3 更新
+
+**PATCH** `/api/memories/:id`
+
+admin 部分更新记忆的 `kind` 与/或 `content`（至少一项，`sessionId` 不可改）。
+
+#### 成功响应 — 200 OK
+
+`data` 为更新后的 Memory 记录。
+
+#### 错误响应
+
+| 状态 | Code | 场景 |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | 请求体不合法或空（未提供任何字段）。 |
+| 401 | `UNAUTHORIZED` | 未认证。 |
+| 403 | `FORBIDDEN` | 非 admin 角色。 |
+| 404 | `MEMORY_NOT_FOUND` | 记忆不存在。 |
+
+#### 3.14.4 删除
+
+**DELETE** `/api/memories/:id`
+
+admin 硬删一条记忆（`Memory` 无外键引用，物理删除即可）。行删除后列表与对话注入检索均不再出现。
+
+#### 成功响应 — 200 OK
+
+```json
+{ "code": "OK", "data": { "id": "965d65a1-70df-443f-9a69-7e031968ac20" }, "msg": "删除成功" }
+```
+
+#### 错误响应
+
+| 状态 | Code | 场景 |
+|---|---|---|
+| 401 | `UNAUTHORIZED` | 未认证。 |
+| 403 | `FORBIDDEN` | 非 admin 角色。 |
+| 404 | `MEMORY_NOT_FOUND` | 记忆不存在（含重复删除）。 |
+
+---
+
 ## 4. 错误码参考
 
 | Code | HTTP 状态 | 含义 |
@@ -789,6 +909,7 @@ Authorization: Bearer <jwt>
 | `RENTAL_NOT_FOUND` | SSE `return` | 该用户没有进行中的这笔借阅（未借先还/重复归还）。 |
 | `SESSION_NOT_FOUND` | 404 | 会话不存在（FU-7 起）。 |
 | `SESSION_FORBIDDEN` | 403 | 会话属于其他用户（FU-7 起）。 |
+| `MEMORY_NOT_FOUND` | 404 | 记忆不存在（FU-15 管理面起）。 |
 | `EMAIL_ALREADY_EXISTS` | 409 | 注册邮箱已存在（FU-10 起）。 |
 | `INVALID_REFRESH_TOKEN` | 401 | refresh token 无效/过期/已吊销（FU-10 起）。 |
 | `TOO_MANY_REQUESTS` | 429 | 登录或注册频率超限（FU-10 起）。 |

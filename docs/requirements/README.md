@@ -4,6 +4,7 @@ Structured requirement docs produced by grill-me sessions. Each doc feeds OpenSp
 
 | Date | Feature | Status | Doc |
 |---|---|---|---|
+| 2026-09-06 | FU-15 memory-center 二期：记忆管理面（admin REST + 管理页） | approved | [2026-09-06-memory-center-management.md](./2026-09-06-memory-center-management.md) |
 | 2026-09-01 | FU-13 旅行规划（第一期：对话行程生成） | approved | [2026-09-01-travel-planning.md](./2026-09-01-travel-planning.md) |
 | 2026-09-01 | FU-14 memory-center 记忆中心 | approved | [2026-09-01-memory-center.md](./2026-09-01-memory-center.md) |
 | 2026-09-01 | FU-12 storeInsightTool chat 工具（第二期：对话问数） | approved | [2026-09-01-store-insight-chat-tool.md](./2026-09-01-store-insight-chat-tool.md) |

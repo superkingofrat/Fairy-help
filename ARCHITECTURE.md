@@ -371,7 +371,7 @@ ResponseSynthesizer 流式输出最终回复
 [Frontend] 渲染 TripTimeline + Amap JS 路线叠加
 ```
 
-### 5.4 记忆 / 画像流程（FU-14 记忆中心一期）
+### 5.4 记忆 / 画像流程（FU-14 记忆中心一期 + FU-15 记忆管理面）
 
 ```
 每轮对话（chat SSE 完成后）
@@ -395,6 +395,22 @@ ResponseSynthesizer 流式输出最终回复
 - 一期**结构化检索**（`profileId` + `kind` + `createdAt` 倒序 + `content` 包含匹配），**不依赖 embed**；pgvector 向量检索为二期候选。
 - 记忆按 `profileId` 严格隔离（AGENTS §6）：`Memory.profileId` 关联 `Profile.userId`，A 用户记忆绝不注入 B 用户 prompt。
 - 降级友好：抽取失败、LLM/embed 不可用、DB 异常时对话功能完全不受影响。
+- **管理面（FU-15 记忆中心二期）**：admin 经 REST 端点或 `/admin/memories` 管理页查看、新增、编辑（kind/content）、删除记忆。手动写入复用 `memoryService`（与 FU-14 LLM 抽取**同库同链路**），一经落库即被下一轮 `searchMemories` 检索注入；列表按 `profileId` join `Profile→User` 带出 email，分页 + `userId/kind/keyword` 过滤。
+
+```
+FU-15 记忆管理面（admin-only）
+    │
+    ▼
+GET/POST /api/memories · PATCH/DELETE /api/memories/:id   （全部 requireRole("admin")，403 FORBIDDEN）
+    │  查询：分页 + userId/kind/keyword 过滤 + join 带 email；写入：memoryCreate/UpdateSchema 校验
+    ▼
+[MemoryService] listMemories / createMemory / updateMemory / deleteMemory
+    │  硬删（Memory 无外键引用）；删除后列表与 searchMemories 均不再出现
+    ▼
+Web /admin/memories  ←→  lib/memoryApi（列表 + 筛选 + 分页 + 新增/编辑/删除）
+```
+
+- 管理面独立于 LLM：列表与增删改不调用任何 AI 供应商，LLM/key 不可用时管理功能全可用；仅既有抽取/注入语义不变。
 
 ### 5.5 归还流程（FU-4）
 
@@ -574,6 +590,9 @@ interface AgentState {
 | plan_trip 规则先于 LLM；Amap 校验可选降级 | 「帮我规划周末去杭州玩」等由规则关键词（旅行/出游/行程/规划/想去/旅游/周末去哪/去…玩）先于 LLM 确定性判定（同 FU-12 store_insight 模式）；`planTripTool` 以 LLM 草稿 + 高德服务端 POI/路线校验防幻觉，`AMAP_SERVER_KEY` 缺失/失败时降级为未校验草稿（POI 标 `validated=false`、`route=null`，不暴露密钥/堆栈）；行程落库 `Trip` + `TRIP_PLANNED` 日志；前端地图叠加路线为二期非目标（FU-13）。 |
 | 行程规划对代理人「铃」与绳匠（admin）开放 | Fairy 对「铃」（画像名 `铃`，seed `user@fairy.local`）是全能管家，对绳匠（admin）是服务主人的管家——两者都直接执行行程规划并呈现；其余普通用户仅影片服务——`dispatch` 在 trip 分支按画像名与 role 门禁，非「铃」且非 admin 不调用 `planTripTool`，返回 `TRIP_FORBIDDEN`，回复婉拒（"不是我的专长"）并引导推荐影片，且不发出 `trip` 事件（FU-13 行为修正）。 |
 | 记忆抽取每轮旁路 + 结构化检索，不依赖 embed | 每轮对话 SSE 完成后 LLM 抽取（`tryChat("agent.memory")`，低 temperature，失败静默返回空数组）→ 落库 `Memory`；下一轮注入前 `searchMemories(profileId)` 按 kind/时间/关键词限量 5 条。一期不用 pgvector/embed（DeepSeek 供应商不支持 embed，避免绑定 OpenAI key 环境），结构化检索够用；管理 UI、REST 端点、画像回写为二期（FU-14）。 |
+| 记忆管理面 admin-only（REST + 管理页） | 记忆承载用户画像敏感信息，审计/纠错/补录只对绳匠（admin）开放；列表分页筛选沿用 FU-1 `/api/profiles`、FU-3 behavior-logs 的 `requireRole("admin")` + `{code,data,msg}` + shared Zod 校验约定，UI 沿用 FU-11 `/admin/*` 管理页与 i18n 模式，无新抽象（FU-15）。 |
+| 记忆删除为硬删、手动新增允许 | `Memory` 无外键引用、无审计保留诉求 → 物理删除，沿用 movie DELETE 的 `{code:"OK", data:{id}}` envelope（FU-5）；admin 可手动补录，与 LLM 抽取同库同链路，落库即被下一轮注入（FU-15）。 |
+| pgvector 向量检索继续推后 | 二期候选维持：需 embedding 列 + Neon pgvector 扩展 + 支持 embed 的供应商（DeepSeek 不支持），且会改变检索语义，单独一期评估；结构化检索仍满足管理面与注入需求（FU-15 拍板）。 |
 
 ---
 
@@ -584,12 +603,13 @@ apps/web/src/
   components/
     chat/              # ChatPage（含会话侧栏）, MessageStream, RecommendationCard, TripTimeline
     fairy/             # FairyAvatar, expressions
-    admin/             # MoviesAdminPage, ProfilesAdminPage, BehaviorPage, InsightsAdminPage（FU-11 运营看板）
+    admin/             # MoviesAdminPage, ProfilesAdminPage, BehaviorPage, InsightsAdminPage（FU-11 运营看板）, MemoryAdminPage（FU-15 记忆管理）
   hooks/
     useSSE.ts          # SSE 流消费
   lib/
     sessionApi.ts      # FU-7：/api/sessions 客户端
     insightApi.ts      # FU-11：/api/insights 客户端
+    memoryApi.ts       # FU-15：/api/memories 客户端（列表/新增/编辑/删除）
   stores/
     chatStore.ts
 
@@ -602,6 +622,7 @@ apps/api/src/
     rentals.ts
     trips.ts
     profiles.ts
+    memories.ts        # /api/memories（FU-15：GET/POST + PATCH/DELETE /:id，全部 requireRole("admin")）
   agent/
     stateLoop.ts         # FU-12：runChatTurn 透传 role → dispatch；FU-14：查询记忆注入
     intentClassifier.ts  # FU-12：store_insight 意图 + topic（LLM 枚举 + 规则兜底）
@@ -610,7 +631,7 @@ apps/api/src/
     toolDispatcher.ts   # FU-12：kind "insight" observation + admin 门禁（role 参数）
     responseSynthesizer.ts  # FU-12：按 topic 构造运营问数【事实】+ 非 admin 拒绝文案；FU-14：记忆注入 prompt
   memory/
-    memoryService.ts     # FU-14：addMemory 落库 + searchMemories 检索（profileId 隔离，限量）
+    memoryService.ts     # FU-14：addMemory 落库 + searchMemories 检索（profileId 隔离，限量）；FU-15：listMemories/create/update/delete admin 管理查询
     memoryExtractor.ts   # FU-14：LLM 抽取（agent.memory source，失败静默）+ 旁路落库入口
   tools/
     recommendMovieTool.ts
@@ -628,12 +649,13 @@ apps/api/src/
   controllers/
     sessionsController.ts  # FU-7
     insightController.ts   # FU-11
+    memoryController.ts    # FU-15：记忆管理 REST handlers（薄，校验在 shared schema / validate 中间件）
   middleware/
     auth.ts
     validateBody.ts
 
 packages/shared/
-  schemas/             # 前端与后端使用的 Zod schema（含 sessionSchemas，FU-7；insightSchemas，FU-11；insightTopicSchema，FU-12）
+  schemas/             # 前端与后端使用的 Zod schema（含 sessionSchemas，FU-7；insightSchemas，FU-11；insightTopicSchema，FU-12；memorySchemas，FU-14/15）
   types/               # 共享 TypeScript 类型（含 sessionTypes，FU-7）
 
 packages/ai-sdk/
