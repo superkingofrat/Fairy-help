@@ -371,23 +371,30 @@ ResponseSynthesizer 流式输出最终回复
 [Frontend] 渲染 TripTimeline + Amap JS 路线叠加
 ```
 
-### 5.4 记忆 / 画像流程
+### 5.4 记忆 / 画像流程（FU-14 记忆中心一期）
 
 ```
-每次工具执行
+每轮对话（chat SSE 完成后）
     │
     ▼
-[BehaviorLogService] 追加记录
+[MemoryExtractor] LLM 抽取本轮（用户消息 + Fairy 回复）
+    │  失败/超时/非法 JSON → 静默跳过（返回空数组，不中断响应）
+    ▼
+[MemoryService.addMemory] 落库 Memory（profileId 必填，sessionId 可空）
     │
     ▼
-后续 ContextBuilder 读取
-    ├── 最近 N 条 Session 消息（短期）
-    ├── 近期 BehaviorLog 记录（中期）
+下一轮对话 prompt 组装（ContextBuilder）
+    ├── [MemoryService.searchMemories] 记忆注入（≤5 条，profileId 隔离，kind/时间/关键词检索）
+    ├── 最近 N 条 Session 消息（短期，sessionService）
     └── Profile 实体（长期）
     │
     ▼
 [Prompt 上下文窗口] 受 token 预算约束
 ```
+
+- 一期**结构化检索**（`profileId` + `kind` + `createdAt` 倒序 + `content` 包含匹配），**不依赖 embed**；pgvector 向量检索为二期候选。
+- 记忆按 `profileId` 严格隔离（AGENTS §6）：`Memory.profileId` 关联 `Profile.userId`，A 用户记忆绝不注入 B 用户 prompt。
+- 降级友好：抽取失败、LLM/embed 不可用、DB 异常时对话功能完全不受影响。
 
 ### 5.5 归还流程（FU-4）
 
@@ -554,7 +561,7 @@ interface AgentState {
 | 租借记录只有只读查询端口 | FU-8 `GET /api/rentals` 仅读租借表（本人或 admin 代查）；归还写操作无 REST 端点，仍只经 chat 工具链，避免第二套库存变更路径。 |
 | 会话落库为旁路（side-channel） | `appendTurn` 在 SSE 响应前执行但失败仅记日志、不中断流；可观测性损失而非功能损失，保证持久化故障不阻塞对话。 |
 | 会话标题由首条消息派生 | 新建会话标题为空，首次落库时取首条非空用户消息前 20 字；避免创建会话时的额外输入步骤。 |
-| 历史注入为纯文本旁路（`TODO(memory-center)`） | 最近 10 条消息以「用户/Fairy」文本注入 intent + 合成 prompt；不注入 `payload` 结构化事件。memory-center 实现后迁移（AGENTS §6 临时内联查询已登记技术债）。 |
+| 历史注入为纯文本旁路（已由 FU-14 替换） | 最近 10 条消息以「用户/Fairy」文本注入 intent + 合成 prompt；不注入 `payload` 结构化事件。FU-14 记忆中心一期将注入源升级为「记忆检索 ≤5 条 + 近期会话历史共存」——见下行。 |
 | 登录/注册按 IP 限流 | express-rate-limit，login 10 次/15 分钟、register 20 次/小时；限流器在 `createApp()` 内创建保证测试隔离。生产反代后须启用 trust proxy（见 API_CONTRACT §3.0）。 |
 | refresh token 旋转 + 复用吊销 | DB 只存 sha256 哈希（不明文）；旋转时旧 token 置 `revokedAt` + `replacedByTokenId`，检测到复用已吊销 token 即吊销该用户全部 refresh token，压缩 token 泄露窗口。 |
 | 前端 401 单飞刷新 | 共享 in-flight refresh promise，并发 401 只发一次 `/auth/refresh`，成功后重试原请求；刷新失败才清登录并跳转。SSE（chatApi）保持直连 401 → 清登录，不引入流中断重试。 |
@@ -566,6 +573,7 @@ interface AgentState {
 | insight 关键词先于 LLM 判定运营问数 | 真机验收发现 deepseek 模型对严格 JSON 输出不可靠（偶发输出 177~200 token 的自创 schema 长文本），「最近什么片最火」等会被误判 chitchat，规则兜底轮不到；改为 `classifyIntent` 先跑规则，命中 store_insight 即返回（LLM 不调用），其余意图仍 LLM 优先、规则兜底——保证 AC-5 口语问数确定性（FU-12）。 |
 | plan_trip 规则先于 LLM；Amap 校验可选降级 | 「帮我规划周末去杭州玩」等由规则关键词（旅行/出游/行程/规划/想去/旅游/周末去哪/去…玩）先于 LLM 确定性判定（同 FU-12 store_insight 模式）；`planTripTool` 以 LLM 草稿 + 高德服务端 POI/路线校验防幻觉，`AMAP_SERVER_KEY` 缺失/失败时降级为未校验草稿（POI 标 `validated=false`、`route=null`，不暴露密钥/堆栈）；行程落库 `Trip` + `TRIP_PLANNED` 日志；前端地图叠加路线为二期非目标（FU-13）。 |
 | 行程规划对代理人「铃」与绳匠（admin）开放 | Fairy 对「铃」（画像名 `铃`，seed `user@fairy.local`）是全能管家，对绳匠（admin）是服务主人的管家——两者都直接执行行程规划并呈现；其余普通用户仅影片服务——`dispatch` 在 trip 分支按画像名与 role 门禁，非「铃」且非 admin 不调用 `planTripTool`，返回 `TRIP_FORBIDDEN`，回复婉拒（"不是我的专长"）并引导推荐影片，且不发出 `trip` 事件（FU-13 行为修正）。 |
+| 记忆抽取每轮旁路 + 结构化检索，不依赖 embed | 每轮对话 SSE 完成后 LLM 抽取（`tryChat("agent.memory")`，低 temperature，失败静默返回空数组）→ 落库 `Memory`；下一轮注入前 `searchMemories(profileId)` 按 kind/时间/关键词限量 5 条。一期不用 pgvector/embed（DeepSeek 供应商不支持 embed，避免绑定 OpenAI key 环境），结构化检索够用；管理 UI、REST 端点、画像回写为二期（FU-14）。 |
 
 ---
 
@@ -595,12 +603,15 @@ apps/api/src/
     trips.ts
     profiles.ts
   agent/
-    stateLoop.ts         # FU-12：runChatTurn 透传 role → dispatch
+    stateLoop.ts         # FU-12：runChatTurn 透传 role → dispatch；FU-14：查询记忆注入
     intentClassifier.ts  # FU-12：store_insight 意图 + topic（LLM 枚举 + 规则兜底）
-    contextBuilder.ts  # FU-7：buildConversationHistory 历史注入
+    contextBuilder.ts  # FU-7：buildConversationHistory 历史注入；FU-14：buildMemoryBlock 记忆注入
     planner.ts          # FU-12：PlannedCall 新增 { tool: "insight"; topic }
     toolDispatcher.ts   # FU-12：kind "insight" observation + admin 门禁（role 参数）
-    responseSynthesizer.ts  # FU-12：按 topic 构造运营问数【事实】+ 非 admin 拒绝文案
+    responseSynthesizer.ts  # FU-12：按 topic 构造运营问数【事实】+ 非 admin 拒绝文案；FU-14：记忆注入 prompt
+  memory/
+    memoryService.ts     # FU-14：addMemory 落库 + searchMemories 检索（profileId 隔离，限量）
+    memoryExtractor.ts   # FU-14：LLM 抽取（agent.memory source，失败静默）+ 旁路落库入口
   tools/
     recommendMovieTool.ts
     borrowMovieTool.ts

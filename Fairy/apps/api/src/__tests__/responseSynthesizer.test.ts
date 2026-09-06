@@ -80,6 +80,60 @@ describe("synthesize with LLM reply", () => {
     );
   });
 
+  it("injects retrieved memories into the reply prompt (FU-14)", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(
+      llmResult("你最喜欢科幻片啦，这次还是照这个口味来？")
+    );
+
+    const result = await synthesize(
+      { kind: "recommend", movies: [sampleMovie] },
+      {
+        ...context,
+        memories: [
+          {
+            id: "m1",
+            profileId: profile.userId,
+            sessionId: null,
+            kind: "preference",
+            content: "喜欢科幻片",
+            metadata: null,
+            createdAt: "2026-09-01T10:00:00Z",
+          },
+        ],
+      }
+    );
+
+    expect(result.texts[0].content).toBe("你最喜欢科幻片啦，这次还是照这个口味来？");
+    expect(llmClient.tryChat).toHaveBeenCalledWith(
+      "agent.reply",
+      expect.arrayContaining([
+        expect.objectContaining({
+          role: "user",
+          content: expect.stringContaining("【记忆】"),
+        }),
+        expect.objectContaining({
+          role: "user",
+          content: expect.stringContaining("- [preference] 喜欢科幻片"),
+        }),
+      ]),
+      expect.anything()
+    );
+  });
+
+  it("omits the memory block when no memories are retrieved", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(llmResult("好的，帮你找找。"));
+
+    await synthesize({ kind: "recommend", movies: [sampleMovie] }, context);
+
+    const userMessages = vi
+      .mocked(llmClient.tryChat)
+      .mock.calls.map((call) => call[1])
+      .flat()
+      .filter((message) => message.role === "user")
+      .map((message) => message.content);
+    expect(userMessages.join("\n")).not.toContain("【记忆】");
+  });
+
   it("falls back to the Phase 2 template when the LLM is unavailable", async () => {
     vi.mocked(llmClient.tryChat).mockResolvedValue(null);
 

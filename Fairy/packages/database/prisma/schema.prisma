@@ -42,6 +42,13 @@ enum TripStatus {
   DRAFT
 }
 
+// FU-14：记忆中心——对话中值得记住的要点（偏好/事实/意图）
+enum MemoryKind {
+  PREFERENCE
+  FACT
+  INTENT
+}
+
 enum ChatRole {
   USER
   ASSISTANT
@@ -110,6 +117,7 @@ model Profile {
   avoidFood       String[]
   dietPreference  String?
   travelStyle     String?
+  memories        Memory[]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -185,4 +193,20 @@ model Trip {
 
   @@index([userId, createdAt])
   @@map("trips")
+}
+
+// FU-14：记忆中心——结构化记忆（偏好/事实/意图），关联 profileId（必填），可选 sessionId
+model Memory {
+  id        String     @id @default(uuid())
+  profileId String
+  sessionId String?
+  kind      MemoryKind
+  content   String
+  metadata  Json?
+  createdAt DateTime   @default(now())
+  profile   Profile    @relation(fields: [profileId], references: [userId], onDelete: Cascade)
+
+  @@index([profileId, kind])
+  @@index([profileId, createdAt])
+  @@map("memories")
 }

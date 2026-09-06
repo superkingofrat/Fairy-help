@@ -7,3 +7,4 @@ export * from "./authSchemas";
 export * from "./sessionSchemas";
 export * from "./insightSchemas";
 export * from "./tripSchemas";
+export * from "./memorySchemas";

@@ -1,6 +1,7 @@
 import type { Profile } from "@fairy/shared";
 import * as profileService from "../services/profileService";
 import * as rentalService from "../services/rentalService";
+import * as memoryService from "../memory/memoryService";
 import { classifyIntent } from "./intentClassifier";
 import { plan } from "./planner";
 import { dispatch, type ToolObservation } from "./toolDispatcher";
@@ -20,6 +21,10 @@ export async function runChatTurn(input: {
   const profile: Profile | null = await profileService
     .getByUserId(input.userId)
     .catch(() => null);
+  // FU-14：记忆中心检索——仅注入本用户（profileId）的记忆，检索失败降级为空
+  const memories = profile
+    ? await memoryService.searchMemories(profile.userId).catch(() => [])
+    : [];
 
   if (input.action === "return" && input.movieId) {
     const result = await returnMovieTool({
@@ -45,6 +50,7 @@ export async function runChatTurn(input: {
     return synthesize(observation, {
       message: input.message,
       profile,
+      memories,
       history: input.history,
     });
   }
@@ -68,6 +74,7 @@ export async function runChatTurn(input: {
     return synthesize(observation, {
       message: input.message,
       profile,
+      memories,
       activeRentals,
       history: input.history,
     });
@@ -76,6 +83,7 @@ export async function runChatTurn(input: {
   return synthesize(observation, {
     message: input.message,
     profile,
+    memories,
     history: input.history,
   });
 }

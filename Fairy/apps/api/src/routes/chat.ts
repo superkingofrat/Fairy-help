@@ -4,6 +4,7 @@ import { validateBody } from "../middleware/validateBody";
 import { runChatTurn } from "../agent/stateLoop";
 import type { SynthesizedResponse } from "../agent/responseSynthesizer";
 import { buildConversationHistory } from "../agent/contextBuilder";
+import { extractAndStoreMemories } from "../memory/memoryExtractor";
 import * as sessionService from "../services/sessionService";
 import type { Role } from "../middleware/auth";
 
@@ -105,6 +106,17 @@ router.post("/", validateBody(chatRequestSchema), async (req, res, next) => {
       }
       writeSse(res, "done", { sessionId: sessionId ?? null });
       res.end();
+
+      // FU-14：记忆抽取是旁路——SSE 完成后后台执行，失败静默（不中断、不悬挂响应）
+      const replyText = result.texts.map((text) => text.content).join("\n");
+      void extractAndStoreMemories({
+        profileId: userId,
+        sessionId,
+        userMessage: body.message,
+        replyText,
+      }).catch((error) => {
+        console.error("[chat] memory extraction:", error);
+      });
     } catch (error) {
       // 流已开始：任何异常都不能悬挂客户端，也不能把堆栈写给用户。
       console.error("[chat] in-stream error:", error);

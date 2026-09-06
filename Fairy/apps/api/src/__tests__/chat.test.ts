@@ -8,7 +8,10 @@ import * as behaviorLogService from "../services/behaviorLogService";
 import * as sessionService from "../services/sessionService";
 import * as insightService from "../services/insightService";
 import * as planTripTool from "../tools/planTripTool";
-import { DEV_USER_ID, type Movie, type Profile, type StoreInsightsOverview, type TripResult } from "@fairy/shared";
+import * as llmClient from "../agent/llmClient";
+import * as memoryService from "../memory/memoryService";
+import * as memoryExtractor from "../memory/memoryExtractor";
+import { DEV_USER_ID, type Movie, type Profile, type StoreInsightsOverview, type TripResult, type MemoryRecord } from "@fairy/shared";
 import { authHeader } from "./helpers/auth";
 
 vi.mock("../services/movieService");
@@ -18,6 +21,16 @@ vi.mock("../services/behaviorLogService");
 vi.mock("../services/sessionService");
 vi.mock("../services/insightService");
 vi.mock("../tools/planTripTool");
+vi.mock("../agent/llmClient", () => ({
+  sanitizeUserInput: (message: string) => message,
+  tryChat: vi.fn(),
+}));
+vi.mock("../memory/memoryService", () => ({
+  searchMemories: vi.fn(),
+}));
+vi.mock("../memory/memoryExtractor", () => ({
+  extractAndStoreMemories: vi.fn(),
+}));
 
 const SESSION_ID = "550e8400-e29b-41d4-a716-446655440000";
 
@@ -96,6 +109,9 @@ describe("POST /api/chat", () => {
     });
     vi.mocked(sessionService.getRecentMessages).mockResolvedValue([]);
     vi.mocked(sessionService.appendTurn).mockResolvedValue({ ok: true });
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+    vi.mocked(memoryService.searchMemories).mockResolvedValue([]);
+    vi.mocked(memoryExtractor.extractAndStoreMemories).mockResolvedValue();
   });
 
   afterEach(() => {
@@ -587,6 +603,86 @@ describe("POST /api/chat", () => {
           expect.objectContaining({ type: "trip", trip: tripResult }),
         ]),
       })
+    );
+  });
+
+  it("retrieves only the current profile's memories and injects them into the reply prompt (FU-14)", async () => {
+    const memory: MemoryRecord = {
+      id: "m1",
+      profileId: DEV_USER_ID,
+      sessionId: null,
+      kind: "preference",
+      content: "喜欢科幻片",
+      metadata: null,
+      createdAt: "2026-09-01T10:00:00Z",
+    };
+    vi.mocked(memoryService.searchMemories).mockResolvedValue([memory]);
+    vi.mocked(llmClient.tryChat).mockResolvedValue({
+      text: "你最喜欢科幻片啦。",
+      usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
+      model: "test-model",
+      provider: "deepseek",
+    });
+
+    const response = await request(app)
+      .post("/api/chat")
+      .set("Authorization", authHeader("user"))
+      .send({ message: "我喜欢什么类型的片子" });
+
+    expect(response.status).toBe(200);
+    expect(memoryService.searchMemories).toHaveBeenCalledWith(DEV_USER_ID);
+    const userMessages = vi
+      .mocked(llmClient.tryChat)
+      .mock.calls.map((call) => call[1])
+      .flat()
+      .filter((message) => message.role === "user")
+      .map((message) => message.content);
+    expect(userMessages.join("\n")).toContain("【记忆】");
+    expect(userMessages.join("\n")).toContain("- [preference] 喜欢科幻片");
+    const events = parseSse(response.text);
+    expect(events[events.length - 1].event).toBe("done");
+  });
+
+  it("runs memory extraction after the stream without affecting the response (FU-14)", async () => {
+    vi.mocked(movieService.listMoviesForRecommend).mockResolvedValue([sampleMovie]);
+    vi.mocked(memoryExtractor.extractAndStoreMemories).mockRejectedValue(
+      new Error("extract down")
+    );
+
+    const response = await request(app)
+      .post("/api/chat")
+      .set("Authorization", authHeader("user"))
+      .send({ message: "雨天" });
+
+    expect(response.status).toBe(200);
+    const events = parseSse(response.text);
+    expect(events[events.length - 1].event).toBe("done");
+    expect(memoryExtractor.extractAndStoreMemories).toHaveBeenCalledWith(
+      expect.objectContaining({
+        profileId: DEV_USER_ID,
+        userMessage: "雨天",
+      })
+    );
+    expect(response.text).not.toContain("extract down");
+  });
+
+  it("passes an undefined sessionId to extraction for one-click returns (FU-14)", async () => {
+    vi.mocked(rentalService.returnRental).mockResolvedValue({
+      ok: true,
+      rentalId: "880e8400-e29b-41d4-a716-446655440000",
+      remainingStock: 4,
+    });
+
+    const response = await request(app)
+      .post("/api/chat")
+      .set("Authorization", authHeader("user"))
+      .send({ message: "", movieId: sampleMovie.id, action: "return" });
+
+    expect(response.status).toBe(200);
+    const events = parseSse(response.text);
+    expect(events[events.length - 1].event).toBe("done");
+    expect(memoryExtractor.extractAndStoreMemories).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: undefined })
     );
   });
 });

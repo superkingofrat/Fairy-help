@@ -1,5 +1,9 @@
-// TODO(memory-center): 会话历史直接内联注入 prompt（临时方案，AGENTS §6 允许并已登记 PROJECT_STATUS 技术债）。
-// 未来由记忆中心统一负责检索、排序与上下文窗口管理后，本模块的取数与格式化将整体被替换。
+import type { MemoryRecord } from "@fairy/shared";
+
+// FU-14：会话历史与记忆注入的格式化。
+// 近期会话历史（buildConversationHistory）由 sessionService 提供；【记忆】区块（buildMemoryBlock）
+// 由记忆中心检索结果构成。两段共存注入 prompt；二期将统一由记忆中心负责检索、排序与窗口管理。
+
 export interface HistoryTurn {
   role: "user" | "assistant";
   content: string;
@@ -12,4 +16,14 @@ export function buildConversationHistory(turns: HistoryTurn[]): string {
   return turns
     .map((turn) => `${turn.role === "user" ? "用户" : "Fairy"}：${turn.content}`)
     .join("\n");
+}
+
+export function buildMemoryBlock(memories: MemoryRecord[]): string {
+  if (memories.length === 0) {
+    return "";
+  }
+  const lines = memories
+    .map((memory) => `- [${memory.kind}] ${memory.content}`)
+    .join("\n");
+  return `【记忆】\n${lines}`;
 }

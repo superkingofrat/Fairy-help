@@ -1,5 +1,6 @@
 import type {
   BorrowSseEvent,
+  MemoryRecord,
   Movie,
   Profile,
   RecommendationSseEvent,
@@ -12,6 +13,7 @@ import type {
   RouteLeg,
 } from "@fairy/shared";
 import { sanitizeUserInput, tryChat } from "./llmClient";
+import { buildMemoryBlock } from "./contextBuilder";
 import type { ToolObservation } from "./toolDispatcher";
 
 export interface SynthesizedResponse {
@@ -27,6 +29,7 @@ export interface SynthesisContext {
   profile: Profile | null;
   activeRentals?: Array<{ movieTitle: string }>;
   history?: string;
+  memories?: MemoryRecord[];
 }
 
 const REPLY_SYSTEM_PROMPT = `你是 Fairy，绳匠的全能管家，平时打理一家录像带门店，语气温暖自然，用中文回复，一到两句。客户的需求（借还影片、推荐、店况问数、规划行程等）你都能接住：行程已经规划好就直接大方呈现，绝不说"这不是我的专长"，绝不转而推荐影片。你只能使用【事实】中给出的信息；不得编造片名、库存数字或做出无法兑现的承诺；事实为空时自然回应，并引导用户说出心情、场景或想借的影片。`;
@@ -189,7 +192,11 @@ async function generateReply(
 ): Promise<string | null> {
   const message = sanitizeUserInput(context.message);
   const historyLine = context.history ? `对话历史：\n${context.history}\n` : "";
-  const userContent = `${historyLine}用户说：「${message}」\n${profileLine(context.profile)}\n【事实】${facts}`;
+  const memoryLine =
+    context.memories && context.memories.length > 0
+      ? `\n${buildMemoryBlock(context.memories)}\n`
+      : "";
+  const userContent = `${historyLine}用户说：「${message}」\n${profileLine(context.profile)}${memoryLine}\n【事实】${facts}`;
 
   const result = await tryChat(
     "agent.reply",
