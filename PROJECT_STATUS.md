@@ -6,11 +6,13 @@
 
 **Development（开发中）**
 
-> Monorepo 脚手架、影片库 CRUD MVP、Phase 2 Agent 推荐与借阅、FU-1 画像写接口与管理 CRUD、FU-2 真实 LLM 意图与回复、FU-3 行为流水查询与管理页、FU-4 归还（聊天文本）、FU-5 真实 JWT 认证、FU-6 REST 借阅、FU-7 会话表与对话历史回放、FU-8 一键归还 UI、FU-9 影片库浏览页、FU-10 账号体系闭环（注册/限流/refresh token）、FU-11 运营洞察看板（管理端）、FU-12 运营洞察 chat 工具（对话问数）、FU-13 旅行规划（对话行程生成）、FU-14 记忆中心（结构化记忆落库与检索注入）已交付。
+> Monorepo 脚手架、影片库 CRUD MVP、Phase 2 Agent 推荐与借阅、FU-1 画像写接口与管理 CRUD、FU-2 真实 LLM 意图与回复、FU-3 行为流水查询与管理页、FU-4 归还（聊天文本）、FU-5 真实 JWT 认证、FU-6 REST 借阅、FU-7 会话表与对话历史回放、FU-8 一键归还 UI、FU-9 影片库浏览页、FU-10 账号体系闭环（注册/限流/refresh token）、FU-11 运营洞察看板（管理端）、FU-12 运营洞察 chat 工具（对话问数）、FU-13 旅行规划（对话行程生成）、FU-14 记忆中心（结构化记忆落库与检索注入）、FU-15 记忆管理面（admin REST + 管理页）已交付。
 
 ---
 
 ## Completed Modules（已完成模块）
+
+- **FU-15 memory-center 二期：记忆管理面（admin REST 记忆端点 + 管理页）**（2026-09-06）— admin-only 记忆管理面：shared `memorySchemas` 二期扩展（`memoryQuerySchema`（page/limit/userId/kind/keyword）、`memoryListItemSchema`（含 email 经 Profile→User join）、`memoryCreateSchema`（userId/kind/content/sessionId?）、`memoryUpdateSchema`（kind?/content? 至少一项）+ 类型 + 测试）；`memoryService` 增加 `listMemories`（分页 + userId/kind/keyword 过滤 + join 带 email + createdAt 倒序 + total）、`createMemory`（复用 `addMemory`，Profile 不存在 404 `PROFILE_NOT_FOUND`）、`updateMemory`（kind/content，404 `MEMORY_NOT_FOUND`）、`deleteMemory`（硬删，404 `MEMORY_NOT_FOUND`）；`routes/memories.ts` 四端点（GET/POST `/` + PATCH/DELETE `/:id`，全部 `requireRole("admin")`，403 `FORBIDDEN`）+ `memoryController` 薄 handlers + app 挂载；web `lib/memoryApi` + `/admin/memories` 管理页（`MemoryAdminPage`：列表 + kind/keyword 筛选 + 分页 + 新增（选用户）/编辑/删除确认 + 加载/错误/空态 + 全中文 i18n）+ 导航「记忆管理」+ 路由 `RequireAuth role="admin"`；手动写入与 FU-14 LLM 抽取**同库同链路**（落库即被下一轮 `searchMemories` 注入）；管理面不依赖 LLM（key 不可用时全功能可用）；无新迁移（既有 `@@index([profileId, kind])` / `@@index([profileId, createdAt])` 满足）；测试全绿：api 255 / shared 87 / web 66（MemoryAdminPage 9）+ 三包 typecheck + `openspec validate --all` 12/12；真机验收 AC-1~AC-7 全过（REST 列表形状/过滤/email/倒序、权限 401→user 403→admin 200、增改删持久化与 400/404 分支、浏览器管理页全流程（导航/筛选/分页/增删改/空态）、非 admin 跳首页、**管理页补录「灯塔/太空」记忆在全新会话被真实 LLM 回复引用**、管理 REST 全程无 LLM 依赖）；需求：[2026-09-06-memory-center-management.md](docs/requirements/2026-09-06-memory-center-management.md)；OpenSpec 归档：[2026-09-06-memory-center-management](openspec/changes/archive/2026-09-06-memory-center-management/)
 
 - **FU-14 memory-center 记忆中心（第一期：结构化记忆落库与检索注入）**（2026-09-06）— `Memory` Prisma 模型 + `MemoryKind` 枚举（PREFERENCE/FACT/INTENT）+ `add_memory_model` 迁移（`@@index([profileId, kind])`、`@@index([profileId, createdAt])`、`@@map("memories")`、Memory→Profile 级联删除）；shared `memorySchemas`（`memoryKindSchema`/`memoryRecordSchema`/`memoryExtractionSchema` + 类型 + 测试）；`memoryService`（`addMemory` 落库 + `searchMemories` profileId 必填隔离 + kind/时间/关键词筛选、限量默认 5）+ `memoryExtractor`（`agent.memory` source：LLM 结构化 JSON 抽取 `{memories:[{kind,content}]}`，sanitize 用户输入 + 低温度，失败/非法 JSON/无 key 一律静默返回空）+ `contextBuilder.buildMemoryBlock` 注入【记忆】区块（≤5 条，无记忆干净省略，替换 `TODO(memory-center)` 纯文本旁路）+ `stateLoop` searchMemories 接线三路 synthesize + chat SSE `done` 后旁路 `extractAndStoreMemories`（void+catch，失败仅记日志不中断流）；测试全绿：api 232 / shared 76 / web 55 + 三包 typecheck + `openspec validate --all` 11/11；真机验收 AC-1~AC-7 全过（真实 LLM 抽取落库 Memory 行且关联 session、**全新会话询问片型 → 回复引用记忆「科幻片/太空题材」跨会话复用**、LLM 故障/无 key 静默降级不崩不漏栈、SSE 流完整、DB 落库/检索按用户隔离）；需求：[2026-09-01-memory-center.md](docs/requirements/2026-09-01-memory-center.md)；OpenSpec 归档：[2026-09-01-memory-center](openspec/changes/archive/2026-09-01-memory-center/)
 
@@ -57,13 +59,15 @@
 
 ## In Progress（进行中）
 
-（当前无进行中功能——FU-14 已交付归档，见 Completed Modules。）
+（当前无进行中功能——FU-15 已交付归档，见 Completed Modules。）
 
 ---
 
 ## Next Steps（下一步）
 
-- （二期候选）memory-center 二期：管理 UI（admin 查看/编辑/删除记忆）、REST 记忆端点、pgvector 向量检索（一期已落地结构化检索与注入，见 FU-14）。
+- （后续候选）pgvector 向量检索：`Memory` embedding 列 + Neon pgvector 扩展 + 向量混合检索（DeepSeek 不支持 embed，需 OpenAI key；已多次明确推后单独一期）。
+- （后续候选）记忆用户自查入口：铃在会话页查看「Fairy 记住了什么」（FU-15 已明确非目标：管理面与 REST 均 admin-only）。
+- （后续候选）画像反向回写：记忆 → `Profile` 字段自动更新（FU-15 已明确非目标）。
 - （二期候选）旅行规划二期：REST `POST /api/trips` + 历史行程回放 + Amap JS 地图叠加路线（本期非目标）。
 
 ---
@@ -93,10 +97,15 @@
 | 2026-09-01 | 运营洞察单端点一次返回全部 | Flores | FU-11：`GET /api/insights/overview`（admin-only）一次返回看板全部卡片；窗口与低库存阈值（`stock ≤ 1`）为契约常量。 |
 | 2026-09-01 | 聚合用 Prisma groupBy/count 并行 + JS 补零 | Flores | FU-11：`Promise.all` 并行规避 Neon 冷启动串行延迟；趋势缺日补 0 按服务器本地日期分桶在 JS 完成，避免 SQL 时区逻辑。 |
 | 2026-09-01 | 记忆抽取每轮旁路 + 结构化检索（不依赖 embed） | 用户拍板 + Flores | FU-14：每轮 SSE 后 LLM 抽取（失败静默）→ 落库 `Memory`；下一轮注入 ≤5 条（profileId 隔离 + kind/时间/关键词）。一期不用 pgvector/embed（DeepSeek 不支持 embed）；管理 UI、REST 端点、画像回写为二期。 |
+| 2026-09-06 | 记忆管理面 admin-only + 硬删 + 管理独立于 LLM | 用户拍板 + Flores | FU-15：记忆含画像敏感信息，列表/新增/编辑/删除仅对 admin 开放（REST 与 `/admin/memories` 页均 `requireRole("admin")`，user 403/跳首页）；删除为硬删（`Memory` 无外键引用，沿用 movie DELETE envelope）；管理面不调用 AI 供应商，LLM/key 不可用时全功能可用；手动补录与 LLM 抽取同库同链路。pgvector/embedding、用户自查入口、画像回写均推后/非目标。 |
 
 ---
 
 ## Last Updated（最近更新）
+
+**2026-09-06** — FU-15 memory-center 二期（记忆管理面）：全量验证通过（api 255 / shared 87 / web 66 + 三包 typecheck + `openspec validate --all` 12/12）与真机验收 AC-1~AC-7 全过 → 归档（`openspec archive 2026-09-06-memory-center-management`）→ 移入 Completed Modules。
+
+**2026-09-06** — FU-15 memory-center 二期：grill-me 收敛（admin-only + REST + 管理页；pgvector 推后单独一期）→ 需求文档 draft 登记 README 索引与 Next Steps，待用户批准。
 
 **2026-09-06** — FU-14 memory-center：deepseek 充值后补验 AC-1（真实 LLM 抽取落库 Memory 行）与 AC-3（全新会话回复引用记忆「科幻片/太空题材」）通过 → 归档（`openspec archive 2026-09-01-memory-center`，11/11 spec 校验通过）→ 移入 Completed Modules。
 
