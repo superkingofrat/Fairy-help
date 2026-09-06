@@ -736,3 +736,53 @@ Delivered FU-14 memory-center phase 1: per-turn LLM memory extraction persisted 
 ### Status
 
 [OK] **Completed**
+
+## Session 15: FU-15 memory-center phase 2 (admin memory management REST + /admin/memories page) delivery and archive
+
+**Date**: 2026-09-06
+**Task**: FU-15 memory-center phase 2 delivery and archive
+**Branch**: `master`
+
+### Summary
+
+Delivered FU-15 memory-center phase 2 — the admin management surface for the FU-14 `Memory` store: admin-only REST endpoints (`GET/POST /api/memories`, `PATCH/DELETE /api/memories/:id`) plus an admin web page `/admin/memories` (list + filter + pagination + create/edit/delete). Admin-written rows land through the same `memoryService` as LLM-extracted rows, so they are injected into the next conversation turn. No DB migration needed (existing indexes suffice). pgvector/embedding deferred to a separate phase; user-facing self-inspection and profile write-back out of scope.
+
+### 改动
+
+- **共享层**：`memorySchemas` 二期扩展——`memoryQuerySchema`（page/limit/userId/kind/keyword）、`memoryListItemSchema`（id/userId/email/kind/content/sessionId/createdAt）、`memoryCreateSchema`（userId/kind/content/sessionId?）、`memoryUpdateSchema`（kind?/content? 至少一项）+ 类型导出 + 测试（shared 87）。
+- **服务层**：`memory/memoryService` 增加 `listMemories`（join Profile→User 带 email、userId/kind/keyword 过滤、createdAt 倒序分页 + total）、`createMemory`（Profile 不存在 → `PROFILE_NOT_FOUND`，复用 `addMemory` 落库链路）、`updateMemory`（kind/content）、`deleteMemory`（硬删，`MEMORY_NOT_FOUND`）；`controllers/memoryController` 薄 handlers；`routes/memories.ts` 四端点全部 `requireRole("admin")`；`app.ts` 挂载 `/api/memories`。
+- **Web**：`lib/memoryApi`（list/create/update/delete，复用 `lib/http` 统一客户端）；`components/admin/MemoryAdminPage`（/admin/memories：列表 + kind/keyword 筛选 + 分页 + 新增弹窗（选用户，fetchProfiles）+ 编辑弹窗（kind/content）+ 删除确认 + 加载/错误/空态 + 全中文 i18n）；导航「记忆管理」+ 路由 `RequireAuth role="admin"`（非 admin 跳首页）。
+- **文档**：API_CONTRACT §3.14 `/api/memories` 契约（GET 列表/POST/PATCH/DELETE + 错误码表 `MEMORY_NOT_FOUND`、刷新 §3.7 FU-14 内部说明）；ARCHITECTURE §5.4 增管理面数据流 + §8 三条决策行 + §9 模块图；PROJECT_STATUS / requirements README。
+- 测试：api 255 / shared 87 / web 66（MemoryAdminPage 9 + App 更新）+ 三包 typecheck + `openspec validate --all` 12/12。
+
+### 验证
+
+- 真机验收 AC-1~AC-7 全过（双 dev server）：
+  - AC-1：admin `GET /api/memories` 分页列表，条目含 email（Profile→User join）、支持 userId/kind/keyword 过滤、total 与过滤一致、createdAt 倒序；
+  - AC-2：无 token 401、user 403 `FORBIDDEN`、admin 200；
+  - AC-3：POST 201 返回落库记录且 GET 可查到、未知 profileId 404、非法 kind/空 content 400；
+  - AC-4：PATCH kind/content 200 持久化、空 body 400、未知 id 404；
+  - AC-5：DELETE 200 `{code:"OK", data:{id}}`、重复删 404、行从列表消失；
+  - AC-6：浏览器 E2E——admin 导航「记忆管理」→ 真实行列表 → 新增（选用户）持久化 → 编辑持久化 → 确认删除 → kind 筛选空态 → 关键词收窄；user 访问被拦跳首页；
+  - AC-7：admin 在管理页补录「灯塔/太空」记忆 → **全新会话**真实 LLM 回复引用（"要不要试试把太空的辽阔和灯塔的孤寂揉在一起？"）；管理 REST 全程不依赖 LLM。
+- 验收后清理测试行，DB 仅留 2 条 FU-14 种子记忆；浏览器还原为 user@fairy.local 登录态。
+
+### 踩坑（下次直接避）
+
+1. **API dev server 不是 watch**（`npx tsx src/index.ts`）：新增路由文件后必须重启进程，否则 GET /api/memories 404（进程 predates 路由挂载）。
+2. **验收脚本读错 total 位置**：AC-1 断言读 `data.total`，实际列表信封是 `data.pagination.total`——脚本假失败，接口本身正确；先核对契约再改脚本。
+3. **jest-dom matcher 类型未启用**：`toHaveValue` 在仓库测试类型下不存在，用 `(el as HTMLSelectElement).value` 断言。
+4. **findByText 多元素冲突**：fixture 默认同 email/kind 标签会匹配多行或筛选项——给第二条 fixture 覆盖 email、或改用 `findAllByText(...).length >= 1`（沿 BehaviorPage 风格）。
+5. **playwright 定位瞬态重复**：`getByRole("textbox", {name:"内容"})` count 偶发 >1（渲染中），改走 `page.evaluate` 确认真实 DOM 只有一个 textarea，再用元素 scope 操作。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| (see git log) | feat: fu-15 memory management admin rest and page |
+| (see git log) | chore: archive fu-15 memory center management and record journal |
+| (see git log) | docs: move fu-15 memory center management to completed |
+
+### Status
+
+[OK] **Completed**
