@@ -6,11 +6,13 @@
 
 **Development（开发中）**
 
-> Monorepo 脚手架、影片库 CRUD MVP、Phase 2 Agent 推荐与借阅、FU-1 画像写接口与管理 CRUD、FU-2 真实 LLM 意图与回复、FU-3 行为流水查询与管理页、FU-4 归还（聊天文本）、FU-5 真实 JWT 认证、FU-6 REST 借阅、FU-7 会话表与对话历史回放、FU-8 一键归还 UI、FU-9 影片库浏览页、FU-10 账号体系闭环（注册/限流/refresh token）、FU-11 运营洞察看板（管理端）、FU-12 运营洞察 chat 工具（对话问数）已交付。
+> Monorepo 脚手架、影片库 CRUD MVP、Phase 2 Agent 推荐与借阅、FU-1 画像写接口与管理 CRUD、FU-2 真实 LLM 意图与回复、FU-3 行为流水查询与管理页、FU-4 归还（聊天文本）、FU-5 真实 JWT 认证、FU-6 REST 借阅、FU-7 会话表与对话历史回放、FU-8 一键归还 UI、FU-9 影片库浏览页、FU-10 账号体系闭环（注册/限流/refresh token）、FU-11 运营洞察看板（管理端）、FU-12 运营洞察 chat 工具（对话问数）、FU-13 旅行规划（对话行程生成）、FU-14 记忆中心（结构化记忆落库与检索注入）已交付。
 
 ---
 
 ## Completed Modules（已完成模块）
+
+- **FU-14 memory-center 记忆中心（第一期：结构化记忆落库与检索注入）**（2026-09-06）— `Memory` Prisma 模型 + `MemoryKind` 枚举（PREFERENCE/FACT/INTENT）+ `add_memory_model` 迁移（`@@index([profileId, kind])`、`@@index([profileId, createdAt])`、`@@map("memories")`、Memory→Profile 级联删除）；shared `memorySchemas`（`memoryKindSchema`/`memoryRecordSchema`/`memoryExtractionSchema` + 类型 + 测试）；`memoryService`（`addMemory` 落库 + `searchMemories` profileId 必填隔离 + kind/时间/关键词筛选、限量默认 5）+ `memoryExtractor`（`agent.memory` source：LLM 结构化 JSON 抽取 `{memories:[{kind,content}]}`，sanitize 用户输入 + 低温度，失败/非法 JSON/无 key 一律静默返回空）+ `contextBuilder.buildMemoryBlock` 注入【记忆】区块（≤5 条，无记忆干净省略，替换 `TODO(memory-center)` 纯文本旁路）+ `stateLoop` searchMemories 接线三路 synthesize + chat SSE `done` 后旁路 `extractAndStoreMemories`（void+catch，失败仅记日志不中断流）；测试全绿：api 232 / shared 76 / web 55 + 三包 typecheck + `openspec validate --all` 11/11；真机验收 AC-1~AC-7 全过（真实 LLM 抽取落库 Memory 行且关联 session、**全新会话询问片型 → 回复引用记忆「科幻片/太空题材」跨会话复用**、LLM 故障/无 key 静默降级不崩不漏栈、SSE 流完整、DB 落库/检索按用户隔离）；需求：[2026-09-01-memory-center.md](docs/requirements/2026-09-01-memory-center.md)；OpenSpec 归档：[2026-09-01-memory-center](openspec/changes/archive/2026-09-01-memory-center/)
 
 - **FU-13 旅行规划（第一期：对话行程生成）**（2026-09-01）— `Trip` Prisma 模型 + `add_trip_model` 迁移（`@@index([userId, createdAt])`）+ `TRIP_PLANNED` 行为日志；shared `tripSchemas`（`tripResultSchema`/`tripEventSchema` 等 + 测试）；`amapClient` 服务端高德 Web 服务封装（POI 搜索 + 驾车路线，`AMAP_SERVER_KEY` 注入、缺失/超时/报错一律 `null` 降级不抛错）；`planTripTool`（LLM 草稿 JSON `{destination, itinerary}` + Amap 校验 POI/路线 + 落库，`hasDestinationByRules` 目的地规则兜底——草稿为空且消息无目的地线索 → `unresolved` 反问目的地，有线索 → `TRIP_DRAFT_FAILED`）；agent 链：`plan_trip` 意图（规则先于 LLM）→ planner `{tool:"trip"}` → dispatch（`"unresolved" in result.data` 联合收窄；**身份门禁：行程规划对画像名「铃」与绳匠 admin 开放，其余用户返回 `TRIP_FORBIDDEN` 不调工具，回复婉拒并引导推荐影片、不发 `trip` 事件**）→ synthesize（trip 分支 facts + `{texts, trip}`）+ chat.ts SSE `trip` 事件；web `TripTimeline` 时间轴卡片 + ChatPage 接线 + i18n；`docs/tools.md` 工具注册表；测试全绿：api 213 / web 55 / shared 68 + 三包 typecheck + `openspec validate --all` 10/10；真机验收 AC-1~AC-8 全过（`plan_trip` 识别、SSE trip 事件形状 `{tripId,destination,days,itinerary,route,validated}`、DB Trip 落库 + `TRIP_PLANNED` 日志、无目的地反问、**无 key 降级路径**：行程照常返回 + `validated:false` 不崩不漏栈、chitchat 不建 Trip、SSE done 正常、**铃与 admin 均直接呈现行程 / 普通用户婉拒且无 trip 事件**）；需求：[2026-09-01-travel-planning.md](docs/requirements/2026-09-01-travel-planning.md)；OpenSpec 归档：[2026-09-01-travel-planning](openspec/changes/archive/2026-09-01-travel-planning/)；Trellis task `09-01-fu-13-travel-planning`（已归档）。
 
@@ -55,13 +57,13 @@
 
 ## In Progress（进行中）
 
-（无 — FU-13 已归档至 Completed Modules）
+（当前无进行中功能——FU-14 已交付归档，见 Completed Modules。）
 
 ---
 
 ## Next Steps（下一步）
 
-- （技术债）memory-center（历史注入现为 `TODO(memory-center)` 纯文本旁路；embed() 已存在未使用）。
+- （二期候选）memory-center 二期：管理 UI（admin 查看/编辑/删除记忆）、REST 记忆端点、pgvector 向量检索（一期已落地结构化检索与注入，见 FU-14）。
 - （二期候选）旅行规划二期：REST `POST /api/trips` + 历史行程回放 + Amap JS 地图叠加路线（本期非目标）。
 
 ---
@@ -90,9 +92,14 @@
 | 2026-09-01 | refresh token 旋转 + 复用吊销 | Flores | FU-10：DB 只存 sha256 哈希；旋转置 `revokedAt`+`replacedByTokenId`；复用已吊销 token 即吊销该用户全部 refresh token。 |
 | 2026-09-01 | 运营洞察单端点一次返回全部 | Flores | FU-11：`GET /api/insights/overview`（admin-only）一次返回看板全部卡片；窗口与低库存阈值（`stock ≤ 1`）为契约常量。 |
 | 2026-09-01 | 聚合用 Prisma groupBy/count 并行 + JS 补零 | Flores | FU-11：`Promise.all` 并行规避 Neon 冷启动串行延迟；趋势缺日补 0 按服务器本地日期分桶在 JS 完成，避免 SQL 时区逻辑。 |
+| 2026-09-01 | 记忆抽取每轮旁路 + 结构化检索（不依赖 embed） | 用户拍板 + Flores | FU-14：每轮 SSE 后 LLM 抽取（失败静默）→ 落库 `Memory`；下一轮注入 ≤5 条（profileId 隔离 + kind/时间/关键词）。一期不用 pgvector/embed（DeepSeek 不支持 embed）；管理 UI、REST 端点、画像回写为二期。 |
 
 ---
 
 ## Last Updated（最近更新）
+
+**2026-09-06** — FU-14 memory-center：deepseek 充值后补验 AC-1（真实 LLM 抽取落库 Memory 行）与 AC-3（全新会话回复引用记忆「科幻片/太空题材」）通过 → 归档（`openspec archive 2026-09-01-memory-center`，11/11 spec 校验通过）→ 移入 Completed Modules。
+
+2026-09-01 — FU-14 memory-center：需求批准 → OpenSpec 提案批准 → 实现完成（db/shared/api + 测试全绿），待真机验收与归档。
 
 **2026-09-01**
