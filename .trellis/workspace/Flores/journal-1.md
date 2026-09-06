@@ -687,3 +687,52 @@ Delivered FU-13 travel planning phase 1: chat trip generation. `plan_trip` inten
 - **回复人设**：`REPLY_SYSTEM_PROMPT` 由"录像带门店的 AI 助理"改为"绳匠的全能管家"——行程规划好直接呈现，绝不说"不是我的专长"，绝不转而推荐影片（修复模型把行程规划当职责外而推诿的问题）。测试：toolDispatcher +4、responseSynthesizer +1，api 211 全绿。
 - **行程草稿高失败率修复**：用户反馈铃的账号也"无法规划"。实测 5 次请求 2 次失败（40%）——根因是 `draftTrip` 严格 JSON 输出不稳定：`temperature 0.7` 偏高、失败不重试、`maxTokens 800` 易截断非法 JSON。修复：温度降到 `0.2`、失败重试一次、`maxTokens` 提到 `1200`、`itinerary[].title` 放宽为可空（映射时 `?? ""`）。修复后实测 6/6 成功。教训：**LLM 结构化输出必须低温度 + 重试 + 足够 token 预算**（同 FU-12 "模型严格 JSON 不可靠"的延伸）。
 - **行程规划开放范围修正**：用户要求 admin（绳匠）账号也能规划行程（Fairy 是绳匠的管家，主人应可用）。门禁从"仅画像名「铃」"放宽为「铃 或 admin」（`profile?.name !== "铃" && role !== "admin"` 才 FORBIDDEN）；普通用户仍婉拒。草稿重试从 1 次提到 2 次（共 3 次尝试），admin 实测 4/4 成功、铃 6/6 成功。测试 api 213 全绿（toolDispatcher +1：admin 可规划）。
+
+## Session 14: FU-14 memory-center (phase 1: structured memory persistence + retrieval injection) delivery and archive
+
+**Date**: 2026-09-06
+**Task**: FU-14 memory-center phase 1 delivery and archive
+**Branch**: `master`
+
+### Summary
+
+Delivered FU-14 memory-center phase 1: per-turn LLM memory extraction persisted to a new `Memory` table, retrieved ≤5 rows per user profile and injected into the reply prompt as a 【记忆】 block (replacing the `TODO(memory-center)` history-only bypass). Silent degradation everywhere: LLM failure / no key / parse failure → skip extraction; memory fetch failure → empty block.
+
+### 改动
+
+- **数据层**：`MemoryKind` 枚举（PREFERENCE/FACT/INTENT）+ `Memory` 模型（profileId → Profile.userId 级联删除、sessionId?、kind、content、metadata Json?、createdAt、`@@index([profileId, kind])`、`@@index([profileId, createdAt])`、`@@map("memories")`）+ `add_memory_model` 迁移 + generate。
+- **共享层**：`memorySchemas`（memoryKindSchema/memoryRecordSchema/memoryExtractionSchema + 类型）+ 导出 + 测试（shared 76）。
+- **服务层**：`memory/memoryService`（`addMemory` 落库 + `searchMemories`：profileId 必填隔离 + kind/content 关键词/倒序限量默认 5）；`memory/memoryExtractor`（`agent.memory` source：LLM 结构化 JSON `{memories:[{kind,content}]}`，sanitize + 低温度 0.2，失败/非法 JSON/无 key 一律返回空数组静默）。
+- **agent 链**：`contextBuilder.buildMemoryBlock`（≤5 条注入【记忆】区块，无记忆干净省略）；`stateLoop` profile 查询后 `searchMemories(profile.userId)`（catch → []）接线三路 synthesize；`responseSynthesizer` SynthesisContext.memories + prompt 拼装；`chat.ts` SSE `done` 后 `void extractAndStoreMemories(...).catch(...)` 旁路抽取（失败仅记日志）。
+- **文档**：ARCHITECTURE §5.4 记忆流重写 + §8 决策行 + §9 模块图；API_CONTRACT 内部说明（无公共契约变更）；PROJECT_STATUS / requirements README / 需求文档状态。
+- 测试：api 232（memoryService 5 / memoryExtractor 7 / contextBuilder + / responseSynthesizer + / chat +3）/ shared 76 / web 55 全绿 + 三包 typecheck + `openspec validate --all` 11/11。
+
+### 验证
+
+- 真机验收 AC-1~AC-7 全过（双 dev server）：
+  - AC-1：铃发「我平时最喜欢看科幻片，尤其是太空题材的」→ 真实 LLM 抽取 → 新 `Memory` 行落库（kind=PREFERENCE、关联 session）；
+  - AC-3：全新会话（无 sessionId）问「我喜欢什么类型的片子？」→ 回复「铃，我记得你最爱科幻片，特别是太空题材的，对吧？」——跨会话复用；
+  - AC-2/AC-4/AC-5/AC-6：deepseek 余额耗尽期间 LLM 全链路降级——回复走模板、抽取静默跳过、SSE 流完整不崩不漏栈；DB 落库/检索（addMemory/searchMemories）独立于 LLM 可用；
+  - AC-7：跨用户隔离（铃 vs admin 各查各的 profileId）。
+- 阻塞与恢复：AC-1（LLM 抽取）/AC-3 曾因 deepseek 账户余额耗尽（Insufficient Balance）阻塞 → 用户充值后补验通过。
+
+### 踩坑（下次直接避）
+
+1. **deepseek 余额耗尽 = LLM 全链路静默降级**：`Insufficient Balance` 时所有 `tryChat` 解析失败，日志满屏 `{source:"llmClient", code:"PARSE"}`；回复变模板、抽取被跳过——功能仍不崩（降级设计有效），但**LLM 依赖验收无法进行**。验收前先探测余额。
+2. **改 shared schema 后必须 build**：api 消费 `@fairy/shared` 编译产物 `dist/`，新增 schema 不 build 则运行时 `undefined`（测试报 "Cannot read properties of undefined"），先 `pnpm --filter=@fairy/shared build`。
+3. **Git Bash /tmp 与 Windows 工具路径不通**：bash 的 `/tmp` 是 MSYS 路径，Windows 原生 python 打开 `/tmp/x.json` 报 FileNotFoundError——给 python 传 `$(cygpath -w /tmp/x.json)`。
+4. **Prisma 模型类型是顶层导出**：`@prisma/client` 的模型类型（如 `Memory`）不是 `Prisma.Memory` namespace 成员，fixture 类型用顶层 `Memory`/`Partial<Memory>`。
+5. **dev server 会锁 prisma query engine dll**：Windows 上 `prisma generate` EPERM 前先停 3000/5173 进程（本次需在重启用前 regenerate 的次序要留意）。
+6. **Neon 冷启动 P1001 偶发**：首次请求可能「Can't reach database server」，等 5-8s 重试即好（连接串已带 connect_timeout/pool_timeout）。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| (see git log) | feat: fu-14 memory center structured memory persistence and injection |
+| (see git log) | chore: archive fu-14 memory center and record journal |
+| (see git log) | docs: move fu-14 memory center to completed |
+
+### Status
+
+[OK] **Completed**
