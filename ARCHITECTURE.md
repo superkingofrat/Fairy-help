@@ -722,6 +722,7 @@ docs/
 
 ## 10. 验证与演进
 
+- **本地一次启动前后端**：在 `Fairy/` 下运行 `pnpm dev`——根 turbo 编排（`Fairy/turbo.json` 以 `tasks` 声明任务，dev 为 `cache:false` + `persistent:true`）并行执行 api 与 web 的 dev script（二者是 workspace 中仅有的 dev 任务），日志带 `@fairy/api:dev` / `@fairy/web:dev` 前缀，Ctrl+C 一并停止。单独启动仍用 `pnpm --filter=@fairy/api dev` / `pnpm --filter=@fairy/web dev`。
 - 改动 `agent/` 或 `tools/` 后运行 `pnpm --filter=@fairy/api test`。
 - 为每个新工具与状态迁移补充单元测试。
 - 新增意图、工具或外部集成时，保持本文档最新。

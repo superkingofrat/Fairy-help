@@ -213,6 +213,9 @@ pnpm --filter=@fairy/database db:seed
 # 分别以后台方式启动 API 与 Web
 pnpm --filter=@fairy/api dev
 pnpm --filter=@fairy/web dev
+
+# 或一条命令经 turbo 同时启动前后端（推荐日常联调用）
+pnpm dev
 ```
 
 > 先确认 `apps/api/.env.example` 与 `apps/web/.env.example` 中的必需环境变量已在本地复制为 `.env` 并填写（密钥只留本地，永不提交）。
@@ -230,7 +233,7 @@ pnpm --filter=@fairy/web dev
 - **改 Prisma schema 必须 `generate`**：调整 `schema.prisma` 后，先 `pnpm --filter=@fairy/database generate` 再运行 web/api，否则类型不匹配会报错。
 - **启动/重启 dev server**：依赖变更或 Prisma client 重新生成后，重启对应 dev server 以让变更生效。
 - **端口冲突**：web 与 api 使用不同端口；若端口被占用，先从占用进程排查，而非硬改配置。
-- **联调须双进程**：本地验证前后端集成时，须**同时**运行 `pnpm --filter=@fairy/api dev`（:3000）与 `pnpm --filter=@fairy/web dev`（:5173）。仅启动 web 会导致 Vite 代理 `/api` 失败（常见表现为空 JSON 或 500）。
+- **联调须双进程**：本地验证前后端集成时，api(:3000) 与 web(:5173) **必须同时运行**。推荐在 `Fairy/` 下一条命令 `pnpm dev`（根 turbo 编排同时拉起两者，Ctrl+C 一并停止；turbo.json 用 `tasks` 声明，见 ARCHITECTURE §10）；也可分别跑 `pnpm --filter=@fairy/api dev` 与 `pnpm --filter=@fairy/web dev`。仅启动 web 会导致 Vite 代理 `/api` 失败（常见表现为空 JSON 或 500）。
 - **双份 `DATABASE_URL` 须一致**：Prisma 使用 `packages/database/.env`；API 使用 `apps/api/.env`。两处 `DATABASE_URL` **必须相同**。只改一处会导致 migrate/seed 成功但 API 连错库或报 P1001。
 - **改 `.env` 后重启 API**：环境变量变更后须重启 `pnpm --filter=@fairy/api dev`，web 通常无需重启。
 

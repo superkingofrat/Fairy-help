@@ -936,4 +936,4 @@ Delivered FU-18 — 画像反向回写：每轮对话抽取（FU-14 旁路）在
 ### Next Steps
 
 - ~~Owner 审阅后按需提交（FU-16/17 三连样式）~~（已完成：`925c457` / `a546693` / `96348db` / `2c6f00a`，未推送）。
-- **推送延后（2026-09-07）**：尝试推送时 github.com 443 不可达（timeout + connection reset），owner 决定留待网络恢复后补推；届时在仓库根执行 `git push origin master`（当前本地领先 origin 4 个提交，origin 停 `718645a`）。
+- **推送延后（2026-09-07）**：尝试推送时 github.com 443 不可达（timeout + connection reset），owner 决定留待网络恢复后补推；届时在仓库根执行 `git push origin master`（origin 停 `718645a`，后续本地提交一并待推）。
