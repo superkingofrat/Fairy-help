@@ -29,8 +29,8 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
-| 18 | 2026-09-07 | FU-18 profile writeback (preference memory → Profile.likeGenres auto merge) delivery and archive | (未提交) | `master` |
-| 17 | 2026-09-07 | FU-17 memory self-inspection entry (in-chat read-only panel + GET /api/memories/me) delivery and archive | (未提交) | `master` |
+| 18 | 2026-09-07 | FU-18 profile writeback (preference memory → Profile.likeGenres auto merge) delivery and archive | `925c457`, `a546693`, `96348db` | `master` |
+| 17 | 2026-09-07 | FU-17 memory self-inspection entry (in-chat read-only panel + GET /api/memories/me) delivery and archive | `0a4f823`, `aece246`, `718645a` | `master` |
 | 16 | 2026-09-06 | FU-16 pgvector vector retrieval (memory center phase 3: hybrid retrieval) delivery and archive | `105b45b`, `047f9a3`, `d723b4a` | `master` |
 | 15 | 2026-09-06 | FU-15 memory-center phase 2 (admin memory management REST + /admin/memories page) delivery and archive | `293a12e`, `a14665e`, `474b6d9` | `master` |
 | 14 | 2026-09-06 | FU-14 memory-center (phase 1: structured memory persistence + retrieval injection) delivery and archive | `b98dbab`, `a948256`, `5f3ccbb` | `master` |

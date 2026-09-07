@@ -876,7 +876,9 @@ Delivered FU-17 — 记忆自查入口：登录用户在会话页经「Fairy 记
 
 | Hash | Message |
 |------|---------|
-| (未提交) | feat: fu-17 memory self inspection api and in-chat panel —— 工作区全套改动，待 owner 审阅后按 AGENTS §10 提交 |
+| `0a4f823` | feat: fu-17 memory self inspection api and in-chat panel |
+| `aece246` | chore: archive fu-17 memory self inspection and record journal |
+| `718645a` | docs: move fu-17 memory self inspection to completed |
 
 ### Status
 
@@ -884,7 +886,7 @@ Delivered FU-17 — 记忆自查入口：登录用户在会话页经「Fairy 记
 
 ### Next Steps
 
-- Owner 审阅后按需提交（FU-16 三连样式）：`feat: fu-17 ...` / `chore: archive fu-17 ... and record journal` / `docs: move fu-17 ... to completed`。
+- ~~Owner 审阅后按需提交~~（已完成：`0a4f823` / `aece246` / `718645a`，未推送）。
 
 
 ## Session 18: FU-18 profile writeback (preference memory → Profile.likeGenres auto merge) delivery and archive
@@ -903,7 +905,7 @@ Delivered FU-18 — 画像反向回写：每轮对话抽取（FU-14 旁路）在
 - **api memory 链路**：`memoryExtractor` 提示词 JSON 格式扩展 `"genres":["片型"]`（语义约束仅「用户明确表达影片偏好时 ≤3」，**不注入 DB 词表**）；内部 `extractTurn` 返回完整 `MemoryExtraction`（失败降级 `{memories:[]}`），`extractMemories` 仅取 `.memories`（对外不变）；`extractAndStoreMemories` 落库后按门禁旁路 `profileService.mergeLikeGenres(profileId, genres)`（`.catch(() => undefined)`）。测试补 5 例（有 preference+候选触发 / 无 preference 不触发 / 无候选不触发 / preference 落库失败不触发 / 回写抛错不影响落库）。
 - **api profile 侧**：`profileService.loadGenreWhitelist`（`Movie.genres` distinct + 空串/纯数字脏值剔除（库内 "1233" 类）+ 进程内 TTL 5min 缓存；查询失败返回空名单不抛出、不缓存失败；测试用 `resetGenreWhitelistForTests` 清缓存，沿用 `resetLlmProviderForTests` 约定）+ `mergeLikeGenres(profileId, candidates)`（白名单过滤 → `$transaction` 内读 profile（缺失静默跳过）→ `Set` 并集 → 无变化不写、有变化 `update likeGenres`；只增不减）。新测试文件 `profileService.test.ts` 10 例。
 - **文档**：ARCHITECTURE §5.4 回写支路/§8 决策行/§9 模块映射；API_CONTRACT 记忆中心内部行为说明补 FU-18 一句（**无公共契约变更**）；requirements README + 需求文档状态归档链接；PROJECT_STATUS Completed + 决策行 + Last Updated。
-- **未提交**：全套改动仍在工作区（见 git status），待 owner 审阅后按 AGENTS §10 提交。
+- **提交**：owner 批准「提交三连，不推送」后已按序提交 `925c457`（feat）/ `a546693`（chore）/ `96348db`（docs），未推送；本行下方 Git Commits 表已回填真实哈希。
 
 ### 验证
 
@@ -923,7 +925,9 @@ Delivered FU-18 — 画像反向回写：每轮对话抽取（FU-14 旁路）在
 
 | Hash | Message |
 |------|---------|
-| (未提交) | feat: fu-18 profile likeGenres writeback from preference memory —— 工作区全套改动，待 owner 审阅后按 AGENTS §10 提交 |
+| `925c457` | feat: fu-18 writeback preference memory genres into profile likeGenres |
+| `a546693` | chore: archive fu-18 profile writeback and record journal |
+| `96348db` | docs: move fu-18 profile writeback to completed |
 
 ### Status
 
@@ -931,4 +935,4 @@ Delivered FU-18 — 画像反向回写：每轮对话抽取（FU-14 旁路）在
 
 ### Next Steps
 
-- Owner 审阅后按需提交（FU-16/17 三连样式）：`feat: fu-18 ...` / `chore: archive fu-18 ... and record journal` / `docs: move fu-18 ... to completed`。
+- ~~Owner 审阅后按需提交（FU-16/17 三连样式）~~（已完成：`925c457` / `a546693` / `96348db`，未推送）。
