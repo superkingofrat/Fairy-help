@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 16
-- **Last Active**: 2026-09-06
+- **Total Sessions**: 17
+- **Last Active**: 2026-09-07
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~840 | Active |
+| `journal-1.md` | ~888 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,7 +29,8 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
-| 16 | 2026-09-06 | FU-16 pgvector vector retrieval (memory center phase 3: hybrid retrieval) delivery and archive | (未提交) | `master` |
+| 17 | 2026-09-07 | FU-17 memory self-inspection entry (in-chat read-only panel + GET /api/memories/me) delivery and archive | (未提交) | `master` |
+| 16 | 2026-09-06 | FU-16 pgvector vector retrieval (memory center phase 3: hybrid retrieval) delivery and archive | `105b45b`, `047f9a3`, `d723b4a` | `master` |
 | 15 | 2026-09-06 | FU-15 memory-center phase 2 (admin memory management REST + /admin/memories page) delivery and archive | `293a12e`, `a14665e`, `474b6d9` | `master` |
 | 14 | 2026-09-06 | FU-14 memory-center (phase 1: structured memory persistence + retrieval injection) delivery and archive | `b98dbab`, `a948256`, `5f3ccbb` | `master` |
 | 13 | 2026-09-01 | FU-13 travel planning (chat trip generation) delivery and archive | (see git log) | `master` |

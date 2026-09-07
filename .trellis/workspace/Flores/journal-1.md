@@ -828,7 +828,9 @@ Delivered FU-16 — 记忆中心三期：pgvector 向量检索。`Memory` 增加
 
 | Hash | Message |
 |------|---------|
-| (未提交) | feat: fu-16 pgvector memory embeddings and hybrid retrieval —— 工作区全套改动，待 owner 审阅后按 AGENTS §10 提交 |
+| `105b45b` | feat: fu-16 pgvector memory embeddings and hybrid retrieval |
+| `047f9a3` | chore: archive fu-16 pgvector vector retrieval and record journal |
+| `d723b4a` | docs: move fu-16 pgvector vector retrieval to completed |
 
 ### Status
 
@@ -838,3 +840,49 @@ Delivered FU-16 — 记忆中心三期：pgvector 向量检索。`Memory` 增加
 
 - Owner：配置真实 `EMBEDDING_API_KEY` → 跑 keyed 端到端（真实 embed 落库 / 语义召回命中 / 回填脚本幂等重跑）→ 通过后勾选 tasks.md 6.2。
 - Owner 要求后按序提交：`feat: fu-16 pgvector memory embeddings and hybrid retrieval` / `chore: archive fu-16 pgvector vector retrieval and record journal` / `docs: move fu-16 ... to completed`。
+
+## Session 17: FU-17 memory self-inspection entry (in-chat read-only panel + GET /api/memories/me) delivery and archive
+
+**Date**: 2026-09-07
+**Task**: FU-17 记忆自查入口交付与归档（记忆中心四期）
+**Branch**: `master`（工作区未提交）
+
+### Summary
+
+Delivered FU-17 — 记忆自查入口：登录用户在会话页经「Fairy 记住了什么」只读面板查看**本人**记忆。利用 `Profile.userId` 主键 == `Memory.profileId` 恒等式零迁移落地 `GET /api/memories/me`（任意已登录角色，admin 管理面不变）；shared Zod 未知键剥除实现越权参数（`userId`/`email`）静默忽略；web `MemorySelfPanel` + ChatPage 头部开关 + i18n；文档脊柱同步；shared 93 / api 277 / web 71 测试全绿；真机验收 AC-1~AC-5 全过（自查不依赖 LLM/embed，无 keyed 残留）；OpenSpec 提案归档。
+
+### 改动
+
+- **shared**：`memorySchemas` 新增 `memorySelfQuerySchema`（page/limit/kind/keyword；zod 默认剥除未知键——越权 `userId`/`email` 视同不存在）、`memorySelfListItemSchema`（含 `sessionId` 可空，**无 email/userId**）、`memorySelfListFeedSchema` + 类型导出 + 测试（shared 套件 93）。
+- **api**：`memoryService.listOwnMemories(profileId, query)`（profileId 限定 + kind/keyword 过滤 + createdAt 倒序 + 分页，不 join email）；`routes/memories.ts` `GET /me`（置于 `/` 之前；router-level authMiddleware 已认证，仅无 token 401、非法 kind 400，**无 403 分支**）；`memoryController.listMyMemoriesHandler`（读 `res.locals.userId`）。routes + service 测试各补 describe（api 套件 277）。
+- **web**：`lib/memoryApi.listMyMemories`（构造 `/api/memories/me` 查询，不带 userId/email）；`components/chat/MemorySelfPanel`（只读：kind 标签 + 来源标注——`sessionId` 非空「对话抽取」/ 空「系统录入」+ 时间倒序 + 分页 footer + 加载/错误/空态，PAGE_SIZE 20）；`ChatPage` 标题区「Fairy 记住了什么」切换按钮（`aria-expanded`）；i18n `memory.self.*`。web 测试：MemorySelfPanel.test.tsx 4（co-located）+ ChatPage 补 1（开关开合 + 空态调用断言）。
+- **文档**：ARCHITECTURE §5.4 自查数据流/§8 决策行/§9 模块映射；API_CONTRACT §3.14 重构为自查 §3.14.1 + admin 列表/创建/更新/删除顺延 §3.14.2–3.14.5；requirements README FU-17 行 proposed → approved；需求文档状态 approved + 归档链接；PROJECT_STATUS Completed + Last Updated。
+- **未提交**：全套改动仍在工作区（见 git status），待 owner 审阅后按 AGENTS §10 提交。
+
+### 验证
+
+- 单元：shared 93 / api 277 / web 71（MemorySelfPanel 4 + ChatPage toggle 1）全绿；shared/api/web 三包 typecheck 通过。
+- `openspec validate --all` 归档前 13/13 → archive（spec memory-management +1 added）→ 12/12。
+- 真机验收 PASSED（api :3000 + web :5173 双进程，mint real JWT via login）：user `/me` 返回本人 2 条记忆（1 条对话抽取 sessionId 非空 + 1 条系统录入 sessionId null），条目**无 email/userId**、createdAt 倒序；`page/limit/kind/keyword` 过滤生效；**越权 `userId`/`email` 参数被剥除、结果不变**；admin `/me` 只回自身（admin 无记忆 → 空列表）而 admin `GET /api/memories` 仍列出全部用户（隔离成立）；匿名 401 `UNAUTHORIZED`；非法 kind 400 `VALIDATION_ERROR`。
+
+### 踩坑（下次直接避）
+
+1. **api/web 消费 shared 编译产物 `dist/`**：新增 `memorySelfQuerySchema` 后必须先 `pnpm --filter=@fairy/shared build`，否则路由测试 `safeParse` undefined → 500（FU-16 同款坑）。
+2. **zod object 默认剥除未知键**：对越权参数是“静默忽略”而非报错——self 条目/查询 schema 测试用 `not.toHaveProperty("userId"/"email")` 断言，不要写 rejects。
+3. **Windows Git Bash 的 curl 会按 ANSI 编码命令行中文**：POST content 落库变乱码、中文 keyword 过滤 0 命中——用 percent-encoded UTF-8（如 `keyword=%E7%A7%91%E5%B9%BB`）验证；服务端管线经 ASCII keyword 命中 + 直连 Prisma `contains('科幻')` 命中 证明无 bug（属客户端编码）。
+4. **组件测试漏 import `afterEach`** → web typecheck TS2304；补导入即可。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| (未提交) | feat: fu-17 memory self inspection api and in-chat panel —— 工作区全套改动，待 owner 审阅后按 AGENTS §10 提交 |
+
+### Status
+
+[OK] **Completed**（自查面不依赖 LLM/embed key，无 owner 补跑项）
+
+### Next Steps
+
+- Owner 审阅后按需提交（FU-16 三连样式）：`feat: fu-17 ...` / `chore: archive fu-17 ... and record journal` / `docs: move fu-17 ... to completed`。
+
