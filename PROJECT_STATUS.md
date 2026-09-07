@@ -109,6 +109,8 @@
 
 ## Last Updated（最近更新）
 
+**2026-09-07** — 前端 P1 修复：消除「打开网页先闪现内部内容、随后才跳登录」——根因是 web 启动时不做会话校验（`authStore` 同步恢复 localStorage 凭据后 `RequireAuth` 仅看 token/user 是否存在即放行，首个接口 401 且刷新失败才被 `window.location.assign('/login')` 带走）。修复：`App` 增加启动门 `useSessionReady`（本地有 token 时先调 `/api/auth/me` 验证，期间渲染「正在恢复会话…」占位页而非内部 UI；仅 401 才尝试一次刷新续期，刷新失败才清会话落登录页；网络/服务异常不武断登出，沿用页面自身报错）；`authApi.ensureSessionOnBoot`（模块级单飞，兼容 StrictMode 双执行）；i18n 新增 `app.restoring`。无新端点、无契约变更。测试：web 79 全绿（新增 boot-check 6 例 + App 级「占位优先于内部内容/失效落登录页」2 例）。
+
 **2026-09-07** — 工程基建：修复 `Fairy/turbo.json` 的 `pipeline` → `tasks` 字段（turbo 2.0 起 `pipeline` 已改名，此前根脚本 `pnpm dev`/`build`/`test`/`typecheck` 一启动即报 schema 错误，只能退回手工双命令）→ `pnpm dev` 现可经 turbo 一次同时启动 api(:3000) 与 web(:5173)，已真机验证双端口就绪并确认 Ctrl+C 一并停止；AGENTS §8/§9 与 ARCHITECTURE §10 已同步一条命令用法。
 
 **2026-09-07** — FU-18 画像反向回写（偏好记忆自动沉淀 `Profile.likeGenres`，记忆中心五期）：实现完成并验证（shared 96 / api 292 + shared/api typecheck + `openspec validate --all` 13/13）→ 真机验收 AC-1~AC-6 全过（真实 deepseek 对话：`动作` 增量并入且重放幂等、无片型/未命中白名单记忆不写、admin PATCH 的 `喜剧` 标签在合并 `爱情` 后保留、`PATCH /api/profiles` 契约不变、新增 `犯罪` 类型影片经重启清缓存后命中并入）→ 归档（`openspec archive 2026-09-07-profile-writeback --yes`，spec memory-center 已合并）→ 移入 Completed Modules。验收产物已清理、`likeGenres` 还原基线。按「提交三连，不推送」本地提交 `925c457`(feat)/`a546693`(chore)/`96348db`(docs) + `2c6f00a`(journal 哈希回填)，未推送；同日尝试推送时 github.com 不可达，推送延后待网络恢复（origin 停在 `718645a`，后续本地提交一并待推，见 journal Session 18）。

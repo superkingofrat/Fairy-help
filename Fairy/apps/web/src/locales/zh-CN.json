@@ -1,6 +1,7 @@
 {
   "app.title": "Fairy",
   "app.subtitle": "AI 助理与录像带租赁门店",
+  "app.restoring": "正在恢复会话…",
   "nav.home": "首页",
   "nav.movies": "影片管理",
   "nav.profiles": "画像管理",

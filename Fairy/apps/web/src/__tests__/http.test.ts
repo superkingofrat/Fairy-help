@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ensureSessionOnBoot } from "../lib/authApi";
 import { ApiRequestError, request } from "../lib/http";
 import { useAuthStore } from "../stores/authStore";
 
@@ -147,5 +148,89 @@ describe("http request client", () => {
     expect((error as ApiRequestError).message).toBe("该邮箱已注册");
     expect((error as ApiRequestError).code).toBe("EMAIL_ALREADY_EXISTS");
     expect(assignMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("boot session check (ensureSessionOnBoot)", () => {
+  it("skips validation and stays ready when no token is stored", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    useAuthStore.setState({ token: null, refreshToken: null, user: null });
+
+    await expect(ensureSessionOnBoot()).resolves.toBe("ok");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("accepts a still-valid access token via /api/auth/me", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      expect(String(input)).toContain("/api/auth/me");
+      return jsonResponse(200, { code: "OK", data: user, msg: "ok" });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    useAuthStore.setState({ token: "t", refreshToken: "rt", user });
+
+    await expect(ensureSessionOnBoot()).resolves.toBe("ok");
+    expect(useAuthStore.getState().token).toBe("t");
+  });
+
+  it("refreshes once when the access token expired and keeps the session", async () => {
+    let meCalls = 0;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path.includes("/api/auth/refresh")) {
+        return jsonResponse(200, {
+          code: "OK",
+          data: { token: "new-token", refreshToken: "new-rt", user },
+          msg: "ok",
+        });
+      }
+      meCalls += 1;
+      return jsonResponse(401, { code: "UNAUTHORIZED", data: null, msg: "会话已失效" });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    useAuthStore.setState({ token: "old-token", refreshToken: "rt", user });
+
+    await expect(ensureSessionOnBoot()).resolves.toBe("ok");
+    expect(meCalls).toBe(1);
+    expect(useAuthStore.getState().token).toBe("new-token");
+    expect(useAuthStore.getState().refreshToken).toBe("new-rt");
+  });
+
+  it("clears the stored session when refresh also fails", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path.includes("/api/auth/refresh")) {
+        return jsonResponse(401, { code: "INVALID_REFRESH_TOKEN", data: null, msg: "登录状态已过期" });
+      }
+      return jsonResponse(401, { code: "UNAUTHORIZED", data: null, msg: "会话已失效" });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    useAuthStore.setState({ token: "old-token", refreshToken: "rt", user });
+
+    await expect(ensureSessionOnBoot()).resolves.toBe("expired");
+    expect(useAuthStore.getState().token).toBeNull();
+    expect(useAuthStore.getState().user).toBeNull();
+  });
+
+  it("clears the stored session on 401 when no refresh token exists", async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(401, { code: "UNAUTHORIZED", data: null, msg: "会话已失效" })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    useAuthStore.setState({ token: "t", refreshToken: null, user });
+
+    await expect(ensureSessionOnBoot()).resolves.toBe("expired");
+    expect(useAuthStore.getState().token).toBeNull();
+  });
+
+  it("keeps the session when the API is unreachable instead of force-logging-out", async () => {
+    const fetchMock = vi.fn(async () => {
+      throw new TypeError("Failed to fetch");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    useAuthStore.setState({ token: "t", refreshToken: "rt", user });
+
+    await expect(ensureSessionOnBoot()).resolves.toBe("ok");
+    expect(useAuthStore.getState().token).toBe("t");
   });
 });

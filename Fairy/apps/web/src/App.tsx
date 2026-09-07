@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { BrowserRouter, Link, Navigate, Route, Routes } from "react-router-dom";
 import { MoviesAdminPage } from "./components/admin/MoviesAdminPage";
 import { ProfilesAdminPage } from "./components/admin/ProfilesAdminPage";
@@ -8,9 +9,31 @@ import { ChatPage } from "./components/chat/ChatPage";
 import { MovieLibraryPage } from "./components/library/MovieLibraryPage";
 import { LoginPage } from "./components/LoginPage";
 import { RegisterPage } from "./components/RegisterPage";
-import { logout } from "./lib/authApi";
+import { ensureSessionOnBoot, logout } from "./lib/authApi";
 import { useAuthStore } from "./stores/authStore";
 import { t } from "./lib/i18n";
+
+// 启动门：本地有残留会话时先经 /api/auth/me 验证（失效才刷新/登出），
+// 期间渲染占位页而非内部内容，避免未登录用户先看到内部 UI 一闪而过。
+function useSessionReady(): boolean {
+  const [ready, setReady] = useState(() => useAuthStore.getState().token === null);
+  useEffect(() => {
+    if (useAuthStore.getState().token === null) {
+      setReady(true);
+      return;
+    }
+    let disposed = false;
+    void ensureSessionOnBoot().finally(() => {
+      if (!disposed) {
+        setReady(true);
+      }
+    });
+    return () => {
+      disposed = true;
+    };
+  }, []);
+  return ready;
+}
 
 function RequireAuth({ children, role }: { children: JSX.Element; role?: "admin" }): JSX.Element {
   const token = useAuthStore((state) => state.token);
@@ -94,6 +117,16 @@ function HeaderNav(): JSX.Element {
 }
 
 export function App(): JSX.Element {
+  const sessionReady = useSessionReady();
+
+  if (!sessionReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-500">
+        {t("app.restoring")}
+      </div>
+    );
+  }
+
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-slate-50">

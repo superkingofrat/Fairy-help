@@ -3,12 +3,21 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { App } from "../App";
 import { MoviesAdminPage } from "../components/admin/MoviesAdminPage";
+import { ensureSessionOnBoot } from "../lib/authApi";
 import * as movieApi from "../lib/movieApi";
 import * as rentalsApi from "../lib/rentalsApi";
 import { useAuthStore } from "../stores/authStore";
 
 vi.mock("../lib/movieApi");
 vi.mock("../lib/rentalsApi");
+vi.mock("../lib/authApi", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/authApi")>();
+  return {
+    ...actual,
+    // 启动门默认放行本地会话；失效分支由 http.ts 401→单飞刷新 的行为测试覆盖
+    ensureSessionOnBoot: vi.fn().mockResolvedValue("ok"),
+  };
+});
 
 afterEach(() => {
   cleanup();
@@ -22,13 +31,13 @@ describe("App", () => {
     expect(screen.getByText("Fairy")).toBeDefined();
   });
 
-  it("renders chat navigation when logged in", () => {
+  it("renders chat navigation when logged in", async () => {
     useAuthStore.setState({
       token: "t",
       user: { id: "00000000-0000-4000-8000-000000000001", email: "user@fairy.local", role: "user" },
     });
     render(<App />);
-    expect(screen.getByText("对话")).toBeDefined();
+    expect(await screen.findByText("对话")).toBeDefined();
     expect(screen.getByRole("link", { name: "影片库" })).toBeDefined();
     expect(screen.queryByText("影片管理")).toBeNull();
     expect(screen.getByText("退出")).toBeDefined();
@@ -66,18 +75,57 @@ describe("App", () => {
     expect(await screen.findByText("星际穿越")).toBeDefined();
   });
 
-  it("renders admin navigation for admin role", () => {
+  it("renders admin navigation for admin role", async () => {
     useAuthStore.setState({
       token: "t",
       user: { id: "00000000-0000-4000-8000-000000000002", email: "admin@fairy.local", role: "admin" },
     });
     render(<App />);
-    expect(screen.getByText("影片管理")).toBeDefined();
+    expect(await screen.findByText("影片管理")).toBeDefined();
     expect(screen.getByRole("link", { name: "影片库" })).toBeDefined();
     expect(screen.getByText("画像管理")).toBeDefined();
     expect(screen.getByText("行为流水")).toBeDefined();
     expect(screen.getByText("记忆管理")).toBeDefined();
     expect(screen.getByText("运营看板")).toBeDefined();
+  });
+
+  it("shows the restore placeholder instead of internal content until the boot check settles", async () => {
+    let resolveBoot!: (value: "ok" | "expired") => void;
+    vi.mocked(ensureSessionOnBoot).mockReturnValueOnce(
+      new Promise<"ok" | "expired">((resolve) => {
+        resolveBoot = resolve;
+      })
+    );
+    useAuthStore.setState({
+      token: "t",
+      user: { id: "00000000-0000-4000-8000-000000000001", email: "user@fairy.local", role: "user" },
+    });
+    window.history.pushState({}, "", "/chat");
+    render(<App />);
+
+    expect(screen.getByText("正在恢复会话…")).toBeDefined();
+    expect(screen.queryByRole("link", { name: "对话" })).toBeNull();
+    expect(screen.queryByText("登录 Fairy")).toBeNull();
+
+    resolveBoot("ok");
+    expect(await screen.findByRole("link", { name: "对话" })).toBeDefined();
+  });
+
+  it("lands on login without flashing internal content when the boot check fails", async () => {
+    // 复刻 ensureSessionOnBoot 的「expired」语义：先清掉本地会话再让启动门就绪
+    vi.mocked(ensureSessionOnBoot).mockImplementationOnce(async () => {
+      useAuthStore.getState().clear();
+      return "expired";
+    });
+    useAuthStore.setState({
+      token: "t",
+      user: { id: "00000000-0000-4000-8000-000000000001", email: "user@fairy.local", role: "user" },
+    });
+    window.history.pushState({}, "", "/chat");
+    render(<App />);
+
+    expect(await screen.findByText("登录 Fairy")).toBeDefined();
+    expect(screen.queryByRole("link", { name: "对话" })).toBeNull();
   });
 
   it("redirects unauthenticated access of admin pages to login", () => {
