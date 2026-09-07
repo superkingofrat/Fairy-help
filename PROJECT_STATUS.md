@@ -6,12 +6,13 @@
 
 **Development（开发中）**
 
-> Monorepo 脚手架、影片库 CRUD MVP、Phase 2 Agent 推荐与借阅、FU-1 画像写接口与管理 CRUD、FU-2 真实 LLM 意图与回复、FU-3 行为流水查询与管理页、FU-4 归还（聊天文本）、FU-5 真实 JWT 认证、FU-6 REST 借阅、FU-7 会话表与对话历史回放、FU-8 一键归还 UI、FU-9 影片库浏览页、FU-10 账号体系闭环（注册/限流/refresh token）、FU-11 运营洞察看板（管理端）、FU-12 运营洞察 chat 工具（对话问数）、FU-13 旅行规划（对话行程生成）、FU-14 记忆中心（结构化记忆落库与检索注入）、FU-15 记忆管理面（admin REST + 管理页）、FU-16 pgvector 向量检索（混合检索 + 写入实时 embed + 幂等回填）已交付。
+> Monorepo 脚手架、影片库 CRUD MVP、Phase 2 Agent 推荐与借阅、FU-1 画像写接口与管理 CRUD、FU-2 真实 LLM 意图与回复、FU-3 行为流水查询与管理页、FU-4 归还（聊天文本）、FU-5 真实 JWT 认证、FU-6 REST 借阅、FU-7 会话表与对话历史回放、FU-8 一键归还 UI、FU-9 影片库浏览页、FU-10 账号体系闭环（注册/限流/refresh token）、FU-11 运营洞察看板（管理端）、FU-12 运营洞察 chat 工具（对话问数）、FU-13 旅行规划（对话行程生成）、FU-14 记忆中心（结构化记忆落库与检索注入）、FU-15 记忆管理面（admin REST + 管理页）、FU-16 pgvector 向量检索（混合检索 + 写入实时 embed + 幂等回填）、FU-17 记忆自查入口（会话页只读面板 + `GET /api/memories/me`）已交付。
 
 ---
 
 ## Completed Modules（已完成模块）
 
+- **FU-17 记忆自查入口（会话页「Fairy 记住了什么」只读面板，记忆中心四期）**（2026-09-07）— 利用 `Profile.userId` 主键 == `Memory.profileId` 恒等式零迁移落地自查面：shared `memorySchemas` 新增自查 schema（`memorySelfQuerySchema`（page/limit/kind/keyword，未知键自动剥除——越权 `userId`/`email` 视同不存在）、`memorySelfListItemSchema`（含 `sessionId` 可空，不带 email/userId）、`memorySelfListFeedSchema` + 类型 + 测试）；api：`memoryService.listOwnMemories(profileId, query)`（profileId 限定 + kind/keyword 过滤 + createdAt 倒序分页，不 join email）+ `routes/memories.ts` `GET /me`（置于 admin 路由前，任意已登录角色；无 token 401、非法 kind 400，无 403 分支）+ `memoryController.listMyMemoriesHandler`（读 `res.locals.userId`）；web：`lib/memoryApi.listMyMemories`（不带 userId/email）+ `components/chat/MemorySelfPanel`（只读：kind 标签 + 来源标注——`sessionId` 非空「对话抽取」/空「系统录入」+ 时间倒序 + 分页 + 加载/错误/空态）+ ChatPage 头部「Fairy 记住了什么」开关（`aria-expanded`）+ i18n（`memory.self.*`）；文档脊柱：`ARCHITECTURE` §5.4 数据流 + §8 决策 + §9 模块映射、`API_CONTRACT` §3.14 重构（自查 §3.14.1 + admin 列表/创建/更新/删除顺延为 §3.14.2–3.14.5）；测试全绿：shared 93 / api 277 / web 71 + shared/api/web 三包 typecheck + `openspec validate --all` 12/12；真机验收 AC-1~AC-5 全过：user `/me` 只回本人 2 条记忆（对话抽取 + 系统录入，时间倒序，条目无 `userId`/`email`）、`page/limit/kind/keyword` 过滤生效、**越权 `userId`/`email` 参数被剥除结果不变**、admin `/me` 只回自身（空）而 admin 列表仍含全部用户（隔离）、匿名 401、非法 kind 400；自查全程不依赖 LLM/embed key；需求：[2026-09-07-memory-self-inspection.md](docs/requirements/2026-09-07-memory-self-inspection.md)；OpenSpec 归档：[2026-09-07-memory-self-inspection](openspec/changes/archive/2026-09-07-memory-self-inspection/)
 - **FU-16 pgvector 记忆向量检索（混合检索 + 写入实时 embed + 幂等回填）**（2026-09-06）— db：`Memory` 增加 `embedding Unsupported("vector(1536)")?` + `add_memory_embedding` 迁移（`CREATE EXTENSION IF NOT EXISTS vector` + 列 + HNSW `memories_embedding_idx USING hnsw (embedding vector_cosine_ops)`，已应用 Neon dev，Prisma 不读写该列、永不下发 DTO）；ai-sdk：`createEmbeddingProvider`（`EMBEDDING_API_KEY` 缺省回退 `OPENAI_API_KEY`、`EMBEDDING_MODEL` 默认 `text-embedding-3-small`、`EMBEDDING_BASE_URL` 回退链、`EMBEDDING_DIMENSIONS=1536`），与聊天供应商解耦（`AI_PROVIDER=deepseek` 也能 embed），无 key → `null` 降级信号，供应商逻辑只在 ai-sdk 内；api：`memory/embeddingClient`（memoize + `embedContent(text) → number[] | null`，维度不符/失败静默仅日志）、`memoryService` 混合检索 `searchMemories(profileId, { query? })`（有 query + embed + 行含向量时 `$queryRaw` cosine 升序 top-N，`profileId` 必填 + `kind`/`keyword` 预过滤 → 不足 limit 按时间倒序补齐排除已召回 id；无 key/embed 故障/维度不符/无向量 → 既有结构化路径，≤limit 与签名不变）、`addMemory`/`createMemory`（FU-14 抽取旁路 + FU-15 admin 新增）落库后实时 embed（raw `UPDATE` 写回，失败静默）、`stateLoop` 传用户消息作语义查询；脚本：`Fairy/scripts/backfill-memory-embeddings.ts`（`pnpm --filter=@fairy/database backfill:embeddings`，只补 `embedding IS NULL` 分批 embed + raw UPDATE、逐条失败不中断、幂等可重跑、打印统计、无 key 提示退出、CI 不执行）；文档脊柱：`ARCHITECTURE` §5.4 数据流/§8 决策/§9 模块映射、`API_CONTRACT` 记忆中心内部说明（embedding 不下发、无公共契约变更）、`apps/api/.env.example` 登记 `EMBEDDING_API_KEY`/`EMBEDDING_MODEL`/`EMBEDDING_BASE_URL`（仅占位）；测试全绿：api 270 / ai-sdk 16 + shared/database/ai-sdk/api/web 五包 typecheck + `openspec validate --all` 12/12；真机验收：默认无 key 回归全链路通过（对话注入命中原记忆「科幻片/太空题材」、admin `/api/memories` 列表正常、SSE 形状不变）+ 真库向量 SQL 冒烟（HNSW 索引存在、cosine 查询零错误）；**配真实 `EMBEDDING_API_KEY` 的端到端验收（真实 embed 落库/语义相似召回/回填脚本幂等）待负责人执行**（见 Risks）；需求：[2026-09-06-pgvector-vector-retrieval.md](docs/requirements/2026-09-06-pgvector-vector-retrieval.md)；OpenSpec 归档：[2026-09-06-pgvector-vector-retrieval](openspec/changes/archive/2026-09-06-pgvector-vector-retrieval/)
 
 - **FU-15 memory-center 二期：记忆管理面（admin REST 记忆端点 + 管理页）**（2026-09-06）— admin-only 记忆管理面：shared `memorySchemas` 二期扩展（`memoryQuerySchema`（page/limit/userId/kind/keyword）、`memoryListItemSchema`（含 email 经 Profile→User join）、`memoryCreateSchema`（userId/kind/content/sessionId?）、`memoryUpdateSchema`（kind?/content? 至少一项）+ 类型 + 测试）；`memoryService` 增加 `listMemories`（分页 + userId/kind/keyword 过滤 + join 带 email + createdAt 倒序 + total）、`createMemory`（复用 `addMemory`，Profile 不存在 404 `PROFILE_NOT_FOUND`）、`updateMemory`（kind/content，404 `MEMORY_NOT_FOUND`）、`deleteMemory`（硬删，404 `MEMORY_NOT_FOUND`）；`routes/memories.ts` 四端点（GET/POST `/` + PATCH/DELETE `/:id`，全部 `requireRole("admin")`，403 `FORBIDDEN`）+ `memoryController` 薄 handlers + app 挂载；web `lib/memoryApi` + `/admin/memories` 管理页（`MemoryAdminPage`：列表 + kind/keyword 筛选 + 分页 + 新增（选用户）/编辑/删除确认 + 加载/错误/空态 + 全中文 i18n）+ 导航「记忆管理」+ 路由 `RequireAuth role="admin"`；手动写入与 FU-14 LLM 抽取**同库同链路**（落库即被下一轮 `searchMemories` 注入）；管理面不依赖 LLM（key 不可用时全功能可用）；无新迁移（既有 `@@index([profileId, kind])` / `@@index([profileId, createdAt])` 满足）；测试全绿：api 255 / shared 87 / web 66（MemoryAdminPage 9）+ 三包 typecheck + `openspec validate --all` 12/12；真机验收 AC-1~AC-7 全过（REST 列表形状/过滤/email/倒序、权限 401→user 403→admin 200、增改删持久化与 400/404 分支、浏览器管理页全流程（导航/筛选/分页/增删改/空态）、非 admin 跳首页、**管理页补录「灯塔/太空」记忆在全新会话被真实 LLM 回复引用**、管理 REST 全程无 LLM 依赖）；需求：[2026-09-06-memory-center-management.md](docs/requirements/2026-09-06-memory-center-management.md)；OpenSpec 归档：[2026-09-06-memory-center-management](openspec/changes/archive/2026-09-06-memory-center-management/)
@@ -61,14 +62,13 @@
 
 ## In Progress（进行中）
 
-（当前无进行中功能——FU-16 已交付归档，见 Completed Modules。待办：配 `EMBEDDING_API_KEY` 后补跑 FU-16 真实 embed 端到端验收，见 Risks。）
+- （待负责人，非开发项）FU-16 真实 embed 端到端验收：配置 `EMBEDDING_API_KEY` 后跑通真实 embed 落库 / 语义相似召回 / 回填幂等，见 Risks。
 
 ---
 
 ## Next Steps（下一步）
 
 - **（待负责人）FU-16 剩余验收**：配置 `EMBEDDING_API_KEY`（回退 `OPENAI_API_KEY`）后跑通真实 embed 落库 / 语义相似召回 / `backfill:embeddings` 幂等回填（代码与 mock 覆盖已就绪，见 Risks）。
-- （后续候选）记忆用户自查入口：铃在会话页查看「Fairy 记住了什么」（FU-15 已明确非目标：管理面与 REST 均 admin-only）。
 - （后续候选）画像反向回写：记忆 → `Profile` 字段自动更新（FU-15 已明确非目标）。
 - （二期候选）旅行规划二期：REST `POST /api/trips` + 历史行程回放 + Amap JS 地图叠加路线（本期非目标）。
 
@@ -102,10 +102,13 @@
 | 2026-09-01 | 记忆抽取每轮旁路 + 结构化检索（不依赖 embed） | 用户拍板 + Flores | FU-14：每轮 SSE 后 LLM 抽取（失败静默）→ 落库 `Memory`；下一轮注入 ≤5 条（profileId 隔离 + kind/时间/关键词）。一期不用 pgvector/embed（DeepSeek 不支持 embed）；管理 UI、REST 端点、画像回写为二期。 |
 | 2026-09-06 | 记忆管理面 admin-only + 硬删 + 管理独立于 LLM | 用户拍板 + Flores | FU-15：记忆含画像敏感信息，列表/新增/编辑/删除仅对 admin 开放（REST 与 `/admin/memories` 页均 `requireRole("admin")`，user 403/跳首页）；删除为硬删（`Memory` 无外键引用，沿用 movie DELETE envelope）；管理面不调用 AI 供应商，LLM/key 不可用时全功能可用；手动补录与 LLM 抽取同库同链路。pgvector/embedding、用户自查入口、画像回写均推后/非目标。 |
 | 2026-09-06 | 向量检索 = 可选 embed 客户端 + 混合检索（FU-16） | 用户拍板 + Flores | `EMBEDDING_API_KEY`（缺省回退 `OPENAI_API_KEY`）/`EMBEDDING_MODEL`（默认 `text-embedding-3-small`，1536 维）独立于聊天供应商（`AI_PROVIDER=deepseek` 也能 embed）；对话注入 `searchMemories(profileId, { query })` 向量为主（cosine top-N + kind/keyword 预过滤）+ 结构化兜底/补齐；无 key/故障/维度不符/无向量 → 全结构化（默认 dev 零变化）；新记忆写入实时 embed + 存量幂等回填；`memories.embedding` 列 raw SQL 读写、永不下发 DTO，公共 API 契约不变。 |
+| 2026-09-07 | 记忆自查 = 会话页只读面板 + `GET /api/memories/me`（FU-17） | 用户拍板 + Flores | 利用 `Profile.userId` 主键 == `Memory.profileId` 恒等式零迁移落地；`/me` 身份由 token 决定（`res.locals.userId`），条目不带 email/userId；越权 `userId`/`email` 参数由 shared Zod 剥除杜绝跨用户读取；admin 管理面（§3.14.2–3.14.5）保持不变；UI 只读无增删改，来源标注按 `sessionId` 有无推断（对话抽取/系统录入），自查不依赖 LLM/embed key。 |
 
 ---
 
 ## Last Updated（最近更新）
+
+**2026-09-07** — FU-17 记忆自查入口（会话页只读面板 + `GET /api/memories/me`）：实现完成并验证（shared 93 / api 277 / web 71 + 三包 typecheck + `openspec validate --all` 12/12）→ 归档（`openspec archive 2026-09-07-memory-self-inspection --yes`，spec memory-management 已合并）→ 真机验收 AC-1~AC-5 全过（user `/me` 本人 2 条记忆含「对话抽取/系统录入」两种来源、条目无 email/userId、过滤生效、越权参数被剥除、admin `/me` 仅自身、401/400 分支）→ 移入 Completed Modules。
 
 **2026-09-06** — FU-16 pgvector 向量检索：实现完成并验证（api 270 / ai-sdk 16 + 五包 typecheck + `openspec validate --all` 12/12）；默认无 key 真机回归通过（对话注入命中记忆、admin 列表正常、SSE 不变）+ 真库向量 SQL 冒烟（HNSW 索引存在、cosine 查询零错误）→ 归档（`openspec archive 2026-09-06-pgvector-vector-retrieval --yes`，specs memory-center/ai-provider 已合并）→ 移入 Completed Modules。**剩余：配 `EMBEDDING_API_KEY` 后补跑真实 embed 端到端验收**（见 Risks，脚本 `pnpm --filter=@fairy/database backfill:embeddings`）。
 
