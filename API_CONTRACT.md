@@ -316,6 +316,7 @@ Authorization: Bearer <jwt>
 - 下一轮回复合成 prompt 注入该用户记忆（≤5 条）与近期会话历史；记忆不跨用户泄漏、不改变 SSE 事件形状。
 - FU-16 起对话注入为**混合检索**：以用户当前消息为语义查询，配置 `EMBEDDING_API_KEY`（缺省回退 `OPENAI_API_KEY`）且行含向量时按 cosine 相似度召回（`kind`/`keyword` 可预过滤、不足 5 条按时间倒序补齐）；无 key/embed 故障/行无向量时自动退回结构化检索——**默认 dev（DeepSeek、无 OpenAI key）行为与 FU-14 一致**。embedding 属内部增强：`memories.embedding`（pgvector，1536 维）由 raw SQL 读写、**永不下发**，本契约无任何字段新增。
 - 记忆的查看与维护经 admin-only REST `/api/memories`（FU-15 起，见 §3.14）与管理页 `/admin/memories`；FU-17 起登录用户可在会话页经 `GET /api/memories/me`（§3.14.1）自查本人记忆（只读）。管理端点不依赖 LLM；FU-16 起配置 embed key 时 `POST /api/memories`（admin 新增）会实时生成向量，`EMBEDDING_API_KEY` 未配置时管理面行为不变。
+- FU-18 起抽取在 `memories` 之外同轮产出顶层 `genres`（片型候选 ≤3，属内部中间结果，不进 SSE 流、不下发任何端点）；本轮 ≥1 条 preference 记忆**成功落库**且候选非空时，服务端以影片库 `Movie.genres` distinct 词表白名单过滤后增量并入该用户 `Profile.likeGenres`（事务内并集去重、只增不减、无变化不写、失败静默）。全链路为**内部旁路，无公共契约变更**：不新增端点、不改请求/响应形状，FU-1 `PATCH /api/profiles` 手动维护 likeGenres 的契约与行为不变。
 
 #### 错误响应（非流）
 

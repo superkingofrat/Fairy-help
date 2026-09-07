@@ -25,6 +25,9 @@ export const memoryExtractionSchema = z.object({
       })
     )
     .max(10),
+  // FU-18：画像反向回写——LLM 每轮额外输出本轮对话体现的偏好类型（最多 3 个）。
+  // 语义上等同于 preference 记忆的浓缩；代码侧以 Movie.genres 枚举白名单过滤后才落 Profile.likeGenres。
+  genres: z.array(z.string().trim().min(1)).max(3).optional(),
 });
 
 // FU-15 管理面：GET /api/memories 列表项（join Profile→User 带 email；userId == Memory.profileId）

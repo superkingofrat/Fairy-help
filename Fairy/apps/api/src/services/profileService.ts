@@ -122,3 +122,71 @@ export async function updateByUserId(
     throw error;
   }
 }
+
+// FU-18 画像反向回写：仅接受与影片库词表一致的片型，避免模型幻觉词（如「科幻片」类口语）直接进画像。
+// 脏值过滤：空串/纯数字剔除（库内 Movie.genres 存在如 "1233" 的历史脏数据）。
+// 缓存失效规则：进程内 TTL 5 分钟——新入库的片型最长延迟 5 分钟后才可被回写命中；
+// dev/单实例规模不上分布式缓存。白名单查询失败 → 返回空名单（自然无命中），绝不抛出。
+const GENRE_WHITELIST_TTL_MS = 5 * 60 * 1000;
+let genreWhitelistCache: { values: string[]; fetchedAt: number } | null = null;
+
+/** 测试专用：清空白名单进程内缓存（与 resetLlmProviderForTests 同级约定）。 */
+export function resetGenreWhitelistForTests(): void {
+  genreWhitelistCache = null;
+}
+
+export async function loadGenreWhitelist(): Promise<string[]> {
+  const now = Date.now();
+  if (genreWhitelistCache && now - genreWhitelistCache.fetchedAt < GENRE_WHITELIST_TTL_MS) {
+    return genreWhitelistCache.values;
+  }
+  try {
+    const movies = await prisma.movie.findMany({ select: { genres: true } });
+    const unique = new Set<string>();
+    for (const movie of movies) {
+      for (const raw of movie.genres) {
+        const genre = raw.trim();
+        if (genre !== "" && !/^\d+$/.test(genre)) {
+          unique.add(genre);
+        }
+      }
+    }
+    genreWhitelistCache = { values: [...unique], fetchedAt: now };
+    return genreWhitelistCache.values;
+  } catch (error) {
+    console.warn("[profile] genre whitelist query failed; writeback skipped", error);
+    return [];
+  }
+}
+
+// 将抽取候选增量并入 Profile.likeGenres：事务内读 profile（缺失静默跳过）→ Set 并集去重 →
+// 与既有标签无差异则不写（幂等，不无谓翻动 updatedAt）；只增不减，绝不覆盖/删除已有标签。
+// 业务失败不抛出：调用方（记忆抽取旁路）无需感知。
+export async function mergeLikeGenres(profileId: string, candidates: string[]): Promise<void> {
+  const whitelist = await loadGenreWhitelist();
+  if (whitelist.length === 0) {
+    return;
+  }
+  const accepted = [...new Set(candidates.filter((candidate) => whitelist.includes(candidate)))];
+  if (accepted.length === 0) {
+    return;
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const profile = await tx.profile.findUnique({
+      where: { userId: profileId },
+      select: { likeGenres: true },
+    });
+    if (!profile) {
+      return;
+    }
+    const merged = [...new Set([...profile.likeGenres, ...accepted])];
+    if (merged.length === profile.likeGenres.length) {
+      return;
+    }
+    await tx.profile.update({
+      where: { userId: profileId },
+      data: { likeGenres: merged },
+    });
+  });
+}

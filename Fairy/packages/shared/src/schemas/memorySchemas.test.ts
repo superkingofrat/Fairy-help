@@ -107,6 +107,43 @@ describe("memoryExtractionSchema", () => {
         .success,
     ).toBe(false);
   });
+
+  // FU-18：顶层 genres 为可选字段——缺省向下兼容；最多 3 个且逐项 trim。
+  it("accepts optional top-level genres up to three", () => {
+    const parsed = memoryExtractionSchema.safeParse({
+      memories: [{ kind: "preference", content: "喜欢科幻片" }],
+      genres: [" 科幻 ", "动作", "冒险"],
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.genres).toEqual(["科幻", "动作", "冒险"]);
+    }
+  });
+
+  it("accepts an extraction without genres (backward compatible)", () => {
+    const parsed = memoryExtractionSchema.safeParse({
+      memories: [{ kind: "preference", content: "喜欢科幻片" }],
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.genres).toBeUndefined();
+    }
+  });
+
+  it("rejects empty genre strings or more than three genres", () => {
+    expect(
+      memoryExtractionSchema.safeParse({
+        memories: [],
+        genres: ["  "],
+      }).success,
+    ).toBe(false);
+    expect(
+      memoryExtractionSchema.safeParse({
+        memories: [],
+        genres: ["a", "b", "c", "d"],
+      }).success,
+    ).toBe(false);
+  });
 });
 
 describe("memoryQuerySchema", () => {

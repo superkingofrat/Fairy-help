@@ -371,7 +371,7 @@ ResponseSynthesizer 流式输出最终回复
 [Frontend] 渲染 TripTimeline + Amap JS 路线叠加
 ```
 
-### 5.4 记忆 / 画像流程（FU-14 记忆中心一期 + FU-15 记忆管理面 + FU-16 pgvector 向量检索 + FU-17 自查面板）
+### 5.4 记忆 / 画像流程（FU-14 记忆中心一期 + FU-15 记忆管理面 + FU-16 pgvector 向量检索 + FU-17 自查面板 + FU-18 画像反向回写）
 
 ```
 每轮对话（chat SSE 完成后）
@@ -383,6 +383,9 @@ ResponseSynthesizer 流式输出最终回复
 [MemoryService.addMemory] 落库 Memory（profileId 必填，sessionId 可空）
     │  落库后 [EmbeddingClient.embedContent] 生成 1536 维向量 → raw UPDATE 写回 embedding 列
     │  无 EMBEDDING key / embed 失败 / 维度不符 → 静默跳过（仅日志，记忆本体不丢）
+    │  [FU-18 回写旁路] 本轮 ≥1 条 preference 记忆成功落库且抽取含 genres 候选 →
+    │  [ProfileService.mergeLikeGenres] 白名单过滤后事务内并集去重并入 Profile.likeGenres
+    │  （白名单 = Movie.genres distinct + 脏值过滤 + TTL 5min；只增不减、无变化不写、失败静默）
     ▼
 下一轮对话 prompt 组装（ContextBuilder）
     ├── [MemoryService.searchMemories] 记忆注入 ≤5 条（profileId 隔离）
@@ -390,7 +393,7 @@ ResponseSynthesizer 流式输出最终回复
     │    $queryRaw 按 cosine 距离升序取 top-N（kind/keyword 可预过滤）；
     │    向量不足 limit 按时间倒序补齐（排除已召回 id），无向量/无 embed 则走既有结构化路径
     ├── 最近 N 条 Session 消息（短期，sessionService）
-    └── Profile 实体（长期）
+    └── Profile 实体（长期，likeGenres 由 FU-18 回写增量沉淀）
     │
     ▼
 [Prompt 上下文窗口] 受 token 预算约束
@@ -429,6 +432,22 @@ GET /api/memories/me     （requireRole 之外的公共认证路由，非 admin 
     ▼
 Web 会话页 ChatPage 头部「Fairy 记住了什么」开关 → [MemorySelfPanel] 只读列表
     （kind 标签 + 来源标注 对话抽取/系统录入 + 时间；面板内无写操作）
+```
+
+- **画像反向回写（FU-18 记忆中心五期）**：FU-14 抽取 LLM 在既有 `memories` 之外产出顶层 `genres`（片型候选 ≤3，语义＝用户本轮明确表达的影片偏好）；`extractAndStoreMemories` 在本轮**至少 1 条 preference 记忆成功落库**且候选非空时，旁路调用 `ProfileService.mergeLikeGenres(profileId, candidates)`。候选以影片库 `Movie.genres` distinct 词表为**白名单**过滤（空串/纯数字脏值剔除；进程内 TTL 5 分钟缓存——新入库片型最长延迟 5 分钟后可被命中，不引分布式缓存）；命中者事务内 `Set` 并集增量并入 `Profile.likeGenres`——**只增不减**、无变化不写（幂等、不翻动 `updatedAt`）、profile 缺失静默跳过。LLM 不可用/白名单查询失败/回写抛错均只记日志，绝不阻塞对话与记忆落库（与 FU-14 静默降级同级）。**无新 REST 端点、无公共 API 契约变更**；FU-1 `PATCH /api/profiles` 手动维护路径不变，二者可在任意次序叠加（回写只并集、PATCH 可整体覆写）。
+
+```
+FU-18 画像反向回写（抽取旁路，无新端点）
+    │
+    ▼
+extractAndStoreMemories：记忆全部落库后，storedPreference ≥ 1 且 genres 候选非空
+    │
+    ▼
+[ProfileService.mergeLikeGenres]  ← loadGenreWhitelist（Movie.genres distinct + 空/纯数字过滤 + TTL 5min）
+    │  accepted = 候选 ∩ 白名单（去重）；无命中 → 不进入事务
+    │  $transaction 内：读 profile（缺失 → 静默跳过）→ Set 并集 → 无差异不写 / 有差异 update
+    ▼
+Profile.likeGenres 增量沉淀（只增不减）；下一轮对话经 ContextBuilder 的 Profile 实体注入生效
 ```
 
 ### 5.5 归还流程（FU-4）
@@ -614,6 +633,7 @@ interface AgentState {
 | pgvector 向量检索推后（FU-15 拍板，已被 FU-16 取代） | 原二期候选理由：需 embedding 列 + Neon pgvector 扩展 + 支持 embed 的供应商（DeepSeek 不支持）、会改变检索语义——FU-16 以「可选 embed 配置 + 混合检索 + 默认零变化」落地该候选（见下行）。 |
 | 向量检索 = 可选 embed 客户端 + 混合检索（FU-16） | `EMBEDDING_API_KEY`（缺省回退 `OPENAI_API_KEY`）/`EMBEDDING_MODEL`（默认 `text-embedding-3-small`，1536 维）独立于聊天供应商（`AI_PROVIDER=deepseek` 也能 embed；缺 key → 客户端 null 降级信号）；对话注入 `searchMemories(profileId, { query })` 在有 query + embed 可用 + 行含向量时走 `$queryRaw` cosine 升序 top-N（`kind`/`keyword` 可预过滤），不足 limit 按时间倒序补齐（排除已召回 id）；无 key/embed 故障/维度不符/无向量 → 结构化路径，默认 dev 环境零行为变化。写入与回填共用同一 embed 链路：新记忆（FU-14 抽取 + FU-15 admin 新增）落库实时生成向量，存量由 `scripts/backfill-memory-embeddings.ts` 幂等回填（只补 `embedding IS NULL` 行）。`memories.embedding` 列 raw SQL 读写、永不下发 DTO，公共 API 契约不变。 |
 | 记忆自查 = 会话页只读面板 + `GET /api/memories/me`（FU-17） | 「让用户看到 Fairy 记得什么」降门槛落地为**自查而非管理**：利用 `Profile.userId` 主键 == `Memory.profileId` 的恒等式，`/me` 以 token 身份（`res.locals.userId`）作 where，零迁移、不 join email；校验层用 zod 剥除越权参数（`userId`/`email`）杜绝跨用户读取；UI 只读（无增删改），来源标注按 `sessionId` 有无推断「对话抽取/系统录入」，与 admin 管理面共享 kind/分页/过滤语义但彼此独立（FU-17）。 |
+| 偏好记忆反向回写 only `likeGenres` + 增量合并 + 词表白名单（FU-18） | 范围收敛为「抽取候选 → `Profile.likeGenres` 增量沉淀」：一次 LLM 调用在 `memories` 旁同产顶层 `genres`（≤3，避免每条记忆重复出候选）；回写门禁 = 本轮 ≥1 条 preference **落库成功** 且候选非空（LLM 只给候选没落偏好记忆时不写，杜绝歧义路径）；白名单在**代码侧**过滤（提示词不注入 DB 词表，避免 prompt 与影片 CRUD 耦合），词表 = `Movie.genres` distinct + 空/纯数字剔除 + 进程内 TTL 5min 缓存；合并事务内 Set 并集、只增不减、无变化不写，与 FU-1 PATCH 手动路径并存。不回写其他画像字段、不做存量回填、无新端点（FU-18）。 |
 
 ---
 
@@ -653,7 +673,7 @@ apps/api/src/
     responseSynthesizer.ts  # FU-12：按 topic 构造运营问数【事实】+ 非 admin 拒绝文案；FU-14：记忆注入 prompt
   memory/
     memoryService.ts     # FU-14：addMemory 落库 + searchMemories 检索（profileId 隔离，限量）；FU-15：listMemories/create/update/delete admin 管理查询；FU-16：searchMemories 混合检索（query→cosine top-N+结构化补齐）、addMemory/createMemory 落库后实时 embed；FU-17：listOwnMemories（profileId 限定自查列表，不带 email）
-    memoryExtractor.ts   # FU-14：LLM 抽取（agent.memory source，失败静默）+ 旁路落库入口
+    memoryExtractor.ts   # FU-14：LLM 抽取（agent.memory source，失败静默）+ 旁路落库入口；FU-18：同 JSON 产顶层 genres（≤3），本轮 ≥1 条 preference 落库且候选非空时旁路调 profileService.mergeLikeGenres（失败静默）
     embeddingClient.ts   # FU-16：embed 客户端组装（memoize createEmbeddingProvider，读 EMBEDDING_* env）+ embedContent(text) → number[] | null（1536 维守卫，失败静默）
   tools/
     recommendMovieTool.ts
@@ -663,7 +683,7 @@ apps/api/src/
   services/
     movieService.ts
     rentalService.ts
-    profileService.ts
+    profileService.ts    # FU-1：画像 CRUD（create/update/list，P2002/P2025 处理）；FU-18：mergeLikeGenres（事务内并集去重并入 likeGenres）+ loadGenreWhitelist（Movie.genres distinct + 脏值过滤 + TTL 5min 缓存）
     behaviorLogService.ts
     sessionService.ts  # FU-7：会话 CRUD + appendTurn 事务
     insightService.ts  # FU-11：运营看板聚合（只读）
@@ -677,7 +697,7 @@ apps/api/src/
     validateBody.ts
 
 packages/shared/
-  schemas/             # 前端与后端使用的 Zod schema（含 sessionSchemas，FU-7；insightSchemas，FU-11；insightTopicSchema，FU-12；memorySchemas，FU-14/15/17）
+  schemas/             # 前端与后端使用的 Zod schema（含 sessionSchemas，FU-7；insightSchemas，FU-11；insightTopicSchema，FU-12；memorySchemas，FU-14/15/17/18）
   types/               # 共享 TypeScript 类型（含 sessionTypes，FU-7）
 
 packages/ai-sdk/

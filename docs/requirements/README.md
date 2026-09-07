@@ -4,6 +4,7 @@ Structured requirement docs produced by grill-me sessions. Each doc feeds OpenSp
 
 | Date | Feature | Status | Doc |
 |---|---|---|---|
+| 2026-09-07 | FU-18 画像反向回写（偏好记忆自动沉淀 likeGenres，记忆中心五期） | approved | [2026-09-07-profile-writeback.md](./2026-09-07-profile-writeback.md) |
 | 2026-09-07 | FU-17 记忆自查入口（会话页「Fairy 记住了什么」只读面板，记忆中心四期） | approved | [2026-09-07-memory-self-inspection.md](./2026-09-07-memory-self-inspection.md) |
 | 2026-09-06 | FU-16 pgvector 记忆向量检索（记忆中心三期，混合检索） | approved | [2026-09-06-pgvector-vector-retrieval.md](./2026-09-06-pgvector-vector-retrieval.md) |
 | 2026-09-06 | FU-15 memory-center 二期：记忆管理面（admin REST + 管理页） | approved | [2026-09-06-memory-center-management.md](./2026-09-06-memory-center-management.md) |
