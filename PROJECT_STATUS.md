@@ -109,7 +109,7 @@
 
 ## Last Updated（最近更新）
 
-**2026-09-07** — FU-18 画像反向回写（偏好记忆自动沉淀 `Profile.likeGenres`，记忆中心五期）：实现完成并验证（shared 96 / api 292 + shared/api typecheck + `openspec validate --all` 13/13）→ 真机验收 AC-1~AC-6 全过（真实 deepseek 对话：`动作` 增量并入且重放幂等、无片型/未命中白名单记忆不写、admin PATCH 的 `喜剧` 标签在合并 `爱情` 后保留、`PATCH /api/profiles` 契约不变、新增 `犯罪` 类型影片经重启清缓存后命中并入）→ 归档（`openspec archive 2026-09-07-profile-writeback --yes`，spec memory-center 已合并）→ 移入 Completed Modules。验收产物已清理、`likeGenres` 还原基线。
+**2026-09-07** — FU-18 画像反向回写（偏好记忆自动沉淀 `Profile.likeGenres`，记忆中心五期）：实现完成并验证（shared 96 / api 292 + shared/api typecheck + `openspec validate --all` 13/13）→ 真机验收 AC-1~AC-6 全过（真实 deepseek 对话：`动作` 增量并入且重放幂等、无片型/未命中白名单记忆不写、admin PATCH 的 `喜剧` 标签在合并 `爱情` 后保留、`PATCH /api/profiles` 契约不变、新增 `犯罪` 类型影片经重启清缓存后命中并入）→ 归档（`openspec archive 2026-09-07-profile-writeback --yes`，spec memory-center 已合并）→ 移入 Completed Modules。验收产物已清理、`likeGenres` 还原基线。按「提交三连，不推送」本地提交 `925c457`(feat)/`a546693`(chore)/`96348db`(docs) + `2c6f00a`(journal 哈希回填)，未推送；同日尝试推送时 github.com 不可达，推送延后待网络恢复（本地领先 origin 4 个提交，见 journal Session 18）。
 
 **2026-09-07** — FU-18 画像反向回写：grill-me 收敛（仅 likeGenres / 对话落库旁路 / 增量合并去重 / LLM 抽取 + 影片库类型词白名单；无新公共端点、无 DB 迁移）→ 需求文档 draft 登记 README 索引与 In Progress → 用户批准（OpenSpec 轨）→ OpenSpec 提案 approved → 开始实现。同日推送 origin/master（74 个提交备份，11ac3ec..718645a）。
 
