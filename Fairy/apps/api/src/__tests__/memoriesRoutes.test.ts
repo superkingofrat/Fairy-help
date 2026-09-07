@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import { createApp } from "../app";
 import * as memoryService from "../memory/memoryService";
-import { DEV_USER_ID } from "@fairy/shared";
+import { DEV_ADMIN_ID, DEV_USER_ID } from "@fairy/shared";
 import type { MemoryListItem, MemoryRecord } from "@fairy/shared";
 import { authHeader } from "./helpers/auth";
 
@@ -103,6 +103,96 @@ describe("memories routes", () => {
       expect(response.status).toBe(400);
       expect(response.body.code).toBe("VALIDATION_ERROR");
       expect(memoryService.listMemories).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("GET /api/memories/me", () => {
+    it("lists the user's own memories with defaults", async () => {
+      vi.mocked(memoryService.listOwnMemories).mockResolvedValue({
+        items: [],
+        total: 0,
+      });
+
+      const response = await request(app)
+        .get("/api/memories/me")
+        .set("Authorization", authHeader("user"));
+
+      expect(response.status).toBe(200);
+      expect(response.body.code).toBe("OK");
+      expect(response.body.data.pagination).toEqual({
+        page: 1,
+        limit: 20,
+        total: 0,
+        totalPages: 0,
+      });
+      expect(memoryService.listOwnMemories).toHaveBeenCalledWith(DEV_USER_ID, {
+        page: 1,
+        limit: 20,
+      });
+    });
+
+    it("applies kind/keyword filters and ignores a client-supplied userId", async () => {
+      vi.mocked(memoryService.listOwnMemories).mockResolvedValue({
+        items: [],
+        total: 0,
+      });
+
+      const response = await request(app)
+        .get("/api/memories/me")
+        .set("Authorization", authHeader("user"))
+        .query({
+          page: 2,
+          limit: 10,
+          kind: "fact",
+          keyword: "上海",
+          userId: DEV_ADMIN_ID,
+          email: "other@fairy.local",
+        });
+
+      expect(response.status).toBe(200);
+      // 身份一律取 token 的 userId（DEV_USER_ID），userId/email 参数被 schema 剥除。
+      expect(memoryService.listOwnMemories).toHaveBeenCalledWith(DEV_USER_ID, {
+        page: 2,
+        limit: 10,
+        kind: "fact",
+        keyword: "上海",
+      });
+    });
+
+    it("lets an admin self-inspect using the admin's own id", async () => {
+      vi.mocked(memoryService.listOwnMemories).mockResolvedValue({
+        items: [],
+        total: 0,
+      });
+
+      const response = await request(app)
+        .get("/api/memories/me")
+        .set("Authorization", authHeader("admin"));
+
+      expect(response.status).toBe(200);
+      expect(memoryService.listOwnMemories).toHaveBeenCalledWith(DEV_ADMIN_ID, {
+        page: 1,
+        limit: 20,
+      });
+    });
+
+    it("rejects anonymous with 401 before calling the service", async () => {
+      const response = await request(app).get("/api/memories/me");
+
+      expect(response.status).toBe(401);
+      expect(response.body.code).toBe("UNAUTHORIZED");
+      expect(memoryService.listOwnMemories).not.toHaveBeenCalled();
+    });
+
+    it("rejects an invalid kind filter with 400", async () => {
+      const response = await request(app)
+        .get("/api/memories/me")
+        .set("Authorization", authHeader("user"))
+        .query({ kind: "wish" });
+
+      expect(response.status).toBe(400);
+      expect(response.body.code).toBe("VALIDATION_ERROR");
+      expect(memoryService.listOwnMemories).not.toHaveBeenCalled();
     });
   });
 

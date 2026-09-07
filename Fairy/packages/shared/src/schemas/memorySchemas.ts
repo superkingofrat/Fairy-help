@@ -58,6 +58,28 @@ export const memoryQuerySchema = z.object({
   keyword: z.string().trim().max(100).optional(),
 });
 
+// FU-17 自查面：GET /api/memories/me 的查询与列表项——本人只读，无 userId/email；
+// zod 默认剥除未知键 → 客户端即使传 userId/email 也会被忽略（身份一律以 token 为准）。
+export const memorySelfQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  kind: memoryKindSchema.optional(),
+  keyword: z.string().trim().max(100).optional(),
+});
+
+export const memorySelfListItemSchema = z.object({
+  id: z.string(),
+  kind: memoryKindSchema,
+  content: z.string().min(1),
+  sessionId: z.string().nullable(),
+  createdAt: z.string(),
+});
+
+export const memorySelfListFeedSchema = z.object({
+  items: z.array(memorySelfListItemSchema),
+  pagination: memoryListPaginationSchema,
+});
+
 export const memoryCreateSchema = z.object({
   userId: z.string().uuid(),
   kind: memoryKindSchema,
@@ -81,6 +103,9 @@ export type MemoryListItem = z.infer<typeof memoryListItemSchema>;
 export type MemoryListPagination = z.infer<typeof memoryListPaginationSchema>;
 export type MemoryListFeed = z.infer<typeof memoryListFeedSchema>;
 export type MemoryQuery = z.infer<typeof memoryQuerySchema>;
+export type MemorySelfQuery = z.infer<typeof memorySelfQuerySchema>;
+export type MemorySelfListItem = z.infer<typeof memorySelfListItemSchema>;
+export type MemorySelfListFeed = z.infer<typeof memorySelfListFeedSchema>;
 export type MemoryCreateInput = z.infer<typeof memoryCreateSchema>;
 export type MemoryUpdateInput = z.infer<typeof memoryUpdateSchema>;
 

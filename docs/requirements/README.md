@@ -4,6 +4,7 @@ Structured requirement docs produced by grill-me sessions. Each doc feeds OpenSp
 
 | Date | Feature | Status | Doc |
 |---|---|---|---|
+| 2026-09-07 | FU-17 记忆自查入口（会话页「Fairy 记住了什么」只读面板，记忆中心四期） | approved | [2026-09-07-memory-self-inspection.md](./2026-09-07-memory-self-inspection.md) |
 | 2026-09-06 | FU-16 pgvector 记忆向量检索（记忆中心三期，混合检索） | approved | [2026-09-06-pgvector-vector-retrieval.md](./2026-09-06-pgvector-vector-retrieval.md) |
 | 2026-09-06 | FU-15 memory-center 二期：记忆管理面（admin REST + 管理页） | approved | [2026-09-06-memory-center-management.md](./2026-09-06-memory-center-management.md) |
 | 2026-09-01 | FU-13 旅行规划（第一期：对话行程生成） | approved | [2026-09-01-travel-planning.md](./2026-09-01-travel-planning.md) |

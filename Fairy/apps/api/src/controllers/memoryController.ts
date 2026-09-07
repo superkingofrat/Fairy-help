@@ -3,6 +3,8 @@ import type {
   MemoryCreateInput,
   MemoryListItem,
   MemoryQuery,
+  MemorySelfListItem,
+  MemorySelfQuery,
   MemoryUpdateInput,
 } from "@fairy/shared";
 import * as memoryService from "../memory/memoryService";
@@ -17,6 +19,33 @@ export async function listMemoriesHandler(
     const { items, total } = await memoryService.listMemories(query);
     const data = {
       items: items satisfies MemoryListItem[],
+      pagination: {
+        page: query.page,
+        limit: query.limit,
+        total,
+        totalPages: Math.ceil(total / query.limit) || 0,
+      },
+    };
+
+    res.json({ code: "OK", data, msg: "查询成功" });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// FU-17：自查面——GET /api/memories/me。本人由鉴权中间件写入的 res.locals.userId 决定，
+// 客户端传的 userId/email 已被 memorySelfQuerySchema 剥除（校验层忽略）。
+export async function listMyMemoriesHandler(
+  _req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const profileId = res.locals.userId as string;
+    const query = res.locals.validatedQuery as MemorySelfQuery;
+    const { items, total } = await memoryService.listOwnMemories(profileId, query);
+    const data = {
+      items: items satisfies MemorySelfListItem[],
       pagination: {
         page: query.page,
         limit: query.limit,

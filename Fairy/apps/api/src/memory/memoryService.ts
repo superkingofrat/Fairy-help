@@ -5,6 +5,8 @@ import type {
   MemoryListItem,
   MemoryQuery,
   MemoryRecord,
+  MemorySelfListItem,
+  MemorySelfQuery,
   MemoryUpdateInput,
 } from "@fairy/shared";
 import { embedContent } from "./embeddingClient";
@@ -14,6 +16,7 @@ import { embedContent } from "./embeddingClient";
 // FU-15：管理面——listMemories/createMemory/updateMemory/deleteMemory（admin 专用）。
 // FU-16：向量召回——searchMemories 混合检索（向量为主 + 结构化兜底/补齐）；新记忆落库后实时 embed（失败静默）。
 //   embedding 列由 Prisma 声明为 Unsupported，读写一律 raw SQL（$queryRaw/$executeRaw），永不下发到 DTO。
+// FU-17：自查面——listOwnMemories（本人只读，GET /api/memories/me）。
 
 const KIND_TO_PRISMA: Record<MemoryKind, "PREFERENCE" | "FACT" | "INTENT"> = {
   preference: "PREFERENCE",
@@ -240,6 +243,40 @@ export async function listMemories(
     id: record.id,
     userId: record.profileId,
     email: record.profile.user.email,
+    kind: record.kind.toLowerCase() as MemoryKind,
+    content: record.content,
+    sessionId: record.sessionId,
+    createdAt: record.createdAt.toISOString(),
+  }));
+
+  return { items, total };
+}
+
+// FU-17：自查面——GET /api/memories/me（任意已登录角色）。本人只读：profileId 由调用方
+// （controller 从 token 取出）强制传入，查询无 userId/email；不含 Profile→User join、不下发 email。
+export async function listOwnMemories(
+  profileId: string,
+  query: MemorySelfQuery,
+): Promise<{ items: MemorySelfListItem[]; total: number }> {
+  const where: Prisma.MemoryWhereInput = {
+    profileId,
+    ...(query.kind ? { kind: KIND_TO_PRISMA[query.kind] } : {}),
+    ...(query.keyword ? { content: { contains: query.keyword } } : {}),
+  };
+
+  const skip = (query.page - 1) * query.limit;
+  const [records, total] = await Promise.all([
+    prisma.memory.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: query.limit,
+    }),
+    prisma.memory.count({ where }),
+  ]);
+
+  const items: MemorySelfListItem[] = records.map((record) => ({
+    id: record.id,
     kind: record.kind.toLowerCase() as MemoryKind,
     content: record.content,
     sessionId: record.sessionId,

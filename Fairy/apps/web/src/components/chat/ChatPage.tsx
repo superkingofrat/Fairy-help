@@ -8,6 +8,7 @@ import {
   listSessions,
 } from "../../lib/sessionApi";
 import { useChatStore } from "../../stores/chatStore";
+import { MemorySelfPanel } from "./MemorySelfPanel";
 import { MessageStream } from "./MessageStream";
 import { RecommendationCard } from "./RecommendationCard";
 import { TripTimeline } from "./TripTimeline";
@@ -62,6 +63,7 @@ export function ChatPage(): JSX.Element {
     localStorage.getItem(SESSION_STORAGE_KEY)
   );
   const [sessionError, setSessionError] = useState<string | null>(null);
+  const [showMemories, setShowMemories] = useState(false);
 
   const activeRentals = useChatStore((state) => state.activeRentals);
   const refreshRentals = useChatStore((state) => state.refreshRentals);
@@ -261,7 +263,22 @@ export function ChatPage(): JSX.Element {
         )}
       </aside>
       <main className="flex min-w-0 flex-1 flex-col gap-4">
-        <h2 className="text-lg font-semibold text-slate-800">{t("chat.title")}</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-slate-800">{t("chat.title")}</h2>
+          <button
+            type="button"
+            aria-expanded={showMemories}
+            onClick={() => setShowMemories((visible) => !visible)}
+            className={`rounded border px-3 py-1 text-xs ${
+              showMemories
+                ? "border-indigo-300 bg-indigo-50 text-indigo-700"
+                : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            {t("memory.self.title")}
+          </button>
+        </div>
+        {showMemories ? <MemorySelfPanel /> : null}
         {activeRentals.length > 0 ? (
           <section className="rounded-lg border border-slate-200 bg-white p-3">
             <h3 className="text-sm font-semibold text-slate-700">{t("chat.myRentals")}</h3>

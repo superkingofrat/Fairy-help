@@ -5,6 +5,7 @@ import {
   createMemory,
   deleteMemory,
   listMemories,
+  listOwnMemories,
   searchMemories,
   updateMemory,
 } from "../memory/memoryService";
@@ -317,6 +318,76 @@ describe("memoryService.listMemories", () => {
         },
         skip: 20,
         take: 10,
+      }),
+    );
+  });
+});
+
+describe("memoryService.listOwnMemories", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns only the owner's rows without an email/userId join", async () => {
+    vi.mocked(prisma.memory.findMany).mockResolvedValue([
+      prismaRecord(),
+    ] as unknown as Memory[]);
+    vi.mocked(prisma.memory.count).mockResolvedValue(1);
+
+    const { items, total } = await listOwnMemories(PROFILE_ID, {
+      page: 1,
+      limit: 20,
+    });
+
+    expect(prisma.memory.findMany).toHaveBeenCalledWith({
+      where: { profileId: PROFILE_ID },
+      orderBy: { createdAt: "desc" },
+      skip: 0,
+      take: 20,
+    });
+    expect(prisma.memory.count).toHaveBeenCalledWith({
+      where: { profileId: PROFILE_ID },
+    });
+    expect(total).toBe(1);
+    expect(items[0]).toEqual({
+      id: "550e8400-e29b-41d4-a716-446655440000",
+      kind: "preference",
+      content: "喜欢科幻片",
+      sessionId: null,
+      createdAt: "2026-09-01T10:00:00.000Z",
+    });
+    expect(items[0]).not.toHaveProperty("email");
+    expect(items[0]).not.toHaveProperty("userId");
+  });
+
+  it("applies kind/keyword filters and pagination skip within the owner scope", async () => {
+    vi.mocked(prisma.memory.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.memory.count).mockResolvedValue(0);
+
+    await listOwnMemories(PROFILE_ID, {
+      page: 3,
+      limit: 10,
+      kind: "fact",
+      keyword: "上海",
+    });
+
+    expect(prisma.memory.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          profileId: PROFILE_ID,
+          kind: "FACT",
+          content: { contains: "上海" },
+        },
+        orderBy: { createdAt: "desc" },
+        skip: 20,
+        take: 10,
+      }),
+    );
+    // 不同 profileId 互不可见：where 必须始终限定调用方传入的 profileId。
+    await listOwnMemories(OTHER_PROFILE_ID, { page: 1, limit: 20 });
+    expect(prisma.memory.findMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: { profileId: OTHER_PROFILE_ID },
       }),
     );
   });

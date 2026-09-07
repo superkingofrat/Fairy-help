@@ -5,6 +5,7 @@ import { RecommendationCard } from "../components/chat/RecommendationCard";
 import * as chatApi from "../lib/chatApi";
 import { parseSseBuffer } from "../lib/chatApi";
 import * as sessionApi from "../lib/sessionApi";
+import * as memoryApi from "../lib/memoryApi";
 import { listRentals } from "../lib/rentalsApi";
 import { useChatStore } from "../stores/chatStore";
 import type { ChatMessageDto, Movie, SessionListItem, TripResult } from "@fairy/shared";
@@ -18,6 +19,7 @@ vi.mock("../lib/chatApi", async () => {
 });
 vi.mock("../lib/rentalsApi");
 vi.mock("../lib/sessionApi");
+vi.mock("../lib/memoryApi");
 
 const MOVIE_ID = "550e8400-e29b-41d4-a716-446655440000";
 const SESSION_ID = "660e8400-e29b-41d4-a716-446655440000";
@@ -113,6 +115,10 @@ describe("ChatPage", () => {
     vi.mocked(sessionApi.listSessions).mockResolvedValue([]);
     vi.mocked(sessionApi.createSession).mockResolvedValue(sampleSession);
     vi.mocked(sessionApi.getSessionMessages).mockResolvedValue([]);
+    vi.mocked(memoryApi.listMyMemories).mockResolvedValue({
+      items: [],
+      pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+    });
   });
 
   it("posts movieId when borrowing from a card", async () => {
@@ -314,6 +320,19 @@ describe("ChatPage", () => {
 
     expect(await screen.findByText("西湖")).toBeDefined();
     expect(screen.getByText("地点已核实")).toBeDefined();
+  });
+
+  it("toggles the memory self-inspection panel from the header (FU-17)", async () => {
+    render(<ChatPage />);
+
+    const toggle = screen.getByRole("button", { name: "Fairy 记住了什么" });
+    fireEvent.click(toggle);
+
+    expect(await screen.findByText("Fairy 还没有记住关于你的内容")).toBeDefined();
+    expect(memoryApi.listMyMemories).toHaveBeenCalledWith({ page: 1, limit: 20 });
+
+    fireEvent.click(screen.getByRole("button", { name: "Fairy 记住了什么" }));
+    expect(screen.queryByText("Fairy 还没有记住关于你的内容")).toBeNull();
   });
 });
 

@@ -315,7 +315,7 @@ Authorization: Bearer <jwt>
 - 每轮对话 SSE 完成后，服务端后台从本轮（用户消息 + Fairy 回复）抽取值得记住的偏好/事实/意图并落库 `Memory`（按 `profileId` 用户隔离，`sessionId` 可空）；抽取失败静默跳过，对响应零影响。
 - 下一轮回复合成 prompt 注入该用户记忆（≤5 条）与近期会话历史；记忆不跨用户泄漏、不改变 SSE 事件形状。
 - FU-16 起对话注入为**混合检索**：以用户当前消息为语义查询，配置 `EMBEDDING_API_KEY`（缺省回退 `OPENAI_API_KEY`）且行含向量时按 cosine 相似度召回（`kind`/`keyword` 可预过滤、不足 5 条按时间倒序补齐）；无 key/embed 故障/行无向量时自动退回结构化检索——**默认 dev（DeepSeek、无 OpenAI key）行为与 FU-14 一致**。embedding 属内部增强：`memories.embedding`（pgvector，1536 维）由 raw SQL 读写、**永不下发**，本契约无任何字段新增。
-- 记忆的查看与维护经 admin-only REST `/api/memories`（FU-15 起，见 §3.14）与管理页 `/admin/memories`。管理端点不依赖 LLM；FU-16 起配置 embed key 时 `POST /api/memories`（admin 新增）会实时生成向量，`EMBEDDING_API_KEY` 未配置时管理面行为不变。
+- 记忆的查看与维护经 admin-only REST `/api/memories`（FU-15 起，见 §3.14）与管理页 `/admin/memories`；FU-17 起登录用户可在会话页经 `GET /api/memories/me`（§3.14.1）自查本人记忆（只读）。管理端点不依赖 LLM；FU-16 起配置 embed key 时 `POST /api/memories`（admin 新增）会实时生成向量，`EMBEDDING_API_KEY` 未配置时管理面行为不变。
 
 #### 错误响应（非流）
 
@@ -773,9 +773,56 @@ Authorization: Bearer <jwt>
 
 ### 3.14 记忆管理 `/api/memories`（FU-15）
 
-Memory 的 admin 管理面 REST 资源。需认证（Bearer）且角色为 admin；user 角色 → 403 `FORBIDDEN`，无 token → 401 `UNAUTHORIZED`。手动新增/编辑/删除的记忆与 FU-14 对话抽取的记忆同表同链路：一经落库即被既有检索（≤5 条注入）使用。管理端点不依赖 LLM；FU-16 起若配置 `EMBEDDING_API_KEY`，新增（POST）的记忆会附带实时生成向量（失败静默，仅日志），未配置时管理面行为与响应形状不变。抽取不可用不影响管理面。删除为硬删。本条不暴露任何 embedding 字段。
+Memory 的 admin 管理面 REST 资源。需认证（Bearer）且角色为 admin；user 角色 → 403 `FORBIDDEN`，无 token → 401 `UNAUTHORIZED`。手动新增/编辑/删除的记忆与 FU-14 对话抽取的记忆同表同链路：一经落库即被既有检索（≤5 条注入）使用。管理端点不依赖 LLM；FU-16 起若配置 `EMBEDDING_API_KEY`，新增（POST）的记忆会附带实时生成向量（失败静默，仅日志），未配置时管理面行为与响应形状不变。抽取不可用不影响管理面。删除为硬删。本条不暴露任何 embedding 字段。FU-17 起 §3.14.1 提供**自查面** `GET /api/memories/me`（任意已登录角色只读本人记忆）；§3.14.2–3.14.5 仍为 admin-only。
 
-#### 3.14.1 列表
+#### 3.14.1 自查（本人只读）——GET `/api/memories/me`（FU-17）
+
+登录用户查看**自己的**记忆（对应会话页「Fairy 记住了什么」面板）。身份由 Bearer token 决定，无需也不能指定他人 `userId`：请求中携带的 `userId`/`email` 等越权参数会被校验层直接剥离（视同不存在）。user 角色与 admin 角色均可调用；仅无 token → 401。
+
+#### 查询参数
+
+| 名称 | 类型 | 必填 | 描述 |
+|---|---|---|---|
+| `page` | `number` | 否 | 页码，从 1 开始。默认：`1`。 |
+| `limit` | `number` | 否 | 每页条数。默认：`20`，最大：`100`。 |
+| `kind` | `string` | 否 | 按类型过滤：`preference`、`fact`、`intent`。 |
+| `keyword` | `string` | 否 | 匹配 `content` 包含，最长 100。 |
+
+超出以上范围的查询参数一律忽略（zod 剥除未知键），不会改变过滤结果。
+
+#### 成功响应 — 200 OK
+
+条目形状与 §3.14.2 列表一致，但**不含** `userId`/`email`（本人身份即 token，无需回传），且**只返回** `profileId` == 当前用户的记录：
+
+```json
+{
+  "code": "OK",
+  "data": {
+    "items": [
+      {
+        "id": "965d65a1-70df-443f-9a69-7e031968ac20",
+        "kind": "preference",
+        "content": "喜欢太空题材科幻片",
+        "sessionId": null,
+        "createdAt": "2026-09-06T13:53:42.634Z"
+      }
+    ],
+    "pagination": { "page": 1, "limit": 20, "total": 1, "totalPages": 1 }
+  },
+  "msg": "查询成功"
+}
+```
+
+#### 错误响应
+
+| 状态 | Code | 场景 |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | 查询参数不合法（含未知 `kind`）。 |
+| 401 | `UNAUTHORIZED` | 未认证。 |
+
+（不存在 403：本端点为任意已登录角色开放。）
+
+#### 3.14.2 列表
 
 **GET** `/api/memories`
 
@@ -822,7 +869,7 @@ Memory 的 admin 管理面 REST 资源。需认证（Bearer）且角色为 admin
 | 401 | `UNAUTHORIZED` | 未认证。 |
 | 403 | `FORBIDDEN` | 非 admin 角色。 |
 
-#### 3.14.2 创建
+#### 3.14.3 创建
 
 **POST** `/api/memories`
 
@@ -850,7 +897,7 @@ admin 为指定用户手动补录记忆。请求体：
 | 403 | `FORBIDDEN` | 非 admin 角色。 |
 | 404 | `PROFILE_NOT_FOUND` | 目标用户不存在画像。 |
 
-#### 3.14.3 更新
+#### 3.14.4 更新
 
 **PATCH** `/api/memories/:id`
 
@@ -869,7 +916,7 @@ admin 部分更新记忆的 `kind` 与/或 `content`（至少一项，`sessionId
 | 403 | `FORBIDDEN` | 非 admin 角色。 |
 | 404 | `MEMORY_NOT_FOUND` | 记忆不存在。 |
 
-#### 3.14.4 删除
+#### 3.14.5 删除
 
 **DELETE** `/api/memories/:id`
 

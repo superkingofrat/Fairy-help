@@ -371,7 +371,7 @@ ResponseSynthesizer 流式输出最终回复
 [Frontend] 渲染 TripTimeline + Amap JS 路线叠加
 ```
 
-### 5.4 记忆 / 画像流程（FU-14 记忆中心一期 + FU-15 记忆管理面 + FU-16 pgvector 向量检索）
+### 5.4 记忆 / 画像流程（FU-14 记忆中心一期 + FU-15 记忆管理面 + FU-16 pgvector 向量检索 + FU-17 自查面板）
 
 ```
 每轮对话（chat SSE 完成后）
@@ -416,6 +416,20 @@ Web /admin/memories  ←→  lib/memoryApi（列表 + 筛选 + 分页 + 新增/�
 ```
 
 - 管理面独立于 LLM：列表与增删改不调用任何 AI 供应商，LLM/key 不可用时管理功能全可用；仅既有抽取/注入语义不变。
+- **自查面（FU-17 记忆中心四期）**：登录用户经 `GET /api/memories/me` 只读查看**本人**记忆（会话页「Fairy 记住了什么」面板，只读、无增删改）。身份由 token 决定（`res.locals.userId` == `Memory.profileId`，复用 `Profile.userId` 主键恒等式，零迁移）；越权参数（`userId`/`email`）在 shared Zod 校验层被剥离，不存在跨用户读取。条目不带 `email`/`userId`；`sessionId` 非空 → 前端标注「对话抽取」，为空（admin/种子录入）→「系统录入」。分页对齐 admin 列表（`page`/`limit`/`kind`/`keyword`）。
+
+```
+FU-17 自查面（任意已登录角色，只读）
+    │
+    ▼
+GET /api/memories/me     （requireRole 之外的公共认证路由，非 admin 可用；无 token → 401）
+    │  query：page/limit/kind/keyword（越权参数 userId/email 由 shared schema 剥除）
+    ▼
+[MemoryService.listOwnMemories]  where profileId = 当前用户（时间倒序分页，不 join email）
+    ▼
+Web 会话页 ChatPage 头部「Fairy 记住了什么」开关 → [MemorySelfPanel] 只读列表
+    （kind 标签 + 来源标注 对话抽取/系统录入 + 时间；面板内无写操作）
+```
 
 ### 5.5 归还流程（FU-4）
 
@@ -599,6 +613,7 @@ interface AgentState {
 | 记忆删除为硬删、手动新增允许 | `Memory` 无外键引用、无审计保留诉求 → 物理删除，沿用 movie DELETE 的 `{code:"OK", data:{id}}` envelope（FU-5）；admin 可手动补录，与 LLM 抽取同库同链路，落库即被下一轮注入（FU-15）。 |
 | pgvector 向量检索推后（FU-15 拍板，已被 FU-16 取代） | 原二期候选理由：需 embedding 列 + Neon pgvector 扩展 + 支持 embed 的供应商（DeepSeek 不支持）、会改变检索语义——FU-16 以「可选 embed 配置 + 混合检索 + 默认零变化」落地该候选（见下行）。 |
 | 向量检索 = 可选 embed 客户端 + 混合检索（FU-16） | `EMBEDDING_API_KEY`（缺省回退 `OPENAI_API_KEY`）/`EMBEDDING_MODEL`（默认 `text-embedding-3-small`，1536 维）独立于聊天供应商（`AI_PROVIDER=deepseek` 也能 embed；缺 key → 客户端 null 降级信号）；对话注入 `searchMemories(profileId, { query })` 在有 query + embed 可用 + 行含向量时走 `$queryRaw` cosine 升序 top-N（`kind`/`keyword` 可预过滤），不足 limit 按时间倒序补齐（排除已召回 id）；无 key/embed 故障/维度不符/无向量 → 结构化路径，默认 dev 环境零行为变化。写入与回填共用同一 embed 链路：新记忆（FU-14 抽取 + FU-15 admin 新增）落库实时生成向量，存量由 `scripts/backfill-memory-embeddings.ts` 幂等回填（只补 `embedding IS NULL` 行）。`memories.embedding` 列 raw SQL 读写、永不下发 DTO，公共 API 契约不变。 |
+| 记忆自查 = 会话页只读面板 + `GET /api/memories/me`（FU-17） | 「让用户看到 Fairy 记得什么」降门槛落地为**自查而非管理**：利用 `Profile.userId` 主键 == `Memory.profileId` 的恒等式，`/me` 以 token 身份（`res.locals.userId`）作 where，零迁移、不 join email；校验层用 zod 剥除越权参数（`userId`/`email`）杜绝跨用户读取；UI 只读（无增删改），来源标注按 `sessionId` 有无推断「对话抽取/系统录入」，与 admin 管理面共享 kind/分页/过滤语义但彼此独立（FU-17）。 |
 
 ---
 
@@ -607,7 +622,7 @@ interface AgentState {
 ```
 apps/web/src/
   components/
-    chat/              # ChatPage（含会话侧栏）, MessageStream, RecommendationCard, TripTimeline
+    chat/              # ChatPage（含会话侧栏）, MessageStream, RecommendationCard, TripTimeline, MemorySelfPanel（FU-17 自查面板，ChatPage 内开关）
     fairy/             # FairyAvatar, expressions
     admin/             # MoviesAdminPage, ProfilesAdminPage, BehaviorPage, InsightsAdminPage（FU-11 运营看板）, MemoryAdminPage（FU-15 记忆管理）
   hooks/
@@ -615,7 +630,7 @@ apps/web/src/
   lib/
     sessionApi.ts      # FU-7：/api/sessions 客户端
     insightApi.ts      # FU-11：/api/insights 客户端
-    memoryApi.ts       # FU-15：/api/memories 客户端（列表/新增/编辑/删除）
+    memoryApi.ts       # FU-15：/api/memories 客户端（列表/新增/编辑/删除）；FU-17：listMyMemories（/api/memories/me 自查）
   stores/
     chatStore.ts
 
@@ -628,7 +643,7 @@ apps/api/src/
     rentals.ts
     trips.ts
     profiles.ts
-    memories.ts        # /api/memories（FU-15：GET/POST + PATCH/DELETE /:id，全部 requireRole("admin")）
+    memories.ts        # /api/memories（FU-15：GET/POST + PATCH/DELETE /:id，全部 requireRole("admin")；FU-17：GET /me 自查路由，任意已登录角色，置于 admin 路由前）
   agent/
     stateLoop.ts         # FU-12：runChatTurn 透传 role → dispatch；FU-14：查询记忆注入；FU-16：传 query（用户消息）驱动混合检索
     intentClassifier.ts  # FU-12：store_insight 意图 + topic（LLM 枚举 + 规则兜底）
@@ -637,7 +652,7 @@ apps/api/src/
     toolDispatcher.ts   # FU-12：kind "insight" observation + admin 门禁（role 参数）
     responseSynthesizer.ts  # FU-12：按 topic 构造运营问数【事实】+ 非 admin 拒绝文案；FU-14：记忆注入 prompt
   memory/
-    memoryService.ts     # FU-14：addMemory 落库 + searchMemories 检索（profileId 隔离，限量）；FU-15：listMemories/create/update/delete admin 管理查询；FU-16：searchMemories 混合检索（query→cosine top-N+结构化补齐）、addMemory/createMemory 落库后实时 embed
+    memoryService.ts     # FU-14：addMemory 落库 + searchMemories 检索（profileId 隔离，限量）；FU-15：listMemories/create/update/delete admin 管理查询；FU-16：searchMemories 混合检索（query→cosine top-N+结构化补齐）、addMemory/createMemory 落库后实时 embed；FU-17：listOwnMemories（profileId 限定自查列表，不带 email）
     memoryExtractor.ts   # FU-14：LLM 抽取（agent.memory source，失败静默）+ 旁路落库入口
     embeddingClient.ts   # FU-16：embed 客户端组装（memoize createEmbeddingProvider，读 EMBEDDING_* env）+ embedContent(text) → number[] | null（1536 维守卫，失败静默）
   tools/
@@ -656,13 +671,13 @@ apps/api/src/
   controllers/
     sessionsController.ts  # FU-7
     insightController.ts   # FU-11
-    memoryController.ts    # FU-15：记忆管理 REST handlers（薄，校验在 shared schema / validate 中间件）
+    memoryController.ts    # FU-15：记忆管理 REST handlers（薄，校验在 shared schema / validate 中间件）；FU-17：listMyMemoriesHandler（读 res.locals.userId）
   middleware/
     auth.ts
     validateBody.ts
 
 packages/shared/
-  schemas/             # 前端与后端使用的 Zod schema（含 sessionSchemas，FU-7；insightSchemas，FU-11；insightTopicSchema，FU-12；memorySchemas，FU-14/15）
+  schemas/             # 前端与后端使用的 Zod schema（含 sessionSchemas，FU-7；insightSchemas，FU-11；insightTopicSchema，FU-12；memorySchemas，FU-14/15/17）
   types/               # 共享 TypeScript 类型（含 sessionTypes，FU-7）
 
 packages/ai-sdk/
