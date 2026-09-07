@@ -786,3 +786,55 @@ Delivered FU-15 memory-center phase 2 — the admin management surface for the F
 ### Status
 
 [OK] **Completed**
+
+## Session 16: FU-16 pgvector vector retrieval (memory center phase 3: hybrid retrieval) delivery and archive
+
+**Date**: 2026-09-06
+**Task**: FU-16 pgvector 记忆向量检索交付与归档
+**Branch**: `master`（工作区未提交）
+
+### Summary
+
+Delivered FU-16 — 记忆中心三期：pgvector 向量检索。`Memory` 增加 `embedding vector(1536)` 列 + HNSW 索引（raw SQL 读写，不暴露给 Prisma client）；ai-sdk 新增**与 chat provider 解耦的可选 embed 客户端**（`EMBEDDING_API_KEY`，缺省回退 `OPENAI_API_KEY`；`EMBEDDING_MODEL` 默认 `text-embedding-3-small`；无 key → provider 为 null 优雅降级）；`addMemory`/`createMemory` 落库时写向量（失败静默仅日志）；`searchMemories` 升级为**混合检索**（cosine 向量召回 + 结构化兜底/补足，profileId 隔离，≤5 注入预算）；幂等回填脚本；文档脊柱同步；270 api + 16 ai-sdk 测试全绿；默认无 key 真机回归验收通过；OpenSpec 提案归档。真实 embed key 的端到端验收待 owner 补跑（本环境无 OpenAI key）。
+
+### 改动
+
+- **数据库**：`schema.prisma` `Memory.embedding Unsupported("vector(1536)")`；迁移 `20260906142125_add_memory_embedding`（`CREATE EXTENSION IF NOT EXISTS "vector"` + 加列 + HNSW `memories_embedding_idx ... vector_cosine_ops`）。embedding 只经 `$queryRaw`/`$executeRaw`（`Prisma.sql` 参数化 `'[...]'::vector`），不进入 Prisma client 类型面。
+- **ai-sdk**：`factory.createEmbeddingProvider()`——独立于 chat provider 的可选供应商构造，读 `EMBEDDING_API_KEY`/`EMBEDDING_MODEL`/`EMBEDDING_BASE_URL`，无 key → `null`；1536 维常量导出 + 维度守卫。ai-sdk 测试 +16（null provider / 成功向量 / 维度不符 / reject 降级）。
+- **api**：`memory/embeddingClient.ts`（memoized 单例，`embedContent(text) → Promise<number[] | null>`，静默降级）；`memoryService` 写入路径两处（`addMemory`/`createMemory`）落库后 `refreshEmbeddingQuietly`（失败仅 warn）；`searchMemories(profileId, { query })` 混合逻辑——query 存在时 `embedContent`，命中向量则 `<=>` cosine 升序 top-N 召回（`kind`/`keyword` 可预过滤），不足 limit 用结构化按时间倒序补足并 `excludeIds` 排除已召回；空向量 / 无 key / embed 抛错一律回退结构化，行为与 FU-14 一致。`stateLoop` 传 `{ query: input.message }`。api 测试 270。
+- **回填脚本**：`scripts/backfill-memory-embeddings.ts`（BATCH 20 轮询 `embedding IS NULL`，逐行 try/catch embed + UPDATE，无 key 打印提示 exit 0，幂等）；`packages/database` 增加 `backfill:embeddings` script。
+- **文档**：ARCHITECTURE §5.4/§8/§9、API_CONTRACT 记忆中心 note + §3.14（embedding 属内部增强、永不下发、无新契约字段）、PROJECT_STATUS Completed 条目 + Risks（keyed 验收待跑）、`apps/api/.env.example` 占位项（`EMBEDDING_API_KEY`/`EMBEDDING_MODEL`/`EMBEDDING_BASE_URL`，仅占位值）。OpenSpec 归档合并后 `openspec validate --all` 12/12。
+- **未提交**：全套改动仍在工作区（见 git status），待 owner 审阅后按 AGENTS §10 提交。
+
+### 验证
+
+- 单元：api 270 / ai-sdk 16 全绿；shared/database/ai-sdk/api/web 五包 typecheck 通过。
+- Neon DB smoke：`memories_embedding_idx`（HNSW）存在；cosine `<=>` 查询对 live dev DB 执行返回 0 行、无报错。
+- 真机无 key 回归 PASSED（api :3000 + web :5173 双进程）：mint real JWT → admin `GET /api/memories` 200（列出科幻种子记忆）；chat「我喜欢什么类型的片子」SSE 回复引用已存记忆，随后 done 事件——结构化召回路径，SSE 事件名与负载形状不变。
+- 回填脚本无 key 路径 PASSED：打印「未配置 EMBEDDING_API_KEY…跳过回填。」exit 0。
+- `openspec validate --all` 12/12；archive 完成（tasks.md 6.2 有意保留 open，留给 owner keyed 验收）。
+
+### 踩坑（下次直接避）
+
+1. **ai-sdk 改动后必须先 rebuild**：api 消费编译产物 `dist/`，新导出不 build 则 typecheck 报 TS2724/TS2305——先 `pnpm --filter=@fairy/ai-sdk build`。
+2. **`Prisma.sql` 的测试 mock 必须递归扁平化嵌套 fragments**：嵌套 fragment 不展开会落到 `values` 而非 `strings`，WHERE 断言全错——mock 里用 appendFragment helper。
+3. **`clearAllMocks` 保留 mock implementation**：`mockResolvedValue(VEC_1536)` 会跨测试泄漏，重置须显式 `vi.mocked(x).mockResolvedValue(default)`（放 beforeEach）。
+4. **bare `node` 跑 tsx-only 包会 `ERR_UNSUPPORTED_DIR_IMPORT`**：`packages/*` 的 ESM 产物不支持 extension-less 目录导入，用 `npx tsx` 跑脚本/验收。
+5. **Git Bash 下 `taskkill /PID` 被 MSYS 吃掉**：写成 `taskkill //PID <pid> //T //F`（双斜杠）。
+6. **OpenSpec archive 对 header 与 scenario 全量匹配**：header 文本不一致 → “not found” abort；MODIFIED block 缺 root 已有 scenario → “scenario(s) not present” abort——归档前把 change spec 对齐 root（requirement body + 全 scenarios 一起带）。
+7. **dev-stub 认证头不存在**：本地验收 admin REST 需用 `apps/api/.env` 的 real `JWT_SECRET` mint 真 JWT（脚本用完即删，token 不打印）。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| (未提交) | feat: fu-16 pgvector memory embeddings and hybrid retrieval —— 工作区全套改动，待 owner 审阅后按 AGENTS §10 提交 |
+
+### Status
+
+[OK] **Completed**（6.2 配 key 端到端验收除外——见 Next Steps，由 owner 执行）
+
+### Next Steps
+
+- Owner：配置真实 `EMBEDDING_API_KEY` → 跑 keyed 端到端（真实 embed 落库 / 语义召回命中 / 回填脚本幂等重跑）→ 通过后勾选 tasks.md 6.2。
+- Owner 要求后按序提交：`feat: fu-16 pgvector memory embeddings and hybrid retrieval` / `chore: archive fu-16 pgvector vector retrieval and record journal` / `docs: move fu-16 ... to completed`。

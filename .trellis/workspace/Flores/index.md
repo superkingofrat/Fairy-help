@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 13
-- **Last Active**: 2026-09-01
+- **Total Sessions**: 16
+- **Last Active**: 2026-09-06
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~687 | Active |
+| `journal-1.md` | ~840 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,9 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 16 | 2026-09-06 | FU-16 pgvector vector retrieval (memory center phase 3: hybrid retrieval) delivery and archive | (未提交) | `master` |
+| 15 | 2026-09-06 | FU-15 memory-center phase 2 (admin memory management REST + /admin/memories page) delivery and archive | `293a12e`, `a14665e`, `474b6d9` | `master` |
+| 14 | 2026-09-06 | FU-14 memory-center (phase 1: structured memory persistence + retrieval injection) delivery and archive | `b98dbab`, `a948256`, `5f3ccbb` | `master` |
 | 13 | 2026-09-01 | FU-13 travel planning (chat trip generation) delivery and archive | (see git log) | `master` |
 | 12 | 2026-09-01 | FU-12 store insight chat tool (storeInsightTool + admin-gated chat Q&A) delivery and archive | `802e920` | `master` |
 | 11 | 2026-09-01 | FU-11 store insights dashboard (admin overview + /admin/insights page) delivery and archive | `3fc6840` | `master` |
