@@ -886,3 +886,49 @@ Delivered FU-17 — 记忆自查入口：登录用户在会话页经「Fairy 记
 
 - Owner 审阅后按需提交（FU-16 三连样式）：`feat: fu-17 ...` / `chore: archive fu-17 ... and record journal` / `docs: move fu-17 ... to completed`。
 
+
+## Session 18: FU-18 profile writeback (preference memory → Profile.likeGenres auto merge) delivery and archive
+
+**Date**: 2026-09-07
+**Task**: FU-18 画像反向回写交付与归档（记忆中心五期）
+**Branch**: `master`（工作区未提交）
+
+### Summary
+
+Delivered FU-18 — 画像反向回写：每轮对话抽取（FU-14 旁路）在 `memories` 外同产顶层 `genres`（片型候选 ≤3），本轮 ≥1 条 preference 记忆**成功落库**且候选非空时，旁路把候选经影片库词表白名单过滤后**增量并集**并入 `Profile.likeGenres`。无新端点、无 DB 迁移；白名单/合并/事务全部收敛在 `profileService`（TTL 5min 缓存 + 只增不减 + 幂等无变化不写 + 全程静默降级）。shared 96 / api 292 测试全绿；真机 AC-1~AC-6 全过（真实 deepseek 对话 + admin PATCH 并存验证）；OpenSpec 提案归档。
+
+### 改动
+
+- **shared**：`memoryExtractionSchema` 增加可选顶层 `genres`（`z.array(z.string().trim().min(1)).max(3).optional()`，缺省向后兼容）+ 类型导出 + 测试（含超 3 拒绝/空白剔除；shared 套件 96）。
+- **api memory 链路**：`memoryExtractor` 提示词 JSON 格式扩展 `"genres":["片型"]`（语义约束仅「用户明确表达影片偏好时 ≤3」，**不注入 DB 词表**）；内部 `extractTurn` 返回完整 `MemoryExtraction`（失败降级 `{memories:[]}`），`extractMemories` 仅取 `.memories`（对外不变）；`extractAndStoreMemories` 落库后按门禁旁路 `profileService.mergeLikeGenres(profileId, genres)`（`.catch(() => undefined)`）。测试补 5 例（有 preference+候选触发 / 无 preference 不触发 / 无候选不触发 / preference 落库失败不触发 / 回写抛错不影响落库）。
+- **api profile 侧**：`profileService.loadGenreWhitelist`（`Movie.genres` distinct + 空串/纯数字脏值剔除（库内 "1233" 类）+ 进程内 TTL 5min 缓存；查询失败返回空名单不抛出、不缓存失败；测试用 `resetGenreWhitelistForTests` 清缓存，沿用 `resetLlmProviderForTests` 约定）+ `mergeLikeGenres(profileId, candidates)`（白名单过滤 → `$transaction` 内读 profile（缺失静默跳过）→ `Set` 并集 → 无变化不写、有变化 `update likeGenres`；只增不减）。新测试文件 `profileService.test.ts` 10 例。
+- **文档**：ARCHITECTURE §5.4 回写支路/§8 决策行/§9 模块映射；API_CONTRACT 记忆中心内部行为说明补 FU-18 一句（**无公共契约变更**）；requirements README + 需求文档状态归档链接；PROJECT_STATUS Completed + 决策行 + Last Updated。
+- **未提交**：全套改动仍在工作区（见 git status），待 owner 审阅后按 AGENTS §10 提交。
+
+### 验证
+
+- 单元：shared 96 / api 292 全绿；shared/api typecheck 通过。
+- `openspec validate --all` 归档前 13/13 → archive（spec memory-center +1 added）→ 12/12。
+- 真机验收 PASSED（api :3000 + web :5173 双进程，真实 deepseek 对话 + login minted JWT）：AC-1「迷上动作片」→ preference 记忆落库且 `likeGenres` 并入 `动作`；同句重放不重复（幂等）。AC-2「不吃辣」（无片型）与「喜欢歌舞片」（候选 `歌舞` 未命中白名单）→ 记忆照常落库、`likeGenres` 不变。AC-3/AC-5 admin PATCH 加 `喜剧`（非白名单标签）后合并 `爱情` → `科幻/悬疑/喜剧/动作/爱情` 全保留、PATCH 响应仍 `{code:"OK",data,msg}`、无新端点。AC-4 静默降级（LLM 故障/解析失败/白名单失败/回写抛错）由单测覆盖；真机 mojibake 输入轮亦实测（LLM 看不懂 → 零落库零回写、对话正常）。AC-6 新影片带 `犯罪` 类型 → TTL 内不命中（缓存延迟规则生效）→ 重启 API 清缓存后同句并入 `犯罪`。验收后已清理 7 条记忆 / 8 个会话 / 1 部临时影片，`likeGenres` 还原基线 `["科幻","悬疑"]`。
+
+### 踩坑（下次直接避）
+
+1. **node/curl 的 `/tmp` 不一致**：Windows Git Bash curl 写 `/tmp/*.txt` 正常，但 `node -e fs.readFileSync('/tmp/...')` 按 Windows 解析成 `E:\tmp` → ENOENT。跨工具传文件时落在 workspace 内再用，用完即删；或先用 bash grep 提取中间结果再喂 node。
+2. **Git Bash curl 命令行中文仍是 ANSI 乱码（FU-17 同款坑）**：payload 一律 `node -e fs.writeFileSync('x.json', JSON.stringify({...}))` 生成 UTF-8 文件 + `curl --data @x.json`，杜绝 mojibake。
+3. **测试 mock 的默认返回必须是 Promise**：`vi.mock` factory 里 `mergeLikeGenres: vi.fn()` 默认返回 `undefined`，生产代码 `.catch()` 直接炸 `Cannot read properties of undefined` —— factory 后补一行 `vi.mocked(...).mockResolvedValue(undefined)` 作默认实现。
+4. **`vi.mocked(...).mockResolvedValue` 走真实 Prisma 类型**：partial row（如 `{likeGenres:[...]}`）直接传给 profile/movie mock 会 TS2345；按 memoryService.test 惯例 `as unknown as ProfileRow / Movie[]` 断言即可。
+5. **模块级缓存跨用例泄漏**：白名单 TTL 缓存若留在模块作用域，同一测试文件内后续用例会命中前一个用例的旧缓存——加 `resetGenreWhitelistForTests()` 在 `beforeEach` 清，别指望 fake timers 处理跨用例隔离。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| (未提交) | feat: fu-18 profile likeGenres writeback from preference memory —— 工作区全套改动，待 owner 审阅后按 AGENTS §10 提交 |
+
+### Status
+
+[OK] **Completed**（真机 AC-1~AC-6 全过；无需 owner 补跑项；AC-6 缓存延迟规则已用重启清缓存演示并登记 ARCHITECTURE）
+
+### Next Steps
+
+- Owner 审阅后按需提交（FU-16/17 三连样式）：`feat: fu-18 ...` / `chore: archive fu-18 ... and record journal` / `docs: move fu-18 ... to completed`。

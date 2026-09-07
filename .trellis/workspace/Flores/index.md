@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 17
+- **Total Sessions**: 18
 - **Last Active**: 2026-09-07
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~888 | Active |
+| `journal-1.md` | ~934 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 18 | 2026-09-07 | FU-18 profile writeback (preference memory → Profile.likeGenres auto merge) delivery and archive | (未提交) | `master` |
 | 17 | 2026-09-07 | FU-17 memory self-inspection entry (in-chat read-only panel + GET /api/memories/me) delivery and archive | (未提交) | `master` |
 | 16 | 2026-09-06 | FU-16 pgvector vector retrieval (memory center phase 3: hybrid retrieval) delivery and archive | `105b45b`, `047f9a3`, `d723b4a` | `master` |
 | 15 | 2026-09-06 | FU-15 memory-center phase 2 (admin memory management REST + /admin/memories page) delivery and archive | `293a12e`, `a14665e`, `474b6d9` | `master` |
