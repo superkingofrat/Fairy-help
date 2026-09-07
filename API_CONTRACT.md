@@ -313,8 +313,9 @@ Authorization: Bearer <jwt>
 #### 记忆中心（FU-14 起，内部行为说明——无公共契约变更）
 
 - 每轮对话 SSE 完成后，服务端后台从本轮（用户消息 + Fairy 回复）抽取值得记住的偏好/事实/意图并落库 `Memory`（按 `profileId` 用户隔离，`sessionId` 可空）；抽取失败静默跳过，对响应零影响。
-- 下一轮回复合成 prompt 注入该用户最近记忆（≤5 条）与近期会话历史；记忆不跨用户泄漏、不改变 SSE 事件形状。
-- 记忆的查看与维护经 admin-only REST `/api/memories`（FU-15 起，见 §3.14）与管理页 `/admin/memories`；向量化检索（pgvector）仍为候选，未引入。
+- 下一轮回复合成 prompt 注入该用户记忆（≤5 条）与近期会话历史；记忆不跨用户泄漏、不改变 SSE 事件形状。
+- FU-16 起对话注入为**混合检索**：以用户当前消息为语义查询，配置 `EMBEDDING_API_KEY`（缺省回退 `OPENAI_API_KEY`）且行含向量时按 cosine 相似度召回（`kind`/`keyword` 可预过滤、不足 5 条按时间倒序补齐）；无 key/embed 故障/行无向量时自动退回结构化检索——**默认 dev（DeepSeek、无 OpenAI key）行为与 FU-14 一致**。embedding 属内部增强：`memories.embedding`（pgvector，1536 维）由 raw SQL 读写、**永不下发**，本契约无任何字段新增。
+- 记忆的查看与维护经 admin-only REST `/api/memories`（FU-15 起，见 §3.14）与管理页 `/admin/memories`。管理端点不依赖 LLM；FU-16 起配置 embed key 时 `POST /api/memories`（admin 新增）会实时生成向量，`EMBEDDING_API_KEY` 未配置时管理面行为不变。
 
 #### 错误响应（非流）
 
@@ -772,7 +773,7 @@ Authorization: Bearer <jwt>
 
 ### 3.14 记忆管理 `/api/memories`（FU-15）
 
-Memory 的 admin 管理面 REST 资源。需认证（Bearer）且角色为 admin；user 角色 → 403 `FORBIDDEN`，无 token → 401 `UNAUTHORIZED`。手动新增/编辑/删除的记忆与 FU-14 对话抽取的记忆同表同链路：一经落库即被既有检索（≤5 条注入）使用。管理端点不依赖 LLM 或 embedding，抽取不可用不影响管理面。删除为硬删。
+Memory 的 admin 管理面 REST 资源。需认证（Bearer）且角色为 admin；user 角色 → 403 `FORBIDDEN`，无 token → 401 `UNAUTHORIZED`。手动新增/编辑/删除的记忆与 FU-14 对话抽取的记忆同表同链路：一经落库即被既有检索（≤5 条注入）使用。管理端点不依赖 LLM；FU-16 起若配置 `EMBEDDING_API_KEY`，新增（POST）的记忆会附带实时生成向量（失败静默，仅日志），未配置时管理面行为与响应形状不变。抽取不可用不影响管理面。删除为硬删。本条不暴露任何 embedding 字段。
 
 #### 3.14.1 列表
 

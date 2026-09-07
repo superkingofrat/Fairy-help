@@ -196,6 +196,9 @@ model Trip {
 }
 
 // FU-14：记忆中心——结构化记忆（偏好/事实/意图），关联 profileId（必填），可选 sessionId
+// FU-16：pgvector 向量检索——embedding 列（1536 维，可空，OpenAI text-embedding-3-small）。
+//   Prisma client 不读写该列：向量写入/检索一律 raw SQL（$executeRaw/$queryRaw，见 memoryService）；
+//   该列永不下发到任何 DTO/API 响应。维度变更（非 1536）需新迁移，本期不做。
 model Memory {
   id        String     @id @default(uuid())
   profileId String
@@ -205,6 +208,8 @@ model Memory {
   metadata  Json?
   createdAt DateTime   @default(now())
   profile   Profile    @relation(fields: [profileId], references: [userId], onDelete: Cascade)
+
+  embedding Unsupported("vector(1536)")?
 
   @@index([profileId, kind])
   @@index([profileId, createdAt])

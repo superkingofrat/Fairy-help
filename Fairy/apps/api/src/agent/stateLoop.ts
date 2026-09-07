@@ -22,8 +22,11 @@ export async function runChatTurn(input: {
     .getByUserId(input.userId)
     .catch(() => null);
   // FU-14：记忆中心检索——仅注入本用户（profileId）的记忆，检索失败降级为空
+  // FU-16：以用户当前消息作语义查询——embed 可用时按相关度召回，缺省/无向量时混合或结构化兜底
   const memories = profile
-    ? await memoryService.searchMemories(profile.userId).catch(() => [])
+    ? await memoryService
+        .searchMemories(profile.userId, { query: input.message })
+        .catch(() => [])
     : [];
 
   if (input.action === "return" && input.movieId) {
@@ -66,11 +69,16 @@ export async function runChatTurn(input: {
     input.userId,
     input.role,
     input.message,
-    profile
+    profile,
   );
 
-  if (observation.kind === "none" && observation.reason === "return_unresolved") {
-    const activeRentals = await rentalService.listActiveRentals(input.userId).catch(() => []);
+  if (
+    observation.kind === "none" &&
+    observation.reason === "return_unresolved"
+  ) {
+    const activeRentals = await rentalService
+      .listActiveRentals(input.userId)
+      .catch(() => []);
     return synthesize(observation, {
       message: input.message,
       profile,

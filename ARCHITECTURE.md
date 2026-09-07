@@ -371,7 +371,7 @@ ResponseSynthesizer 流式输出最终回复
 [Frontend] 渲染 TripTimeline + Amap JS 路线叠加
 ```
 
-### 5.4 记忆 / 画像流程（FU-14 记忆中心一期 + FU-15 记忆管理面）
+### 5.4 记忆 / 画像流程（FU-14 记忆中心一期 + FU-15 记忆管理面 + FU-16 pgvector 向量检索）
 
 ```
 每轮对话（chat SSE 完成后）
@@ -381,10 +381,14 @@ ResponseSynthesizer 流式输出最终回复
     │  失败/超时/非法 JSON → 静默跳过（返回空数组，不中断响应）
     ▼
 [MemoryService.addMemory] 落库 Memory（profileId 必填，sessionId 可空）
-    │
+    │  落库后 [EmbeddingClient.embedContent] 生成 1536 维向量 → raw UPDATE 写回 embedding 列
+    │  无 EMBEDDING key / embed 失败 / 维度不符 → 静默跳过（仅日志，记忆本体不丢）
     ▼
 下一轮对话 prompt 组装（ContextBuilder）
-    ├── [MemoryService.searchMemories] 记忆注入（≤5 条，profileId 隔离，kind/时间/关键词检索）
+    ├── [MemoryService.searchMemories] 记忆注入 ≤5 条（profileId 隔离）
+    │    混合检索：调用方带 query（用户当前消息）+ embed 可用 + 行含向量时，
+    │    $queryRaw 按 cosine 距离升序取 top-N（kind/keyword 可预过滤）；
+    │    向量不足 limit 按时间倒序补齐（排除已召回 id），无向量/无 embed 则走既有结构化路径
     ├── 最近 N 条 Session 消息（短期，sessionService）
     └── Profile 实体（长期）
     │
@@ -392,10 +396,11 @@ ResponseSynthesizer 流式输出最终回复
 [Prompt 上下文窗口] 受 token 预算约束
 ```
 
-- 一期**结构化检索**（`profileId` + `kind` + `createdAt` 倒序 + `content` 包含匹配），**不依赖 embed**；pgvector 向量检索为二期候选。
-- 记忆按 `profileId` 严格隔离（AGENTS §6）：`Memory.profileId` 关联 `Profile.userId`，A 用户记忆绝不注入 B 用户 prompt。
-- 降级友好：抽取失败、LLM/embed 不可用、DB 异常时对话功能完全不受影响。
-- **管理面（FU-15 记忆中心二期）**：admin 经 REST 端点或 `/admin/memories` 管理页查看、新增、编辑（kind/content）、删除记忆。手动写入复用 `memoryService`（与 FU-14 LLM 抽取**同库同链路**），一经落库即被下一轮 `searchMemories` 检索注入；列表按 `profileId` join `Profile→User` 带出 email，分页 + `userId/kind/keyword` 过滤。
+- 检索自 FU-16 起为**混合检索**：对话注入以用户当前消息为语义查询，向量相关度为主、结构化兜底/补齐；embedding 走可选配置 `EMBEDDING_API_KEY`（缺省回退 `OPENAI_API_KEY`）/`EMBEDDING_MODEL`（默认 `text-embedding-3-small`，1536 维），与聊天供应商解耦——`AI_PROVIDER=deepseek` 也能 embed。**无 key / embed 故障 / 维度不符 / 行缺向量 → 自动退回结构化检索**，默认 dev 环境（DeepSeek、无 OpenAI key）行为与 FU-14 完全一致。
+- `memories.embedding` 为 `Unsupported("vector(1536)")` 列：Prisma client 不读写，向量写入/检索一律 raw SQL（`$executeRaw`/`$queryRaw`）；该列**永不下发**到任何 DTO/API 响应。存量行由幂等脚本一次性回填（`pnpm --filter=@fairy/database backfill:embeddings`，只补齐 `embedding IS NULL` 行，可重跑）。
+- 记忆按 `profileId` 严格隔离（AGENTS §6）：`Memory.profileId` 关联 `Profile.userId`；结构化与向量查询均以 `profileId` 限定，A 用户记忆绝不注入 B 用户 prompt。
+- 降级友好：抽取失败、embed/LLM 不可用、DB 异常时对话功能完全不受影响。
+- **管理面（FU-15 记忆中心二期）**：admin 经 REST 端点或 `/admin/memories` 管理页查看、新增、编辑（kind/content）、删除记忆。手动写入复用 `memoryService`（与 FU-14 LLM 抽取**同库同链路**），一经落库即被下一轮 `searchMemories` 检索注入；配置 embed 时 admin 新增（`createMemory`）同样实时生成向量。列表按 `profileId` join `Profile→User` 带出 email，分页 + `userId/kind/keyword` 过滤。
 
 ```
 FU-15 记忆管理面（admin-only）
@@ -592,7 +597,8 @@ interface AgentState {
 | 记忆抽取每轮旁路 + 结构化检索，不依赖 embed | 每轮对话 SSE 完成后 LLM 抽取（`tryChat("agent.memory")`，低 temperature，失败静默返回空数组）→ 落库 `Memory`；下一轮注入前 `searchMemories(profileId)` 按 kind/时间/关键词限量 5 条。一期不用 pgvector/embed（DeepSeek 供应商不支持 embed，避免绑定 OpenAI key 环境），结构化检索够用；管理 UI、REST 端点、画像回写为二期（FU-14）。 |
 | 记忆管理面 admin-only（REST + 管理页） | 记忆承载用户画像敏感信息，审计/纠错/补录只对绳匠（admin）开放；列表分页筛选沿用 FU-1 `/api/profiles`、FU-3 behavior-logs 的 `requireRole("admin")` + `{code,data,msg}` + shared Zod 校验约定，UI 沿用 FU-11 `/admin/*` 管理页与 i18n 模式，无新抽象（FU-15）。 |
 | 记忆删除为硬删、手动新增允许 | `Memory` 无外键引用、无审计保留诉求 → 物理删除，沿用 movie DELETE 的 `{code:"OK", data:{id}}` envelope（FU-5）；admin 可手动补录，与 LLM 抽取同库同链路，落库即被下一轮注入（FU-15）。 |
-| pgvector 向量检索继续推后 | 二期候选维持：需 embedding 列 + Neon pgvector 扩展 + 支持 embed 的供应商（DeepSeek 不支持），且会改变检索语义，单独一期评估；结构化检索仍满足管理面与注入需求（FU-15 拍板）。 |
+| pgvector 向量检索推后（FU-15 拍板，已被 FU-16 取代） | 原二期候选理由：需 embedding 列 + Neon pgvector 扩展 + 支持 embed 的供应商（DeepSeek 不支持）、会改变检索语义——FU-16 以「可选 embed 配置 + 混合检索 + 默认零变化」落地该候选（见下行）。 |
+| 向量检索 = 可选 embed 客户端 + 混合检索（FU-16） | `EMBEDDING_API_KEY`（缺省回退 `OPENAI_API_KEY`）/`EMBEDDING_MODEL`（默认 `text-embedding-3-small`，1536 维）独立于聊天供应商（`AI_PROVIDER=deepseek` 也能 embed；缺 key → 客户端 null 降级信号）；对话注入 `searchMemories(profileId, { query })` 在有 query + embed 可用 + 行含向量时走 `$queryRaw` cosine 升序 top-N（`kind`/`keyword` 可预过滤），不足 limit 按时间倒序补齐（排除已召回 id）；无 key/embed 故障/维度不符/无向量 → 结构化路径，默认 dev 环境零行为变化。写入与回填共用同一 embed 链路：新记忆（FU-14 抽取 + FU-15 admin 新增）落库实时生成向量，存量由 `scripts/backfill-memory-embeddings.ts` 幂等回填（只补 `embedding IS NULL` 行）。`memories.embedding` 列 raw SQL 读写、永不下发 DTO，公共 API 契约不变。 |
 
 ---
 
@@ -624,15 +630,16 @@ apps/api/src/
     profiles.ts
     memories.ts        # /api/memories（FU-15：GET/POST + PATCH/DELETE /:id，全部 requireRole("admin")）
   agent/
-    stateLoop.ts         # FU-12：runChatTurn 透传 role → dispatch；FU-14：查询记忆注入
+    stateLoop.ts         # FU-12：runChatTurn 透传 role → dispatch；FU-14：查询记忆注入；FU-16：传 query（用户消息）驱动混合检索
     intentClassifier.ts  # FU-12：store_insight 意图 + topic（LLM 枚举 + 规则兜底）
     contextBuilder.ts  # FU-7：buildConversationHistory 历史注入；FU-14：buildMemoryBlock 记忆注入
     planner.ts          # FU-12：PlannedCall 新增 { tool: "insight"; topic }
     toolDispatcher.ts   # FU-12：kind "insight" observation + admin 门禁（role 参数）
     responseSynthesizer.ts  # FU-12：按 topic 构造运营问数【事实】+ 非 admin 拒绝文案；FU-14：记忆注入 prompt
   memory/
-    memoryService.ts     # FU-14：addMemory 落库 + searchMemories 检索（profileId 隔离，限量）；FU-15：listMemories/create/update/delete admin 管理查询
+    memoryService.ts     # FU-14：addMemory 落库 + searchMemories 检索（profileId 隔离，限量）；FU-15：listMemories/create/update/delete admin 管理查询；FU-16：searchMemories 混合检索（query→cosine top-N+结构化补齐）、addMemory/createMemory 落库后实时 embed
     memoryExtractor.ts   # FU-14：LLM 抽取（agent.memory source，失败静默）+ 旁路落库入口
+    embeddingClient.ts   # FU-16：embed 客户端组装（memoize createEmbeddingProvider，读 EMBEDDING_* env）+ embedContent(text) → number[] | null（1536 维守卫，失败静默）
   tools/
     recommendMovieTool.ts
     borrowMovieTool.ts
@@ -661,6 +668,14 @@ packages/shared/
 packages/ai-sdk/
   providers/           # OpenAI/Claude 客户端封装
   streaming.ts         # 统一流式辅助函数
+  factory.ts           # FU-16：createEmbeddingProvider + EMBEDDING_DEFAULT_MODEL/EMBEDDING_DIMENSIONS（可选 embed 客户端，缺 key → null）
+
+packages/database/
+  prisma/schema.prisma # Memory.embedding `Unsupported("vector(1536)")?`（FU-16：raw SQL 读写，永不下发 DTO）
+  prisma/migrations/   # add_memory_embedding（CREATE EXTENSION vector + 列 + HNSW cosine 索引）
+
+scripts/
+  backfill-memory-embeddings.ts  # FU-16：存量记忆幂等回填（`pnpm --filter=@fairy/database backfill:embeddings`，只补 embedding IS NULL 行）
 
 docs/
   architecture.md      # 本文档

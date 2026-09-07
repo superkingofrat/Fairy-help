@@ -29,6 +29,11 @@ const DEFAULT_BASE_URLS: Record<AiProviderName, string> = {
 
 const DEFAULT_TIMEOUT_MS = 20000;
 
+// FU-16：独立可选 embed 配置——与 AI_PROVIDER 解耦（DeepSeek/Claude 无 embeddings API，
+// 但默认 chat 供应商是 deepseek 时仍可经 OpenAI embed）。缺 key 时 createEmbeddingProvider 返回 null（降级信号）。
+export const EMBEDDING_DEFAULT_MODEL = "text-embedding-3-small";
+export const EMBEDDING_DIMENSIONS = 1536;
+
 export function isAiProviderName(value: string): value is AiProviderName {
   return value === "deepseek" || value === "openai" || value === "claude";
 }
@@ -38,7 +43,9 @@ export interface CreateAiProviderOptions {
   fetchImpl?: typeof fetch;
 }
 
-export function createAiProvider(options: CreateAiProviderOptions = {}): AiProvider {
+export function createAiProvider(
+  options: CreateAiProviderOptions = {},
+): AiProvider {
   const env = options.env ?? process.env;
 
   const rawName = env.AI_PROVIDER?.trim() || "deepseek";
@@ -46,7 +53,7 @@ export function createAiProvider(options: CreateAiProviderOptions = {}): AiProvi
     throw new AiProviderError(
       "UNKNOWN_PROVIDER",
       "unknown",
-      `Unknown AI_PROVIDER "${rawName}". Expected deepseek, openai, or claude.`
+      `Unknown AI_PROVIDER "${rawName}". Expected deepseek, openai, or claude.`,
     );
   }
 
@@ -55,15 +62,18 @@ export function createAiProvider(options: CreateAiProviderOptions = {}): AiProvi
     throw new AiProviderError(
       "MISSING_API_KEY",
       rawName,
-      `Missing ${API_KEY_VARS[rawName]} for AI_PROVIDER=${rawName}`
+      `Missing ${API_KEY_VARS[rawName]} for AI_PROVIDER=${rawName}`,
     );
   }
 
   const defaultModel = env.AI_MODEL?.trim() || PROVIDER_DEFAULT_MODELS[rawName];
-  const baseUrl = env[BASE_URL_VARS[rawName]]?.trim() || DEFAULT_BASE_URLS[rawName];
+  const baseUrl =
+    env[BASE_URL_VARS[rawName]]?.trim() || DEFAULT_BASE_URLS[rawName];
   const timeoutValue = Number(env.AI_TIMEOUT_MS);
   const timeoutMs =
-    Number.isFinite(timeoutValue) && timeoutValue > 0 ? timeoutValue : DEFAULT_TIMEOUT_MS;
+    Number.isFinite(timeoutValue) && timeoutValue > 0
+      ? timeoutValue
+      : DEFAULT_TIMEOUT_MS;
 
   if (rawName === "claude") {
     return createClaudeProvider({
@@ -82,7 +92,53 @@ export function createAiProvider(options: CreateAiProviderOptions = {}): AiProvi
     defaultModel,
     timeoutMs,
     embeddingsSupported: rawName === "openai",
-    ...(rawName === "openai" ? { defaultEmbeddingModel: "text-embedding-3-small" } : {}),
+    ...(rawName === "openai"
+      ? { defaultEmbeddingModel: "text-embedding-3-small" }
+      : {}),
+    ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+  });
+}
+
+export interface CreateEmbeddingProviderOptions {
+  env?: Record<string, string | undefined>;
+  fetchImpl?: typeof fetch;
+}
+
+/**
+ * FU-16：创建独立于 AI_PROVIDER 的 embed 客户端（仅 OpenAI 供应商有 embeddings API）。
+ * 密钥取 `EMBEDDING_API_KEY`，缺省回退 `OPENAI_API_KEY`；模型取 `EMBEDDING_MODEL`（默认
+ * text-embedding-3-small，1536 维）。两者都未配置时返回 null——消费方按「无 embed 能力」
+ * 降级为结构化检索，不得抛 typed missing-key（否则会打断 deepseek chat 链路）。
+ */
+export function createEmbeddingProvider(
+  options: CreateEmbeddingProviderOptions = {},
+): AiProvider | null {
+  const env = options.env ?? process.env;
+
+  const apiKey = env.EMBEDDING_API_KEY?.trim() || env.OPENAI_API_KEY?.trim();
+  if (!apiKey) {
+    return null;
+  }
+
+  const model = env.EMBEDDING_MODEL?.trim() || EMBEDDING_DEFAULT_MODEL;
+  const baseUrl =
+    env.EMBEDDING_BASE_URL?.trim() ||
+    env.OPENAI_BASE_URL?.trim() ||
+    DEFAULT_BASE_URLS.openai;
+  const timeoutValue = Number(env.AI_TIMEOUT_MS);
+  const timeoutMs =
+    Number.isFinite(timeoutValue) && timeoutValue > 0
+      ? timeoutValue
+      : DEFAULT_TIMEOUT_MS;
+
+  return createOpenAiCompatibleProvider({
+    name: "openai",
+    apiKey,
+    baseUrl,
+    defaultModel: model,
+    timeoutMs,
+    embeddingsSupported: true,
+    defaultEmbeddingModel: model,
     ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
   });
 }
