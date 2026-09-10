@@ -109,6 +109,8 @@
 
 ## Last Updated（最近更新）
 
+**2026-09-07** — 行程规划可观测性 P1 改进（FU-13 补记）：管理号「问旅游时而拒绝时而同意」排查结论——门禁对 `role=admin` 必然放行，`TRIP_FORBIDDEN` 婉拒文案不可能出现在管理号上；用户感知的「拒绝」来自下游两处：目的地未定时反问、草稿/落库失败时的「出了点状况」，而这两类结局**此前不记任何行为日志**（仅成功记 `TRIP_PLANNED`），无法事后定位。改进：`BehaviorAction` 新增 `TRIP_UNRESOLVED`/`TRIP_DRAFT_FAILED`/`TRIP_PERSIST_FAILED`（Prisma 枚举 + 迁移 `20260907103000_add_trip_outcome_actions` 已应用 + shared `BEHAVIOR_ACTIONS` 同步），`planTripTool` 三处失败/追问路径补 best-effort 日志（payload 带 `reason` 与截断消息，append 失败吞掉不影响工具返回）。验证：database generate + migrate deploy + api typecheck / web typecheck / shared typecheck 全过，shared 96 / api 292 全绿；API dev 已重启。
+
 **2026-09-07** — 前端 P1 修复：消除「打开网页先闪现内部内容、随后才跳登录」——根因是 web 启动时不做会话校验（`authStore` 同步恢复 localStorage 凭据后 `RequireAuth` 仅看 token/user 是否存在即放行，首个接口 401 且刷新失败才被 `window.location.assign('/login')` 带走）。修复：`App` 增加启动门 `useSessionReady`（本地有 token 时先调 `/api/auth/me` 验证，期间渲染「正在恢复会话…」占位页而非内部 UI；仅 401 才尝试一次刷新续期，刷新失败才清会话落登录页；网络/服务异常不武断登出，沿用页面自身报错）；`authApi.ensureSessionOnBoot`（模块级单飞，兼容 StrictMode 双执行）；i18n 新增 `app.restoring`。无新端点、无契约变更。测试：web 79 全绿（新增 boot-check 6 例 + App 级「占位优先于内部内容/失效落登录页」2 例）。
 
 **2026-09-07** — 工程基建：修复 `Fairy/turbo.json` 的 `pipeline` → `tasks` 字段（turbo 2.0 起 `pipeline` 已改名，此前根脚本 `pnpm dev`/`build`/`test`/`typecheck` 一启动即报 schema 错误，只能退回手工双命令）→ `pnpm dev` 现可经 turbo 一次同时启动 api(:3000) 与 web(:5173)，已真机验证双端口就绪并确认 Ctrl+C 一并停止；AGENTS §8/§9 与 ARCHITECTURE §10 已同步一条命令用法。

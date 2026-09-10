@@ -177,7 +177,11 @@ describe("planTripTool", () => {
 
     expect(result).toEqual({ success: true, data: { unresolved: true } });
     expect(prisma.trip.create).not.toHaveBeenCalled();
-    expect(behaviorLogService.append).not.toHaveBeenCalled();
+    expect(behaviorLogService.append).toHaveBeenCalledWith({
+      userId: USER_ID,
+      action: "TRIP_UNRESOLVED",
+      payload: expect.objectContaining({ reason: "draft_destination_null" }),
+    });
   });
 
   it("returns TRIP_DRAFT_FAILED when the LLM draft fails or is invalid", async () => {
@@ -187,6 +191,11 @@ describe("planTripTool", () => {
 
     expect(result).toEqual({ success: false, error: "TRIP_DRAFT_FAILED" });
     expect(prisma.trip.create).not.toHaveBeenCalled();
+    expect(behaviorLogService.append).toHaveBeenCalledWith({
+      userId: USER_ID,
+      action: "TRIP_DRAFT_FAILED",
+      payload: expect.objectContaining({ reason: "llm_draft_failed" }),
+    });
   });
 
   it("retries the draft once before giving up on invalid JSON", async () => {
@@ -213,7 +222,11 @@ describe("planTripTool", () => {
 
     expect(result).toEqual({ success: true, data: { unresolved: true } });
     expect(prisma.trip.create).not.toHaveBeenCalled();
-    expect(behaviorLogService.append).not.toHaveBeenCalled();
+    expect(behaviorLogService.append).toHaveBeenCalledWith({
+      userId: USER_ID,
+      action: "TRIP_UNRESOLVED",
+      payload: expect.objectContaining({ reason: "draft_failed_no_destination" }),
+    });
   });
 
   it("returns TRIP_DRAFT_FAILED when the LLM draft fails but the message names a destination", async () => {
@@ -223,6 +236,11 @@ describe("planTripTool", () => {
 
     expect(result).toEqual({ success: false, error: "TRIP_DRAFT_FAILED" });
     expect(prisma.trip.create).not.toHaveBeenCalled();
+    expect(behaviorLogService.append).toHaveBeenCalledWith({
+      userId: USER_ID,
+      action: "TRIP_DRAFT_FAILED",
+      payload: expect.objectContaining({ reason: "llm_draft_failed" }),
+    });
   });
 
   it("returns TRIP_PERSIST_FAILED when the database write throws", async () => {
@@ -233,5 +251,10 @@ describe("planTripTool", () => {
     const result = await planTripTool({ userId: USER_ID, message: "帮我规划周末去杭州玩" });
 
     expect(result).toEqual({ success: false, error: "TRIP_PERSIST_FAILED" });
+    expect(behaviorLogService.append).toHaveBeenCalledWith({
+      userId: USER_ID,
+      action: "TRIP_PERSIST_FAILED",
+      payload: expect.objectContaining({ reason: "db_write_failed" }),
+    });
   });
 });
