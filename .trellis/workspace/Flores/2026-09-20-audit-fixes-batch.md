@@ -16,5 +16,5 @@
 
 ## 未完成 / 后续
 
-- 网络恢复后推送：origin 停在 `718645a` 之后的本地提交（流式+CAS+SSE、需求草案、journal、本轮三项改进）。
+- ~~网络恢复后推送~~（已完成 2026-09-20）：origin/master `56eb3b2` → `9af40b7`，含流式+CAS+SSE、需求草案、journal 与本轮三项改进共 7 个提交。github.com 的 git 端口被 DNS 阻断，改经 GitHub API 逐提交重建 tree/commit 并本地比对 SHA 一致后才快进推送；推送前全历史扫描 973 个 blob 确认无真实密钥、无超过 1MB 的文件。
 - chat 限流为 IP 级，无用户级/账号级配额（后续可按 userId 做 token 配额）。
