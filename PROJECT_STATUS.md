@@ -73,6 +73,14 @@
 
 ## Next Steps（下一步）
 
+### Trellis 轨（已起草需求，待用户批准）
+
+| 需求 | 文件 | 轨道 | 说明 |
+|---|---|---|---|
+| 注册即建空白画像 | [2026-09-20-register-create-blank-profile.md](docs/requirements/2026-09-20-register-create-blank-profile.md) | Trellis | 注册成功回调建空白 Profile，解决新用户记忆断层 |
+| chat 端点限流 | [2026-09-20-chat-rate-limit.md](docs/requirements/2026-09-20-chat-rate-limit.md) | Trellis | 防刷 LLM 账单，建议 30 次/分钟 |
+| prompt token 预算 | [2026-09-20-prompt-token-budget.md](docs/requirements/2026-09-20-prompt-token-budget.md) | Trellis | 上下文窗口保护，防止超限报错 |
+
 - **（待负责人）FU-16 剩余验收**：配置 `EMBEDDING_API_KEY`（回退 `OPENAI_API_KEY`）后跑通真实 embed 落库 / 语义相似召回 / `backfill:embeddings` 幂等回填（代码与 mock 覆盖已就绪，见 Risks）。
 - （二期候选）旅行规划二期：REST `POST /api/trips` + 历史行程回放 + Amap JS 地图叠加路线（本期非目标）。
 
