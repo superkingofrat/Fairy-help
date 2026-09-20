@@ -67,14 +67,22 @@ router.post("/", validateBody(chatRequestSchema), async (req, res, next) => {
     res.flushHeaders?.();
 
     try {
-      const result = await runChatTurn({
-        userId,
-        message: body.message,
-        movieId: body.movieId,
-        action: body.action,
-        history: historyText,
-        role,
-      });
+      // 真流式：合成的增量文本边生成边写出（onDelta），降级模板路径仍由下方统一补写
+      let streamed = false;
+      const result = await runChatTurn(
+        {
+          userId,
+          message: body.message,
+          movieId: body.movieId,
+          action: body.action,
+          history: historyText,
+          role,
+        },
+        (delta) => {
+          streamed = true;
+          writeSse(res, "text", { content: delta });
+        }
+      );
 
       // 落库是旁路：失败不中断 SSE（可观测性损失，非功能损失）
       if (sessionId) {
@@ -89,8 +97,10 @@ router.post("/", validateBody(chatRequestSchema), async (req, res, next) => {
         }
       }
 
-      for (const text of result.texts) {
-        writeSse(res, "text", text);
+      if (!streamed) {
+        for (const text of result.texts) {
+          writeSse(res, "text", text);
+        }
       }
       if (result.recommendation) {
         writeSse(res, "recommendation", result.recommendation);

@@ -188,7 +188,8 @@ function routeSummary(route: RouteLeg[] | null): string {
 
 async function generateReply(
   context: SynthesisContext,
-  facts: string
+  facts: string,
+  onDelta?: (delta: string) => void
 ): Promise<string | null> {
   const message = sanitizeUserInput(context.message);
   const historyLine = context.history ? `对话历史：\n${context.history}\n` : "";
@@ -198,14 +199,25 @@ async function generateReply(
       : "";
   const userContent = `${historyLine}用户说：「${message}」\n${profileLine(context.profile)}${memoryLine}\n【事实】${facts}`;
 
-  const result = await tryChat(
-    "agent.reply",
-    [
-      { role: "system", content: REPLY_SYSTEM_PROMPT },
-      { role: "user", content: userContent },
-    ],
-    { maxTokens: 300, temperature: 0.5 }
-  );
+  const options = { maxTokens: 300, temperature: 0.5 };
+  const result = onDelta
+    ? await tryChat(
+        "agent.reply",
+        [
+          { role: "system", content: REPLY_SYSTEM_PROMPT },
+          { role: "user", content: userContent },
+        ],
+        options,
+        onDelta
+      )
+    : await tryChat(
+        "agent.reply",
+        [
+          { role: "system", content: REPLY_SYSTEM_PROMPT },
+          { role: "user", content: userContent },
+        ],
+        options
+      );
 
   const text = result?.text.trim();
   return text ? text : null;
@@ -213,22 +225,27 @@ async function generateReply(
 
 export async function synthesize(
   observation: ToolObservation,
-  context: SynthesisContext
+  context: SynthesisContext,
+  onDelta?: (delta: string) => void
 ): Promise<SynthesizedResponse> {
+  // 统一出口：带 onDelta 时走 provider.stream() 增量输出，否则保持一次性 chat()
+  const reply = (facts: string): Promise<string | null> =>
+    onDelta ? generateReply(context, facts, onDelta) : generateReply(context, facts);
+
   if (observation.kind === "insight") {
     if (observation.forbidden) {
       const template = "这个功能目前只对门店管理员开放哦。";
       const facts = "用户（非管理员）询问店内运营数据，已拒绝；不得透露任何数据。";
-      const text = (await generateReply(context, facts)) ?? template;
+      const text = (await reply(facts)) ?? template;
       return { texts: [{ content: text }] };
     }
     if (!observation.success || !observation.overview) {
       const template = "店内数据这会儿拉取失败了，稍后再试试？";
-      const text = (await generateReply(context, "店内运营数据聚合失败，无法提供数据。")) ?? template;
+      const text = (await reply("店内运营数据聚合失败，无法提供数据。")) ?? template;
       return { texts: [{ content: text }] };
     }
     const { facts, template } = buildInsightFacts(observation.topic, observation.overview);
-    const text = (await generateReply(context, facts)) ?? template;
+    const text = (await reply(facts)) ?? template;
     return { texts: [{ content: text }] };
   }
 
@@ -247,7 +264,7 @@ export async function synthesize(
               .map((rental) => `《${rental.movieTitle}》`)
               .join("、")}。可以说完整片名归还。`
           : "你目前没有借阅中的影片。";
-      const text = (await generateReply(context, facts)) ?? template;
+      const text = (await reply(facts)) ?? template;
       return { texts: [{ content: text }] };
     }
 
@@ -256,7 +273,7 @@ export async function synthesize(
       observation.reason === "borrow_unresolved"
         ? "用户想借片，但未能确定是哪一部（没有唯一匹配的片名）。"
         : "没有工具调用结果：未能从消息中识别出借片或推荐意图（chitchat 视为正常闲聊）。";
-    const text = (await generateReply(context, facts)) ?? template;
+    const text = (await reply(facts)) ?? template;
     return { texts: [{ content: text }] };
   }
 
@@ -267,30 +284,30 @@ export async function synthesize(
         "行程规划可不是我的专长哦，不过如果你想找旅行或目的地相关的片子，我可以帮你推荐几部。";
       const facts =
         "用户（非代理人）请求规划行程，已婉拒：行程规划不在门店服务范围；应表示这不是专长，并引导推荐影片。";
-      const text = (await generateReply(context, facts)) ?? template;
+      const text = (await reply(facts)) ?? template;
       return { texts: [{ content: text }] };
     }
     if (observation.unresolved) {
       const template = "想去哪儿玩呀？告诉我一个目的地（比如城市名），我来帮你规划。";
       const facts = "用户请求规划行程但未能确定目的地；应引导用户说出目的地。";
-      const text = (await generateReply(context, facts)) ?? template;
+      const text = (await reply(facts)) ?? template;
       return { texts: [{ content: text }] };
     }
     if (!observation.success || !observation.trip) {
       const template = "行程规划这会儿出了点状况，稍后再试？";
       const facts = "行程规划失败（草稿生成或落库异常），无法提供行程。";
-      const text = (await generateReply(context, facts)) ?? template;
+      const text = (await reply(facts)) ?? template;
       return { texts: [{ content: text }] };
     }
     const { facts, template } = buildTripFacts(observation.trip);
-    const text = (await generateReply(context, facts)) ?? template;
+    const text = (await reply(facts)) ?? template;
     return { texts: [{ content: text }], trip: { trip: observation.trip } };
   }
 
   if (observation.kind === "recommend") {
     if (observation.movies.length === 0) {
       const template = "这会儿没有符合心情和场景、又有库存的片子。换个标签再试试？";
-      const text = (await generateReply(context, "推荐结果为空：没有符合心情和场景、又有库存的影片。")) ?? template;
+      const text = (await reply("推荐结果为空：没有符合心情和场景、又有库存的影片。")) ?? template;
       return { texts: [{ content: text }] };
     }
 
@@ -299,7 +316,7 @@ export async function synthesize(
     const facts = `推荐了以下有库存的影片：${observation.movies
       .map((movie) => `${movie.title}（类型：${movie.genres.join("、") || "未标注"}，可借 ${movie.stock}）`)
       .join("；")}。`;
-    const text = (await generateReply(context, facts)) ?? template;
+    const text = (await reply(facts)) ?? template;
     return {
       texts: [{ content: text }],
       recommendation: { items: observation.movies },
@@ -310,7 +327,7 @@ export async function synthesize(
     if (observation.success) {
       const template = `已归还，该片剩余可借 ${observation.remainingStock}。`;
       const facts = `归还成功，该片剩余可借库存 ${observation.remainingStock}。`;
-      const text = (await generateReply(context, facts)) ?? template;
+      const text = (await reply(facts)) ?? template;
       return {
         texts: [{ content: text }],
         return: {
@@ -326,7 +343,7 @@ export async function synthesize(
       RENTAL_NOT_FOUND: "你目前没有借这部片子。",
     };
     const template = messages[observation.code] ?? "归还没有成功。";
-    const text = (await generateReply(context, `归还失败，原因代码 ${observation.code}。`)) ?? template;
+    const text = (await reply(`归还失败，原因代码 ${observation.code}。`)) ?? template;
     return {
       texts: [{ content: text }],
       return: {
@@ -341,7 +358,7 @@ export async function synthesize(
   if (observation.success) {
     const template = "借阅成功，愿这段旅程治愈你。";
     const facts = `借阅成功，该片剩余可借库存 ${observation.remainingStock}。`;
-    const text = (await generateReply(context, facts)) ?? template;
+    const text = (await reply(facts)) ?? template;
     return {
       texts: [{ content: text }],
       borrow: {
@@ -359,7 +376,7 @@ export async function synthesize(
     MOVIE_NOT_FOUND: "找不到这部影片。",
   };
   const template = messages[observation.code] ?? "借阅没有成功。";
-  const text = (await generateReply(context, `借阅失败，原因代码 ${observation.code}。`)) ?? template;
+  const text = (await reply(`借阅失败，原因代码 ${observation.code}。`)) ?? template;
   return {
     texts: [{ content: text }],
     borrow: {

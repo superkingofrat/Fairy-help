@@ -34,47 +34,66 @@ export function parseSseBuffer(buffer: string): { events: ParsedSseEvent[]; rest
 
 export async function postChat(
   body: ChatRequest,
-  onEvent: (event: ParsedSseEvent) => void
+  onEvent: (event: ParsedSseEvent) => void,
+  options?: { timeoutMs?: number; signal?: AbortSignal }
 ): Promise<void> {
   const token = useAuthStore.getState().token;
-  const response = await fetch(`${API_BASE}/api/chat`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify(body),
-  });
+  const controller = options?.signal ? undefined : new AbortController();
+  const signal = options?.signal ?? controller?.signal;
+  const timeout = options?.timeoutMs ?? 60_000;
 
-  if (!response.ok) {
-    if (response.status === 401) {
-      useAuthStore.getState().clear();
-      window.location.assign("/login");
-      throw new Error("会话已失效，请重新登录");
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller?.abort();
+  }, timeout);
+
+  try {
+    const response = await fetch(`${API_BASE}/api/chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+      signal,
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        useAuthStore.getState().clear();
+        window.location.assign("/login");
+        throw new Error("会话已失效，请重新登录");
+      }
+      const raw = await response.text();
+      throw new Error(raw || `Chat failed (${response.status})`);
     }
-    const raw = await response.text();
-    throw new Error(raw || `Chat failed (${response.status})`);
-  }
 
-  if (!response.body) {
-    throw new Error("Empty chat stream");
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) {
-      break;
+    if (!response.body) {
+      throw new Error("Empty chat stream");
     }
-    buffer += decoder.decode(value, { stream: true });
-    const parsed = parseSseBuffer(buffer);
-    buffer = parsed.rest;
-    for (const event of parsed.events) {
-      onEvent(event);
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      if (timedOut) {
+        throw new Error("chat.error.timeout");
+      }
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      buffer += decoder.decode(value, { stream: true });
+      const parsed = parseSseBuffer(buffer);
+      buffer = parsed.rest;
+      for (const event of parsed.events) {
+        onEvent(event);
+      }
     }
+  } finally {
+    clearTimeout(timer);
   }
 }
 

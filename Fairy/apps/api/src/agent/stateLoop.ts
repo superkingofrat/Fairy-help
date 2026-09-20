@@ -16,7 +16,7 @@ export async function runChatTurn(input: {
   action?: "return";
   history?: string;
   role?: Role;
-}): Promise<SynthesizedResponse> {
+}, onDelta?: (delta: string) => void): Promise<SynthesizedResponse> {
   // 画像一次查询：dispatch（行程身份门禁）与 synthesize（回复人设）共用
   const profile: Profile | null = await profileService
     .getByUserId(input.userId)
@@ -50,12 +50,16 @@ export async function runChatTurn(input: {
             rentalId: null,
             code: result.error ?? "INTERNAL_ERROR",
           };
-    return synthesize(observation, {
-      message: input.message,
-      profile,
-      memories,
-      history: input.history,
-    });
+    return synthesize(
+      observation,
+      {
+        message: input.message,
+        profile,
+        memories,
+        history: input.history,
+      },
+      onDelta
+    );
   }
 
   const intent = await classifyIntent({
@@ -79,19 +83,27 @@ export async function runChatTurn(input: {
     const activeRentals = await rentalService
       .listActiveRentals(input.userId)
       .catch(() => []);
-    return synthesize(observation, {
+    return synthesize(
+      observation,
+      {
+        message: input.message,
+        profile,
+        memories,
+        activeRentals,
+        history: input.history,
+      },
+      onDelta
+    );
+  }
+
+  return synthesize(
+    observation,
+    {
       message: input.message,
       profile,
       memories,
-      activeRentals,
       history: input.history,
-    });
-  }
-
-  return synthesize(observation, {
-    message: input.message,
-    profile,
-    memories,
-    history: input.history,
-  });
+    },
+    onDelta
+  );
 }

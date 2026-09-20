@@ -7,7 +7,7 @@ export async function returnMovieTool(input: {
   movieId: string;
 }): Promise<{
   success: boolean;
-  data?: { remainingStock: number; rentalId: string };
+  data?: { remainingStock: number; rentalId: string | null };
   error?: ReturnErrorCode;
 }> {
   const result = await rentalService.returnRental(input.userId, input.movieId);
@@ -20,7 +20,7 @@ export async function returnMovieTool(input: {
     userId: input.userId,
     action: "RETURN_SUCCESS",
     movieId: input.movieId,
-    rentalId: result.rentalId,
+    rentalId: result.rentalId ?? undefined,
   });
 
   return {

@@ -23,6 +23,7 @@ describe("RentalService.borrow", () => {
       create: vi.fn(),
       update: vi.fn(),
     },
+    $queryRaw: vi.fn(),
   };
 
   beforeEach(() => {
@@ -30,6 +31,7 @@ describe("RentalService.borrow", () => {
     vi.mocked(prisma.$transaction).mockImplementation(
       (async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx)) as unknown as typeof prisma.$transaction
     );
+    tx.$queryRaw.mockResolvedValue(undefined);
   });
 
   it("decrements stock when available", async () => {
@@ -69,8 +71,7 @@ describe("RentalService.returnRental", () => {
       update: vi.fn(),
     },
     rental: {
-      findFirst: vi.fn(),
-      update: vi.fn(),
+      updateMany: vi.fn(),
     },
   };
 
@@ -81,16 +82,16 @@ describe("RentalService.returnRental", () => {
     );
   });
 
-  it("closes the rental and increments stock", async () => {
-    tx.rental.findFirst.mockResolvedValue({ id: "r1" });
+  it("closes the rental and increments stock (CAS)", async () => {
+    tx.rental.updateMany.mockResolvedValue({ count: 1 });
     tx.movie.update.mockResolvedValue({ id: "m1", stock: 3 });
     tx.movie.findUnique.mockResolvedValue({ id: "m1", stock: 3 });
 
     const result = await returnRental("u1", "m1");
 
-    expect(result).toEqual({ ok: true, rentalId: "r1", remainingStock: 3 });
-    expect(tx.rental.update).toHaveBeenCalledWith({
-      where: { id: "r1" },
+    expect(result).toEqual(expect.objectContaining({ ok: true, remainingStock: 3 }));
+    expect(tx.rental.updateMany).toHaveBeenCalledWith({
+      where: { userId: "u1", movieId: "m1", status: "ACTIVE" },
       data: { status: "RETURNED" },
     });
     expect(tx.movie.update).toHaveBeenCalledWith({
@@ -100,17 +101,16 @@ describe("RentalService.returnRental", () => {
   });
 
   it("returns RENTAL_NOT_FOUND without stock change when no active rental", async () => {
-    tx.rental.findFirst.mockResolvedValue(null);
+    tx.rental.updateMany.mockResolvedValue({ count: 0 });
 
     const result = await returnRental("u1", "m1");
 
     expect(result).toEqual({ ok: false, code: "RENTAL_NOT_FOUND" });
-    expect(tx.rental.update).not.toHaveBeenCalled();
     expect(tx.movie.update).not.toHaveBeenCalled();
   });
 
   it("rejects a repeat return idempotently", async () => {
-    tx.rental.findFirst.mockResolvedValue(null);
+    tx.rental.updateMany.mockResolvedValue({ count: 0 });
 
     const first = await returnRental("u1", "m1");
     const second = await returnRental("u1", "m1");

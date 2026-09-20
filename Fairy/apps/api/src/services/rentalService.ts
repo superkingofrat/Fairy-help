@@ -10,7 +10,7 @@ export type BorrowResult =
   | { ok: false; code: BorrowErrorCode };
 
 export type ReturnResult =
-  | { ok: true; rentalId: string; remainingStock: number }
+  | { ok: true; rentalId: string | null; remainingStock: number }
   | { ok: false; code: ReturnErrorCode };
 
 export interface ActiveRental {
@@ -22,6 +22,9 @@ export interface ActiveRental {
 
 export async function borrow(userId: string, movieId: string): Promise<BorrowResult> {
   return prisma.$transaction(async (tx) => {
+    // 并发安全：锁定影片行，串行化同片借还事务
+    await tx.$queryRaw`SELECT id FROM movies WHERE id = ${movieId} FOR UPDATE`;
+
     const movie = await tx.movie.findUnique({ where: { id: movieId } });
     if (!movie) {
       return { ok: false, code: "MOVIE_NOT_FOUND" };
@@ -61,17 +64,15 @@ export async function borrow(userId: string, movieId: string): Promise<BorrowRes
 
 export async function returnRental(userId: string, movieId: string): Promise<ReturnResult> {
   return prisma.$transaction(async (tx) => {
-    const rental = await tx.rental.findFirst({
+    // 并发安全：一次性条件更新（compare-and-swap），避免先读后写的竞态
+    const closed = await tx.rental.updateMany({
       where: { userId, movieId, status: "ACTIVE" },
+      data: { status: "RETURNED" },
     });
-    if (!rental) {
+    if (closed.count === 0) {
       return { ok: false, code: "RENTAL_NOT_FOUND" };
     }
 
-    await tx.rental.update({
-      where: { id: rental.id },
-      data: { status: "RETURNED" },
-    });
     await tx.movie.update({
       where: { id: movieId },
       data: { stock: { increment: 1 } },
@@ -80,7 +81,7 @@ export async function returnRental(userId: string, movieId: string): Promise<Ret
 
     return {
       ok: true,
-      rentalId: rental.id,
+      rentalId: null,
       remainingStock: fresh?.stock ?? 0,
     };
   });

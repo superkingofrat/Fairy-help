@@ -183,6 +183,30 @@ export function ChatPage(): JSX.Element {
             void refreshRentals();
           }
         }
+        if (event.event === "borrow") {
+          const data = event.data as {
+            success: boolean;
+            remainingStock: number | null;
+            rentalId: string | null;
+            code: string;
+          };
+          if (data.success && data.rentalId) {
+            // 借阅成功：刷新活跃租赁列表，确保「我的借阅」条及时更新
+            void refreshRentals();
+          } else {
+            // 借阅失败：刷新列表确保 isBorrowed 标记正确，并提示用户
+            void refreshRentals();
+            const msg =
+              data.code === "OUT_OF_STOCK"
+                ? t("library.error.OUT_OF_STOCK")
+                : data.code === "ALREADY_BORROWED"
+                  ? t("library.error.ALREADY_BORROWED")
+                  : data.code === "MOVIE_NOT_FOUND"
+                    ? t("library.error.MOVIE_NOT_FOUND")
+                    : t("library.error.borrow");
+            setError(msg);
+          }
+        }
         if (event.event === "done") {
           const data = event.data as { sessionId?: string | null };
           if (data.sessionId && !sessionId) {
@@ -200,6 +224,14 @@ export function ChatPage(): JSX.Element {
       });
       void refreshSessionList().catch(() => undefined);
     } catch (caught) {
+      // 回滚：流异常时移除最后一条乐观插入的 Fairy 空气泡，防止永久空气泡
+      setMessages((current) => {
+        const last = current[current.length - 1];
+        if (last?.role === "fairy" && last.content === "" && last.id === fairyId) {
+          return current.slice(0, -1);
+        }
+        return current;
+      });
       setError(caught instanceof Error ? caught.message : t("chat.error"));
     } finally {
       setBusy(false);
