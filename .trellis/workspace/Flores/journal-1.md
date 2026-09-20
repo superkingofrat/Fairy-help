@@ -960,7 +960,10 @@ Session summary was not supplied.
 
 | Hash | Message |
 |------|---------|
-| `TBD` | (see git log) |
+| `1eb4375` | api: create blank profile on register |
+| `7e591dc` | api: limit chat requests to 30 per minute |
+| `3c348a1` | agent: trim chat history to prompt token budget |
+| `44571a5` | docs: sync spine for the three Trellis improvements |
 
 ### Testing
 
