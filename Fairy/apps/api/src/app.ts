@@ -47,13 +47,22 @@ export function createApp(): express.Application {
 
   app.use("/api/auth/login", loginLimiter);
   app.use("/api/auth/register", registerLimiter);
+
+  // chat 限流：1 分钟 30 次，防刷 LLM 账单；限流器在 createApp() 内创建保证测试隔离
+  const chatLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: tooManyRequests,
+  });
   app.use("/api/auth", authRouter);
   app.use("/api/movies", authMiddleware, moviesRouter);
   app.use("/api/borrow", authMiddleware, borrowRouter);
   app.use("/api/rentals", authMiddleware, rentalsRouter);
   app.use("/api/profiles", authMiddleware, profilesRouter);
   app.use("/api/behavior-logs", authMiddleware, behaviorLogsRouter);
-  app.use("/api/chat", authMiddleware, chatRouter);
+  app.use("/api/chat", chatLimiter, authMiddleware, chatRouter);
   app.use("/api/sessions", authMiddleware, sessionsRouter);
   app.use("/api/insights", authMiddleware, insightsRouter);
   app.use("/api/memories", authMiddleware, memoriesRouter);

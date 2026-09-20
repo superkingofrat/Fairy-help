@@ -757,4 +757,22 @@ describe("POST /api/chat", () => {
       expect.objectContaining({ sessionId: undefined }),
     );
   });
+
+  describe("rate limiting", () => {
+    it("returns 429 on the 31st chat request from the same IP", async () => {
+      const freshApp = createApp();
+
+      const statuses: number[] = [];
+      for (let i = 0; i < 31; i += 1) {
+        const res = await request(freshApp)
+          .post("/api/chat")
+          .set("Authorization", authHeader("user"))
+          .send({ message: "hi" });
+        statuses.push(res.status);
+      }
+
+      expect(statuses.slice(0, 30).every((s) => s === 200)).toBe(true);
+      expect(statuses[30]).toBe(429);
+    });
+  });
 });
