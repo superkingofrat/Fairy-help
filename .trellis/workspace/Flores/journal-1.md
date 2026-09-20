@@ -937,3 +937,39 @@ Delivered FU-18 — 画像反向回写：每轮对话抽取（FU-14 旁路）在
 
 - ~~Owner 审阅后按需提交（FU-16/17 三连样式）~~（已完成：`925c457` / `a546693` / `96348db` / `2c6f00a`，未推送）。
 - **推送延后（2026-09-07）**：尝试推送时 github.com 443 不可达（timeout + connection reset），owner 决定留待网络恢复后补推；届时在仓库根执行 `git push origin master`（origin 停 `718645a`，后续本地提交一并待推）。
+
+
+## Session 19: P0/P1 audit fixes: register blank profile + chat rate limit + prompt token budget
+
+**Date**: 2026-09-20
+**Task**: P0/P1 audit fixes: register blank profile + chat rate limit + prompt token budget
+**Branch**: `master`
+
+### Summary
+
+Session summary was not supplied.
+
+### Main Changes
+
+- authService.register best-effort 建空白 Profile（复用 createForExistingUser，name 取邮箱前缀）
+- chatLimiter 30 次/分钟先于 authMiddleware 挂载，超限 429 TOO_MANY_REQUESTS
+- contextBuilder.trimHistoryToBudget 4000 token 预算，记忆优先只裁历史尾部，stateLoop 三路接线
+- PROJECT_STATUS / API_CONTRACT / ARCHITECTURE 同步，需求文档 Status → implemented，三个 Trellis task 归档
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `TBD` | (see git log) |
+
+### Testing
+
+- [OK] api typecheck 通过；api 298 全绿（auth +3、chat +1、contextBuilder +4）；web 79 全绿
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 网络恢复后推送本地提交（origin 停在 718645a 之后）

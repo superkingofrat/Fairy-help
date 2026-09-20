@@ -12,6 +12,10 @@
 
 ## Completed Modules（已完成模块）
 
+- **prompt token 预算与上下文裁剪**（2026-09-20）— `contextBuilder` 新增 `MAX_PROMPT_TOKENS=4000` 与 `trimHistoryToBudget(historyText, memoryBlock)`：`estimateTokens` 按字符/3.5 粗估（混合中英文场景，不引 tiktoken 重型依赖），记忆块占用优先、**只从历史尾部裁剪**（记忆 ≤5 条为主动注入，优先级高于历史）；记忆单独即超预算的极端情形历史整体置空；裁剪后回退到最后一个换行，避免截断半条消息；`stateLoop` 三条 synthesize 路径统一改为 `trimHistoryToBudget(input.history ?? "", buildMemoryBlock(memories))`；无新端点、无契约变更、SSE 形状不变；api 298 全绿（contextBuilder 补 4 例：预算内不动、记忆超预算置空、超预算裁剪、记忆为空仍裁剪）。需求：[2026-09-20-prompt-token-budget.md](docs/requirements/2026-09-20-prompt-token-budget.md)；Trellis task `09-20-prompt-token-budget`（已归档）。
+- **chat 端点限流（IP 级 30 次/分钟）**（2026-09-20）— `createApp()` 内新增 chatLimiter（与 loginLimiter/registerLimiter 同作用域，保测试隔离），挂载 `app.use("/api/chat", chatLimiter, authMiddleware, chatRouter)`——限流先于认证，匿名刷也计入；超限 429 `TOO_MANY_REQUESTS`（复用既有 handler，统一 `{code,data,msg}`）；阈值：1 分钟窗口 30 次（正常对话约 10–15 轮/分钟留余量）；缓解自助注册账号无限打 chat、每轮 2–3 次 LLM 调用的账单风险；无新端点、无 SSE/契约变更；chat.test.ts 补超限用例（第 31 次 429、前 30 次 200），api 298 全绿。需求：[2026-09-20-chat-rate-limit.md](docs/requirements/2026-09-20-chat-rate-limit.md)；Trellis task `09-20-chat-rate-limit`（已归档）。
+- **注册即建空白画像**（2026-09-20）— `authService.register` 成功路径复用 `profileService.createForExistingUser` 为新用户建空白 Profile（`name` = 邮箱前缀，其余字段空数组/`null`），补上「无 Profile → 记忆因 `Memory.profileId` 外键静默落不进库、`recommendMovieTool` 读空 `likeGenres` 无个性化」的断层；画像创建为 best-effort（抛错仅 `console.warn`，注册仍 201，不引事务扩大回滚面）；注册响应形状与 409 重复注册行为不变（不建新 Profile）；无新端点、无契约变更；auth.test.ts 补 3 例（空白画像 payload 精确断言、画像抛错仍 201、重复邮箱不建画像），api 298 全绿。需求：[2026-09-20-register-create-blank-profile.md](docs/requirements/2026-09-20-register-create-blank-profile.md)；Trellis task `09-20-register-blank-profile`（已归档）。
+
 - **真流式对话输出（stream: true）**（2026-09-20）— 对话回复从「等 runChatTurn 全部完成再一次性写 SSE」升级为真流式：`tryChat` 新增可选 `onDelta` 回调，消费 `provider.stream()` 逐 chunk 输出 text 增量；流失败且一 chunk 都没产出时回退 `provider.chat()` 一次性完成，保证 SSE 事件名与负载形状不变；`responseSynthesizer` / `stateLoop` / `chat.ts` 逐层透传 `onDelta`，服务端边生成边写出；前端 `postChat` 加 AbortController + 60s 超时，`fairyText += data.content` 累加渲染，零改动；测试 292 全绿（现有 mock 路径不变）；无新端点、无契约变更。
 - **借还并发安全（FOR UPDATE + CAS）**（2026-09-20）— `borrow` 事务开头对 `movies` 行加 `SELECT ... FOR UPDATE`，串行化同片借还；`returnRental` 改为 `updateMany` compare-and-swap（`count === 0` → `RENTAL_NOT_FOUND`），消除先读后写竞态导致的重复退库存与同用户并发双开租借风险；`returnMovieTool` / `ReturnResult` 的 `rentalId` 改为 `string | null`（CAS 路径无单条 id）；测试更新（borrow mock 补 `$queryRaw`、return 断言用 `objectContaining`），292 全绿。
 - **前端 SSE 事件补齐 + 超时/中止/失败回滚**（2026-09-20）— ChatPage 补齐 `borrow` SSE 事件处理（成功刷新租赁列表、失败映射 `code` 到友好文案 + 刷新）；`postChat` 加 AbortController + 60s 超时（超时抛出 `chat.error.timeout`）；catch 块增加乐观空气泡回滚（流异常时移除 content 为空且 id==fairyId 的最后一条消息）；i18n 新增 `chat.error.timeout` / `chat.error.stream` 两个键；测试 79 全绿。
@@ -73,14 +77,6 @@
 
 ## Next Steps（下一步）
 
-### Trellis 轨（已起草需求，待用户批准）
-
-| 需求 | 文件 | 轨道 | 说明 |
-|---|---|---|---|
-| 注册即建空白画像 | [2026-09-20-register-create-blank-profile.md](docs/requirements/2026-09-20-register-create-blank-profile.md) | Trellis | 注册成功回调建空白 Profile，解决新用户记忆断层 |
-| chat 端点限流 | [2026-09-20-chat-rate-limit.md](docs/requirements/2026-09-20-chat-rate-limit.md) | Trellis | 防刷 LLM 账单，建议 30 次/分钟 |
-| prompt token 预算 | [2026-09-20-prompt-token-budget.md](docs/requirements/2026-09-20-prompt-token-budget.md) | Trellis | 上下文窗口保护，防止超限报错 |
-
 - **（待负责人）FU-16 剩余验收**：配置 `EMBEDDING_API_KEY`（回退 `OPENAI_API_KEY`）后跑通真实 embed 落库 / 语义相似召回 / `backfill:embeddings` 幂等回填（代码与 mock 覆盖已就绪，见 Risks）。
 - （二期候选）旅行规划二期：REST `POST /api/trips` + 历史行程回放 + Amap JS 地图叠加路线（本期非目标）。
 
@@ -116,10 +112,15 @@
 | 2026-09-06 | 向量检索 = 可选 embed 客户端 + 混合检索（FU-16） | 用户拍板 + Flores | `EMBEDDING_API_KEY`（缺省回退 `OPENAI_API_KEY`）/`EMBEDDING_MODEL`（默认 `text-embedding-3-small`，1536 维）独立于聊天供应商（`AI_PROVIDER=deepseek` 也能 embed）；对话注入 `searchMemories(profileId, { query })` 向量为主（cosine top-N + kind/keyword 预过滤）+ 结构化兜底/补齐；无 key/故障/维度不符/无向量 → 全结构化（默认 dev 零变化）；新记忆写入实时 embed + 存量幂等回填；`memories.embedding` 列 raw SQL 读写、永不下发 DTO，公共 API 契约不变。 |
 | 2026-09-07 | 偏好记忆反向回写 only `likeGenres` + 增量合并 + 词表白名单（FU-18） | 用户拍板 + Flores | 范围收敛为「抽取候选 → `Profile.likeGenres` 增量沉淀」：一次 LLM 调用在 `memories` 旁同产顶层 `genres`（≤3，仅用户表达影片偏好时输出，提示词不注入 DB 词表）；回写门禁 = 本轮 ≥1 条 preference **落库成功**且候选非空；白名单代码侧过滤（`Movie.genres` distinct + 空/纯数字剔除 + 进程内 TTL 5min，新片型最长延迟 5 分钟可被命中——AC-6 验收用重启清缓存演示）；合并事务内 `Set` 并集、只增不减、无变化不写，与 FU-1 PATCH 手动路径并存（手工加的非白名单标签永不清除）；失败静默与 FU-14 同级，无新端点、无 DB 迁移。 |
 | 2026-09-07 | 记忆自查 = 会话页只读面板 + `GET /api/memories/me`（FU-17） | 用户拍板 + Flores | 利用 `Profile.userId` 主键 == `Memory.profileId` 恒等式零迁移落地；`/me` 身份由 token 决定（`res.locals.userId`），条目不带 email/userId；越权 `userId`/`email` 参数由 shared Zod 剥除杜绝跨用户读取；admin 管理面（§3.14.2–3.14.5）保持不变；UI 只读无增删改，来源标注按 `sessionId` 有无推断（对话抽取/系统录入），自查不依赖 LLM/embed key。 |
+| 2026-09-20 | 注册即建空白 Profile（best-effort，不进注册事务） | 用户批准 + Flores | 复用 `profileService.createForExistingUser`，`name` 取邮箱前缀；画像创建失败仅 warn 不阻断注册（不把画像写入拖进注册事务，避免为旁路目标扩大回滚面）；重复邮箱 409 分支不建画像；注册响应形状不变（不额外暴露 profile）。 |
+| 2026-09-20 | chat 按 IP 限流 30 次/分钟，先于 authMiddleware | 用户批准 + Flores | 限流器在 `createApp()` 内创建（测试隔离），挂载于 chatRouter 之前、`authMiddleware` 之后之前——即认证前限流，匿名刷也封顶；超限 429 `TOO_MANY_REQUESTS` 复用 login/register 既有 handler；不区分角色（admin 同等额度），生产反代后须 `trust proxy`（同 FU-10 约定）。 |
+| 2026-09-20 | prompt 预算 4000 tokens，只裁历史尾部 | 用户批准 + Flores | `estimateTokens` = 字符/3.5 粗估（不引 tokenizer 依赖，阈值型保护足够）；记忆（≤5 条主动注入）优先于历史，超预算仅裁历史并回退到最后换行；无 tokenizer/分片/前端暴露 usage（`usage.ts` 日志已有）。 |
 
 ---
 
 ## Last Updated（最近更新）
+
+**2026-09-20** — 三项 Trellis 轨改进交付（合伙人审核发现 → 用户批准 → 实现 → 测试全绿 → 归档）：① 注册即建空白 Profile（`authService.register` best-effort 复用 `createForExistingUser`，name 取邮箱前缀；register 仍 201/409 行为不变）；② chat 端点 IP 限流 30 次/分钟（chatLimiter 先于 authMiddleware 挂载，超限 429 `TOO_MANY_REQUESTS`）；③ prompt token 预算（`contextBuilder.trimHistoryToBudget`，4000 tokens、记忆优先、只裁历史尾部、`stateLoop` 三路接线）。验证：api typecheck + api 298 全绿（auth +3、chat +1、contextBuilder +4）+ web 79 全绿；三项均无新端点、无 DB 迁移、无公共契约变更（API_CONTRACT 仅补运营注记）。Trellis tasks `09-20-register-blank-profile` / `09-20-chat-rate-limit` / `09-20-prompt-token-budget` 已归档。
 
 **2026-09-07** — 行程规划可观测性 P1 改进（FU-13 补记）：管理号「问旅游时而拒绝时而同意」排查结论——门禁对 `role=admin` 必然放行，`TRIP_FORBIDDEN` 婉拒文案不可能出现在管理号上；用户感知的「拒绝」来自下游两处：目的地未定时反问、草稿/落库失败时的「出了点状况」，而这两类结局**此前不记任何行为日志**（仅成功记 `TRIP_PLANNED`），无法事后定位。改进：`BehaviorAction` 新增 `TRIP_UNRESOLVED`/`TRIP_DRAFT_FAILED`/`TRIP_PERSIST_FAILED`（Prisma 枚举 + 迁移 `20260907103000_add_trip_outcome_actions` 已应用 + shared `BEHAVIOR_ACTIONS` 同步），`planTripTool` 三处失败/追问路径补 best-effort 日志（payload 带 `reason` 与截断消息，append 失败吞掉不影响工具返回）。验证：database generate + migrate deploy + api typecheck / web typecheck / shared typecheck 全过，shared 96 / api 292 全绿；API dev 已重启。
 

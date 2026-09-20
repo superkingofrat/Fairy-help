@@ -4,9 +4,9 @@ Structured requirement docs produced by grill-me sessions. Each doc feeds OpenSp
 
 | Date | Feature | Status | Doc |
 |---|---|---|---|
-| 2026-09-20 | 注册即建空白画像（新用户画像闭环） | draft | [2026-09-20-register-create-blank-profile.md](./2026-09-20-register-create-blank-profile.md) |
-| 2026-09-20 | chat 端点限流（防刷 LLM 账单） | draft | [2026-09-20-chat-rate-limit.md](./2026-09-20-chat-rate-limit.md) |
-| 2026-09-20 | prompt token 预算与上下文窗口裁剪 | draft | [2026-09-20-prompt-token-budget.md](./2026-09-20-prompt-token-budget.md) |
+| 2026-09-20 | 注册即建空白画像（新用户画像闭环） | implemented | [2026-09-20-register-create-blank-profile.md](./2026-09-20-register-create-blank-profile.md) |
+| 2026-09-20 | chat 端点限流（防刷 LLM 账单） | implemented | [2026-09-20-chat-rate-limit.md](./2026-09-20-chat-rate-limit.md) |
+| 2026-09-20 | prompt token 预算与上下文窗口裁剪 | implemented | [2026-09-20-prompt-token-budget.md](./2026-09-20-prompt-token-budget.md) |
 
 | 2026-09-07 | FU-18 画像反向回写（偏好记忆自动沉淀 likeGenres，记忆中心五期） | approved | [2026-09-07-profile-writeback.md](./2026-09-07-profile-writeback.md) |
 | 2026-09-07 | FU-17 记忆自查入口（会话页「Fairy 记住了什么」只读面板，记忆中心四期） | approved | [2026-09-07-memory-self-inspection.md](./2026-09-07-memory-self-inspection.md) |

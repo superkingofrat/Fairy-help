@@ -88,12 +88,15 @@ interface Profile {
 
 #### 限流（FU-10）
 
-登录与注册按 IP 限流（默认不信任代理，生产部署在反向代理后须启用 trust proxy）：
+登录、注册与对话按 IP 限流（默认不信任代理，生产部署在反向代理后须启用 trust proxy）：
 
 | 端点 | 窗口 | 上限 | 超限响应 |
 |---|---|---|---|
 | `POST /auth/login` | 15 分钟 | 10 次 | 429 `TOO_MANY_REQUESTS` |
 | `POST /auth/register` | 1 小时 | 20 次 | 429 `TOO_MANY_REQUESTS` |
+| `POST /chat` | 1 分钟 | 30 次 | 429 `TOO_MANY_REQUESTS` |
+
+> `POST /chat` 限流（2026-09-20）先于 `authMiddleware` 生效——未认证的超额请求同样计限并返回 429；限额为运营约束而非契约承诺，可按真实用量调整（正常对话约 10–15 轮/分钟）。
 
 #### 认证约定（FU-5 起）
 
@@ -960,7 +963,7 @@ admin 硬删一条记忆（`Memory` 无外键引用，物理删除即可）。�
 | `MEMORY_NOT_FOUND` | 404 | 记忆不存在（FU-15 管理面起）。 |
 | `EMAIL_ALREADY_EXISTS` | 409 | 注册邮箱已存在（FU-10 起）。 |
 | `INVALID_REFRESH_TOKEN` | 401 | refresh token 无效/过期/已吊销（FU-10 起）。 |
-| `TOO_MANY_REQUESTS` | 429 | 登录或注册频率超限（FU-10 起）。 |
+| `TOO_MANY_REQUESTS` | 429 | 登录、注册或对话频率超限（FU-10 起；`POST /chat` 自 2026-09-20 起 30 次/分钟）。 |
 | `INTERNAL_ERROR` | 500 | 未处理的服务器错误。 |
 
 ---

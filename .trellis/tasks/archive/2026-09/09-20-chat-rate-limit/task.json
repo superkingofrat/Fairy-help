@@ -1,0 +1,29 @@
+{
+  "id": "chat-rate-limit",
+  "name": "chat-rate-limit",
+  "title": "chat 端点限流",
+  "description": "",
+  "status": "completed",
+  "dev_type": null,
+  "scope": "api",
+  "package": null,
+  "priority": "P1",
+  "creator": "Flores",
+  "assignee": "flores",
+  "createdAt": "2026-09-20",
+  "completedAt": "2026-09-20",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "status": "completed",
+    "completedAt": "2026-09-20"
+  }
+}

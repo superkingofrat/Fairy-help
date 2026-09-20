@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 18
-- **Last Active**: 2026-09-07
+- **Total Sessions**: 19
+- **Last Active**: 2026-09-20
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~934 | Active |
+| `journal-1.md` | ~975 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 19 | 2026-09-20 | P0/P1 audit fixes: register blank profile + chat rate limit + prompt token budget | TBD | `master` |
 | 18 | 2026-09-07 | FU-18 profile writeback (preference memory → Profile.likeGenres auto merge) delivery and archive | `925c457`, `a546693`, `96348db` | `master` |
 | 17 | 2026-09-07 | FU-17 memory self-inspection entry (in-chat read-only panel + GET /api/memories/me) delivery and archive | `0a4f823`, `aece246`, `718645a` | `master` |
 | 16 | 2026-09-06 | FU-16 pgvector vector retrieval (memory center phase 3: hybrid retrieval) delivery and archive | `105b45b`, `047f9a3`, `d723b4a` | `master` |

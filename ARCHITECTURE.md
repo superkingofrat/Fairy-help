@@ -135,7 +135,7 @@ Fairy 是一个由 LLM 驱动的智能体，通过一个闭环操作真实的业
 | 组件 | 职责 |
 |---|---|
 | `IntentClassifier` | 把用户输入映射到以下之一：`chitchat`、`recommend`、`borrow`、`return`、`plan_trip`、`store_insight`。 |
-| `ContextBuilder` | 加载工作记忆：最近消息、用户画像、近期行为日志。 |
+| `ContextBuilder` | 加载工作记忆：最近消息、用户画像、近期行为日志；另提供 `trimHistoryToBudget`（prompt token 预算裁剪）。 |
 | `Planner` | 决定调用哪个（些）工具及其先后顺序。 |
 | `ToolDispatcher` | 执行所选工具、捕获错误、返回观察结果。 |
 | `ResponseSynthesizer` | 把观察结果转换成最终以 Fairy 人设流式输出的回复。 |
@@ -144,7 +144,7 @@ Fairy 是一个由 LLM 驱动的智能体，通过一个闭环操作真实的业
 规则：
 
 - FU-2 起：`IntentClassifier` 与 `ResponseSynthesizer` 内部为 **LLM 实现**（经 `llmClient` 消费 `@fairy/ai-sdk`，意图为 zod 校验的结构化 JSON，回复只引用工具观察事实）；Phase 2 的规则/模板实现整体保留为 **fallback**——缺 key、超时或供应商报错时自动降级，SSE 事件名与负载形状不变。
-- `llmClient` 是 agent 内唯一的 LLM 入口：缓存 provider 实例、清洗用户输入、把任何供应商失败折叠为 `null`（降级信号），并经 `usage.ts` 记录 token 用量。
+- `llmClient` 是 agent 内唯一的 LLM 入口：缓存 provider 实例、清洗用户输入、把任何供应商失败折叠为 `null`（降级信号），并经 `usage.ts` 记录 token 用量；另支持可选 `onDelta` 回调（真流式，失败回退一次性 `chat()`）。
 - 循环在产出最终响应后，或达到 `MAX_AGENT_ITERATIONS` 后终止。
 - 工具报错会作为观察结果返回给编排器，以便 Fairy 恢复或致歉。
 - 任何 LLM 输出在通过时间敏感事实（库存、地图 POI）校验之前，不得持久化；工具执行永远不依赖 LLM 产出的 `movieId`（借片意图仅产片名，由 title-match 服务解析）。
@@ -638,6 +638,9 @@ interface AgentState {
 | 回复真流式输出（stream） | `tryChat` 支持可选 `onDelta` 回调，消费 `provider.stream()` 逐 chunk 输出 text 增量；流失败且一 chunk 都没产出时回退 `provider.chat()` 一次性完成，保证 SSE 形状不变；前端 `postChat` 逐 event 渲染，`fairyText += data.content` 累加，无需改动。（取代此前「等 runChatTurn 全部完成再一次性写 SSE」的伪流式方案。）
 | 借还并发安全：FOR UPDATE + CAS | borrow 事务开头对 `movies` 行加 `SELECT ... FOR UPDATE`，串行化同片借还；return 用 `updateMany({ where: { userId, movieId, status: ACTIVE } })` compare-and-swap，`count === 0` 即 `RENTAL_NOT_FOUND`，消除先读后写的竞态导致重复退库存风险。
 | 偏好记忆反向回写 only `likeGenres` + 增量合并 + 词表白名单（FU-18） | 范围收敛为「抽取候选 → `Profile.likeGenres` 增量沉淀」：一次 LLM 调用在 `memories` 旁同产顶层 `genres`（≤3，避免每条记忆重复出候选）；回写门禁 = 本轮 ≥1 条 preference **落库成功** 且候选非空（LLM 只给候选没落偏好记忆时不写，杜绝歧义路径）；白名单在**代码侧**过滤（提示词不注入 DB 词表，避免 prompt 与影片 CRUD 耦合），词表 = `Movie.genres` distinct + 空/纯数字剔除 + 进程内 TTL 5min 缓存；合并事务内 Set 并集、只增不减、无变化不写，与 FU-1 PATCH 手动路径并存。不回写其他画像字段、不做存量回填、无新端点（FU-18）。 |
+| 注册即建空白 Profile（best-effort） | `authService.register` 成功路径复用 `profileService.createForExistingUser`（`name` 取邮箱前缀，其余字段空值），补齐「无 Profile → `Memory.profileId` 外键致记忆静默落不进库、推荐读空 `likeGenres`」的断层；画像创建为 best-effort（抛错仅 warn，注册仍 201），不纳入注册事务、不扩大回滚面；重复邮箱 409 分支不建画像；注册响应形状不变、不额外暴露 profile。无新端点、无 DB 迁移。 |
+| chat 按 IP 限流 30 次/分钟，先于 authMiddleware | chatLimiter 在 `createApp()` 内创建（与 loginLimiter/registerLimiter 同作用域，保测试隔离），挂载顺序 `app.use("/api/chat", chatLimiter, authMiddleware, chatRouter)`——认证前限流，匿名刷同样封顶；超限 429 `TOO_MANY_REQUESTS` 复用既有 handler（统一 `{code,data,msg}`）；自助注册 + 每轮 2–3 次 LLM 调用意味着不限流即等于把 API 账单暴露给任意账号；角色不区分（admin 同等额度），生产反代后须 `trust proxy`（同 FU-10 约定）。 |
+| prompt token 预算 4000，只裁历史尾部 | `contextBuilder.trimHistoryToBudget(historyText, memoryBlock)`：`estimateTokens` 按字符/3.5 粗估（混合中英文够用，不引 tiktoken 等重型依赖）；记忆（≤5 条主动注入）优先级高于历史，超预算仅从历史尾部裁剪并回退到最后换行（避免半条消息），记忆单独超预算时历史整体置空；阈值型保护，不改变 SSE/工具调度/契约。 |
 
 ---
 

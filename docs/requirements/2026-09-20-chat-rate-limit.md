@@ -1,7 +1,7 @@
 # 需求：chat 端点限流
 
-**Date:** 2026-09-20（合伙人审核提出；待用户批准进入 Trellis）
-**Status:** draft
+**Date:** 2026-09-20（合伙人审核提出，用户批准后经 Trellis 轨交付）
+**Status:** implemented（2026-09-20，Trellis 轨；验收见 PROJECT_STATUS.md）
 **轨道：** Trellis（单 api routes 文件 + app.ts 配置变更；无新端点、无 schema 变更、不改 `API_CONTRACT.md` 公共契约）
 **前置：** FU-10 账号体系闭环（`express-rate-limit` 已在 `app.ts` 内创建并覆盖 login/register）
 

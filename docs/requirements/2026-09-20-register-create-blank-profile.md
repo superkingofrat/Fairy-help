@@ -1,7 +1,7 @@
 # 需求：注册即建空白画像
 
-**Date:** 2026-09-20（合伙人审核提出；待用户批准进入 Trellis）
-**Status:** draft
+**Date:** 2026-09-20（合伙人审核提出，用户批准后经 Trellis 轨交付）
+**Status:** implemented（2026-09-20，Trellis 轨；验收见 PROJECT_STATUS.md）
 **轨道：** Trellis（单 api 端点内联行为变更；无新端点、无 DB schema 变更、不改 `API_CONTRACT.md` 公共契约）
 **前置：** FU-10 账号体系闭环（注册/限流/refresh token）已交付
 
