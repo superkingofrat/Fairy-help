@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { prisma } from "@fairy/database";
 import type { AuthUser } from "@fairy/shared";
+import * as profileService from "./profileService";
 
 const ACCESS_TTL = "12h";
 const REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 天
@@ -43,6 +44,25 @@ export async function registerUser(email: string, password: string): Promise<Reg
     const user = await prisma.user.create({
       data: { email, passwordHash, role: "user" },
     });
+
+    // 注册成功即建空白 Profile：name = 邮箱前缀，其余字段默认空
+    // 失败静默（仅 warn），不影响注册流程
+    try {
+      await profileService.createForExistingUser({
+        userId: user.id,
+        name: email.split("@")[0],
+        avatarUrl: null,
+        styleTags: [],
+        likeGenres: [],
+        avoidFood: [],
+        dietPreference: null,
+        travelStyle: null,
+      });
+    } catch (profileError) {
+      // eslint-disable-next-line no-console
+      console.warn("[auth] blank profile creation failed:", profileError);
+    }
+
     return { ok: true, user: { id: user.id, email: user.email, role: user.role } };
   } catch (error) {
     // P2002: unique constraint（email 已存在）

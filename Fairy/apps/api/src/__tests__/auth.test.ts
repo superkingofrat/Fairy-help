@@ -136,9 +136,39 @@ describe("auth routes", () => {
       expect(prisma.user.create).toHaveBeenCalledWith({
         data: { email: "new@fairy.local", passwordHash: expect.any(String), role: "user" },
       });
+      // 注册即建空白 Profile：name = 邮箱前缀
+      expect(profileService.createForExistingUser).toHaveBeenCalledWith({
+        userId: "new-user-1",
+        name: "new",
+        avatarUrl: null,
+        styleTags: [],
+        likeGenres: [],
+        avoidFood: [],
+        dietPreference: null,
+        travelStyle: null,
+      });
     });
 
-    it("rejects a duplicate email with 409 EMAIL_ALREADY_EXISTS", async () => {
+    it("creates a blank profile on register but does not fail register if profile creation throws", async () => {
+      vi.mocked(prisma.user.create).mockResolvedValue({
+        id: "new-user-2",
+        email: "fail@fairy.local",
+        role: "user",
+      } as never);
+      vi.mocked(profileService.createForExistingUser).mockRejectedValue(new Error("profile boom"));
+
+      const res = await request(app)
+        .post("/api/auth/register")
+        .send({ email: "fail@fairy.local", password: "secret123" });
+
+      expect(res.status).toBe(201);
+      expect(res.body.code).toBe("OK");
+      expect(profileService.createForExistingUser).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: "new-user-2" })
+      );
+    });
+
+    it("does not create a profile when registration is rejected (duplicate email)", async () => {
       const p2002 = Object.assign(new Error("unique constraint"), { code: "P2002" });
       vi.mocked(prisma.user.create).mockRejectedValue(p2002 as never);
 
@@ -148,7 +178,7 @@ describe("auth routes", () => {
 
       expect(res.status).toBe(409);
       expect(res.body.code).toBe("EMAIL_ALREADY_EXISTS");
-      expect(res.body.data).toBeNull();
+      expect(profileService.createForExistingUser).not.toHaveBeenCalled();
     });
 
     it("rejects invalid payloads with 400 VALIDATION_ERROR", async () => {
