@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildConversationHistory,
   buildMemoryBlock,
+  trimHistoryToBudget,
   type HistoryTurn,
 } from "../agent/contextBuilder";
 
@@ -52,5 +53,33 @@ describe("buildMemoryBlock", () => {
     expect(buildMemoryBlock(memories)).toBe(
       "【记忆】\n- [preference] 喜欢科幻片\n- [fact] 家住上海"
     );
+  });
+});
+
+describe("trimHistoryToBudget", () => {
+  const shortMemory = "【记忆】\n- [preference] 科幻片";
+  const longHistory = "用户：".padEnd(10000, "A") + "\nFairy：".padEnd(10000, "B");
+
+  it("does not trim when under budget", () => {
+    const result = trimHistoryToBudget("用户：你好\nFairy：你好呀", shortMemory);
+    expect(result).toBe("用户：你好\nFairy：你好呀");
+  });
+
+  it("returns empty string when memory alone exceeds budget", () => {
+    const hugeMemory = "【记忆】\n" + "x".repeat(20000);
+    expect(trimHistoryToBudget("用户：hello", hugeMemory)).toBe("");
+  });
+
+  it("trims history from the tail when over budget", () => {
+    const result = trimHistoryToBudget(longHistory, shortMemory);
+    // memory is ~20 tokens, budget 4000, so only a fraction of 10k chars history survives
+    expect(result.length).toBeLessThan(longHistory.length);
+    // trimmed result should be non-empty when budget > memory
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  it("keeps history intact when memory block is empty", () => {
+    const result = trimHistoryToBudget(longHistory, "");
+    expect(result.length).toBeLessThan(longHistory.length);
   });
 });

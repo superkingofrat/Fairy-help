@@ -3,6 +3,7 @@ import * as profileService from "../services/profileService";
 import * as rentalService from "../services/rentalService";
 import * as memoryService from "../memory/memoryService";
 import { classifyIntent } from "./intentClassifier";
+import { buildMemoryBlock, trimHistoryToBudget } from "./contextBuilder";
 import { plan } from "./planner";
 import { dispatch, type ToolObservation } from "./toolDispatcher";
 import { returnMovieTool } from "../tools/returnMovieTool";
@@ -50,13 +51,15 @@ export async function runChatTurn(input: {
             rentalId: null,
             code: result.error ?? "INTERNAL_ERROR",
           };
+    // FU-20：prompt token 预算——在进入合成前裁剪历史，记忆不裁剪
+    const historyText = trimHistoryToBudget(input.history ?? "", buildMemoryBlock(memories));
     return synthesize(
       observation,
       {
         message: input.message,
         profile,
         memories,
-        history: input.history,
+        history: historyText,
       },
       onDelta
     );
@@ -83,6 +86,7 @@ export async function runChatTurn(input: {
     const activeRentals = await rentalService
       .listActiveRentals(input.userId)
       .catch(() => []);
+    const historyText = trimHistoryToBudget(input.history ?? "", buildMemoryBlock(memories));
     return synthesize(
       observation,
       {
@@ -90,19 +94,20 @@ export async function runChatTurn(input: {
         profile,
         memories,
         activeRentals,
-        history: input.history,
+        history: historyText,
       },
       onDelta
     );
   }
 
+  const historyText = trimHistoryToBudget(input.history ?? "", buildMemoryBlock(memories));
   return synthesize(
     observation,
     {
       message: input.message,
       profile,
       memories,
-      history: input.history,
+      history: historyText,
     },
     onDelta
   );
