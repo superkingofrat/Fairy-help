@@ -134,7 +134,7 @@ Fairy 是一个由 LLM 驱动的智能体，通过一个闭环操作真实的业
 
 | 组件 | 职责 |
 |---|---|
-| `IntentClassifier` | 把用户输入映射到以下之一：`chat`、`recommend_movie`、`borrow_movie`、`plan_trip`、`store_insight`。 |
+| `IntentClassifier` | 把用户输入映射到以下之一：`chitchat`、`recommend`、`borrow`、`return`、`plan_trip`、`store_insight`。 |
 | `ContextBuilder` | 加载工作记忆：最近消息、用户画像、近期行为日志。 |
 | `Planner` | 决定调用哪个（些）工具及其先后顺序。 |
 | `ToolDispatcher` | 执行所选工具、捕获错误、返回观察结果。 |
@@ -192,7 +192,9 @@ Fairy 是一个由 LLM 驱动的智能体，通过一个闭环操作真实的业
 | `Rental` | 关联用户与影片的借阅/归还记录。 |
 | `Trip` | 生成的行程，含经校验的 POI 与路线。 |
 | `BehaviorLog` | 只追加的分类账：谁、何时、什么动作、相关实体。 |
-| `Session` | 面向短期记忆的轻量会话上下文（**Phase 2 未建表**；`sessionId` 不落库）。 |
+| `Session` | 面向短期记忆的轻量会话上下文，含标题与消息列表。 |
+| `ChatMessage` | 会话消息（role/content/payload 事件），按 sessionId + createdAt 索引。 |
+| `Memory` | 结构化记忆（preference/fact/intent），按 profileId 隔离，含可选 pgvector embedding 列。 |
 
 规则：
 
@@ -633,6 +635,8 @@ interface AgentState {
 | pgvector 向量检索推后（FU-15 拍板，已被 FU-16 取代） | 原二期候选理由：需 embedding 列 + Neon pgvector 扩展 + 支持 embed 的供应商（DeepSeek 不支持）、会改变检索语义——FU-16 以「可选 embed 配置 + 混合检索 + 默认零变化」落地该候选（见下行）。 |
 | 向量检索 = 可选 embed 客户端 + 混合检索（FU-16） | `EMBEDDING_API_KEY`（缺省回退 `OPENAI_API_KEY`）/`EMBEDDING_MODEL`（默认 `text-embedding-3-small`，1536 维）独立于聊天供应商（`AI_PROVIDER=deepseek` 也能 embed；缺 key → 客户端 null 降级信号）；对话注入 `searchMemories(profileId, { query })` 在有 query + embed 可用 + 行含向量时走 `$queryRaw` cosine 升序 top-N（`kind`/`keyword` 可预过滤），不足 limit 按时间倒序补齐（排除已召回 id）；无 key/embed 故障/维度不符/无向量 → 结构化路径，默认 dev 环境零行为变化。写入与回填共用同一 embed 链路：新记忆（FU-14 抽取 + FU-15 admin 新增）落库实时生成向量，存量由 `scripts/backfill-memory-embeddings.ts` 幂等回填（只补 `embedding IS NULL` 行）。`memories.embedding` 列 raw SQL 读写、永不下发 DTO，公共 API 契约不变。 |
 | 记忆自查 = 会话页只读面板 + `GET /api/memories/me`（FU-17） | 「让用户看到 Fairy 记得什么」降门槛落地为**自查而非管理**：利用 `Profile.userId` 主键 == `Memory.profileId` 的恒等式，`/me` 以 token 身份（`res.locals.userId`）作 where，零迁移、不 join email；校验层用 zod 剥除越权参数（`userId`/`email`）杜绝跨用户读取；UI 只读（无增删改），来源标注按 `sessionId` 有无推断「对话抽取/系统录入」，与 admin 管理面共享 kind/分页/过滤语义但彼此独立（FU-17）。 |
+| 回复真流式输出（stream） | `tryChat` 支持可选 `onDelta` 回调，消费 `provider.stream()` 逐 chunk 输出 text 增量；流失败且一 chunk 都没产出时回退 `provider.chat()` 一次性完成，保证 SSE 形状不变；前端 `postChat` 逐 event 渲染，`fairyText += data.content` 累加，无需改动。（取代此前「等 runChatTurn 全部完成再一次性写 SSE」的伪流式方案。）
+| 借还并发安全：FOR UPDATE + CAS | borrow 事务开头对 `movies` 行加 `SELECT ... FOR UPDATE`，串行化同片借还；return 用 `updateMany({ where: { userId, movieId, status: ACTIVE } })` compare-and-swap，`count === 0` 即 `RENTAL_NOT_FOUND`，消除先读后写的竞态导致重复退库存风险。
 | 偏好记忆反向回写 only `likeGenres` + 增量合并 + 词表白名单（FU-18） | 范围收敛为「抽取候选 → `Profile.likeGenres` 增量沉淀」：一次 LLM 调用在 `memories` 旁同产顶层 `genres`（≤3，避免每条记忆重复出候选）；回写门禁 = 本轮 ≥1 条 preference **落库成功** 且候选非空（LLM 只给候选没落偏好记忆时不写，杜绝歧义路径）；白名单在**代码侧**过滤（提示词不注入 DB 词表，避免 prompt 与影片 CRUD 耦合），词表 = `Movie.genres` distinct + 空/纯数字剔除 + 进程内 TTL 5min 缓存；合并事务内 Set 并集、只增不减、无变化不写，与 FU-1 PATCH 手动路径并存。不回写其他画像字段、不做存量回填、无新端点（FU-18）。 |
 
 ---

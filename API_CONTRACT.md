@@ -467,7 +467,7 @@ BehaviorLog 的只读分页流水，仅 `admin` 可调用；append-only，**不�
 |---|---|---|---|
 | `page` | `number` | 否 | 页码，从 1 开始。默认：`1`。 |
 | `limit` | `number` | 否 | 每页条数。默认：`20`，最大：`100`。 |
-| `action` | `string` | 否 | 动作枚举：`RECOMMEND`、`BORROW_SUCCESS`、`BORROW_OUT_OF_STOCK`。 |
+| `action` | `string` | 否 | 动作枚举：`RECOMMEND`、`BORROW_SUCCESS`、`BORROW_OUT_OF_STOCK`、`RETURN_SUCCESS`、`TRIP_PLANNED`、`TRIP_UNRESOLVED`、`TRIP_DRAFT_FAILED`、`TRIP_PERSIST_FAILED`。 |
 | `userId` | `string` | 否 | 按用户 UUID 过滤。 |
 
 #### 成功响应 — 200 OK
@@ -697,8 +697,7 @@ Authorization: Bearer <jwt>
 | 401 | `UNAUTHORIZED` | 未认证。 |
 | 403 | `SESSION_FORBIDDEN` | 会话属于其他用户。 |
 | 404 | `SESSION_NOT_FOUND` | 会话不存在。 |
-| 403 | `FORBIDDEN` | 非 admin 携带 `userId` 代查。 |
-| 404 | `USER_NOT_FOUND` | 代查的 `userId` 不存在。 |
+
 
 ---
 
