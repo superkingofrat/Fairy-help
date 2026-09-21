@@ -77,7 +77,11 @@ router.post("/", validateBody(chatRequestSchema), async (req, res, next) => {
           role,
         },
         (delta) => {
-          streamed = true;
+          // 空白增量只镜像不记为「已流式输出」：纯空白流时 tryChat 会回退一次性
+          // chat()，只有非空白增量才该让下方跳过回退答案的补写
+          if (delta.trim().length > 0) {
+            streamed = true;
+          }
           writeSse(res, "text", { content: delta });
         },
       );

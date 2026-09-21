@@ -341,6 +341,39 @@ describe("POST /api/chat", () => {
     expect(events[events.length - 1].event).toBe("done");
   });
 
+  it("writes the full reply when the LLM stream only produced whitespace", async () => {
+    // 流只吐出空白 chunk：onDelta 仍逐条镜像，但不得据此判定「已流式输出」，
+    // 否则 tryChat 回退一次性 chat() 拿到的完整答案会被 if (!streamed) 跳过
+    vi.mocked(llmClient.tryChat).mockImplementation(
+      async (_source, _messages, _options, onDelta) => {
+        if (!onDelta) {
+          return null;
+        }
+        onDelta("   \n");
+        return {
+          text: "完整答案",
+          usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+          model: "deepseek-chat",
+          provider: "deepseek",
+        };
+      },
+    );
+
+    const response = await request(app)
+      .post("/api/chat")
+      .set("Authorization", authHeader("user"))
+      .send({ message: "随便说点什么" });
+
+    expect(response.status).toBe(200);
+    const events = parseSse(response.text);
+    const contents = events
+      .filter((event) => event.event === "text")
+      .map((event) => (event.data as { content: string }).content);
+    expect(contents).toContain("完整答案");
+    expect(contents).toContain("   \n");
+    expect(events[events.length - 1].event).toBe("done");
+  });
+
   it("returns a return event when a held movie is returned by title", async () => {
     vi.mocked(movieService.listMoviesForTitleMatch).mockResolvedValue([
       { id: "660e8400-e29b-41d4-a716-446655440000", title: "千与千寻" },
