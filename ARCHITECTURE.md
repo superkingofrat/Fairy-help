@@ -618,7 +618,8 @@ interface AgentState {
 | 会话落库为旁路（side-channel） | `appendTurn` 在 SSE 响应前执行但失败仅记日志、不中断流；可观测性损失而非功能损失，保证持久化故障不阻塞对话。 |
 | 会话标题由首条消息派生 | 新建会话标题为空，首次落库时取首条非空用户消息前 20 字；避免创建会话时的额外输入步骤。 |
 | 历史注入为纯文本旁路（已由 FU-14 替换） | 最近 10 条消息以「用户/Fairy」文本注入 intent + 合成 prompt；不注入 `payload` 结构化事件。FU-14 记忆中心一期将注入源升级为「记忆检索 ≤5 条 + 近期会话历史共存」——见下行。 |
-| 登录/注册按 IP 限流 | express-rate-limit，login 10 次/15 分钟、register 20 次/小时；限流器在 `createApp()` 内创建保证测试隔离。生产反代后须启用 trust proxy（见 API_CONTRACT §3.0）。 |
+| 登录/注册按 IP 限流 | express-rate-limit，login 10 次/15 分钟、register 20 次/小时；限流器在 `createApp()` 内创建保证测试隔离。反代后的客户端 IP 还原见下行 trust proxy 决策与 API_CONTRACT §3.0。 |
+| 限流客户端 IP 经 trust proxy 还原（默认 1 跳） | express-rate-limit 按 `req.ip` 分桶：不信任代理时所有请求共享反代 IP，三个限流器（login/register/chat）退化为**全站共享单桶**——如 chat 每分钟全网仅 30 次请求。`createApp()` 设 `app.set("trust proxy", resolveTrustProxyHops())`，读 `TRUST_PROXY_HOPS`（默认 1 跳；`0` = 不信任代理，仅直连部署用；非整数/负值 `console.warn` 后回退 1），反代链路按实际跳数调整；`.env.example` 只登记占位值。 |
 | refresh token 旋转 + 复用吊销 | DB 只存 sha256 哈希（不明文）；旋转时旧 token 置 `revokedAt` + `replacedByTokenId`，检测到复用已吊销 token 即吊销该用户全部 refresh token，压缩 token 泄露窗口。 |
 | 前端 401 单飞刷新 | 共享 in-flight refresh promise，并发 401 只发一次 `/auth/refresh`，成功后重试原请求；刷新失败才清登录并跳转。SSE（chatApi）保持直连 401 → 清登录，不引入流中断重试。 |
 | 运营洞察单端点一次返回全部 | `GET /api/insights/overview`（admin-only）聚合热门影片/趋势/库存/分布/活跃五类卡片，减少 round-trip；数据量小，窗口与低库存阈值（`stock ≤ 1`）为契约常量（FU-11）。 |
@@ -641,7 +642,7 @@ interface AgentState {
 | 借还并发安全：FOR UPDATE + CAS | borrow 事务开头对 `movies` 行加 `SELECT ... FOR UPDATE`，串行化同片借还；return 用 `updateMany({ where: { userId, movieId, status: ACTIVE } })` compare-and-swap，`count === 0` 即 `RENTAL_NOT_FOUND`，消除先读后写的竞态导致重复退库存风险。
 | 偏好记忆反向回写 only `likeGenres` + 增量合并 + 词表白名单（FU-18） | 范围收敛为「抽取候选 → `Profile.likeGenres` 增量沉淀」：一次 LLM 调用在 `memories` 旁同产顶层 `genres`（≤3，避免每条记忆重复出候选）；回写门禁 = 本轮 ≥1 条 preference **落库成功** 且候选非空（LLM 只给候选没落偏好记忆时不写，杜绝歧义路径）；白名单在**代码侧**过滤（提示词不注入 DB 词表，避免 prompt 与影片 CRUD 耦合），词表 = `Movie.genres` distinct + 空/纯数字剔除 + 进程内 TTL 5min 缓存；合并事务内 Set 并集、只增不减、无变化不写，与 FU-1 PATCH 手动路径并存。不回写其他画像字段、不做存量回填、无新端点（FU-18）。 |
 | 注册即建空白 Profile（best-effort） | `authService.register` 成功路径复用 `profileService.createForExistingUser`（`name` 取邮箱前缀，其余字段空值），补齐「无 Profile → `Memory.profileId` 外键致记忆静默落不进库、推荐读空 `likeGenres`」的断层；画像创建为 best-effort（抛错仅 warn，注册仍 201），不纳入注册事务、不扩大回滚面；重复邮箱 409 分支不建画像；注册响应形状不变、不额外暴露 profile。无新端点、无 DB 迁移。 |
-| chat 按 IP 限流 30 次/分钟，先于 authMiddleware | chatLimiter 在 `createApp()` 内创建（与 loginLimiter/registerLimiter 同作用域，保测试隔离），挂载顺序 `app.use("/api/chat", chatLimiter, authMiddleware, chatRouter)`——认证前限流，匿名刷同样封顶；超限 429 `TOO_MANY_REQUESTS` 复用既有 handler（统一 `{code,data,msg}`）；自助注册 + 每轮 2–3 次 LLM 调用意味着不限流即等于把 API 账单暴露给任意账号；角色不区分（admin 同等额度），生产反代后须 `trust proxy`（同 FU-10 约定）。 |
+| chat 按 IP 限流 30 次/分钟，先于 authMiddleware | chatLimiter 在 `createApp()` 内创建（与 loginLimiter/registerLimiter 同作用域，保测试隔离），挂载顺序 `app.use("/api/chat", chatLimiter, authMiddleware, chatRouter)`——认证前限流，匿名刷同样封顶；超限 429 `TOO_MANY_REQUESTS` 复用既有 handler（统一 `{code,data,msg}`）；自助注册 + 每轮 2–3 次 LLM 调用意味着不限流即等于把 API 账单暴露给任意账号；角色不区分（admin 同等额度），反代跳数由 `TRUST_PROXY_HOPS` 配置（默认 1，见 §8 决策行）。 |
 | prompt token 预算 4000，只裁历史尾部 | `contextBuilder.trimHistoryToBudget(historyText, memoryBlock)`：`estimateTokens` 按字符/3.5 粗估（混合中英文够用，不引 tiktoken 等重型依赖）；记忆（≤5 条主动注入）优先级高于历史，超预算仅从历史尾部裁剪并回退到最后换行（避免半条消息），记忆单独超预算时历史整体置空；阈值型保护，不改变 SSE/工具调度/契约。 |
 
 ---
@@ -654,8 +655,6 @@ apps/web/src/
     chat/              # ChatPage（含会话侧栏）, MessageStream, RecommendationCard, TripTimeline, MemorySelfPanel（FU-17 自查面板，ChatPage 内开关）
     fairy/             # FairyAvatar, expressions
     admin/             # MoviesAdminPage, ProfilesAdminPage, BehaviorPage, InsightsAdminPage（FU-11 运营看板）, MemoryAdminPage（FU-15 记忆管理）
-  hooks/
-    useSSE.ts          # SSE 流消费
   lib/
     sessionApi.ts      # FU-7：/api/sessions 客户端
     insightApi.ts      # FU-11：/api/insights 客户端
@@ -670,7 +669,6 @@ apps/api/src/
     insights.ts        # /api/insights（FU-11：GET /overview，requireRole("admin")）
     movies.ts
     rentals.ts
-    trips.ts
     profiles.ts
     memories.ts        # /api/memories（FU-15：GET/POST + PATCH/DELETE /:id，全部 requireRole("admin")；FU-17：GET /me 自查路由，任意已登录角色，置于 admin 路由前）
   agent/
@@ -717,9 +715,10 @@ packages/ai-sdk/
 packages/database/
   prisma/schema.prisma # Memory.embedding `Unsupported("vector(1536)")?`（FU-16：raw SQL 读写，永不下发 DTO）
   prisma/migrations/   # add_memory_embedding（CREATE EXTENSION vector + 列 + HNSW cosine 索引）
+  src/backfillProgress.ts  # FU-16：回填选取纯函数 selectFreshRows（剔除本进程已尝试的 id，防止无法 embed 的行让主循环永不终止）
 
 scripts/
-  backfill-memory-embeddings.ts  # FU-16：存量记忆幂等回填（`pnpm --filter=@fairy/database backfill:embeddings`，只补 embedding IS NULL 行）
+  backfill-memory-embeddings.ts  # FU-16：存量记忆幂等回填（`pnpm --filter=@fairy/database backfill:embeddings`，只补 embedding IS NULL 行；无新鲜行即 warn 退出、有失败行退出码 1）
 
 docs/
   architecture.md      # 本文档
@@ -732,6 +731,8 @@ docs/
 ## 10. 验证与演进
 
 - **本地一次启动前后端**：在 `Fairy/` 下运行 `pnpm dev`——根 turbo 编排（`Fairy/turbo.json` 以 `tasks` 声明任务，dev 为 `cache:false` + `persistent:true`）并行执行 api 与 web 的 dev script（二者是 workspace 中仅有的 dev 任务），日志带 `@fairy/api:dev` / `@fairy/web:dev` 前缀，Ctrl+C 一并停止。单独启动仍用 `pnpm --filter=@fairy/api dev` / `pnpm --filter=@fairy/web dev`。
+- **CI 门禁**：`.github/workflows/ci.yml` 在 push/PR 上依次跑 lint → typecheck → test（Node 20 + pnpm 9，`pnpm install --frozen-lockfile`；测试全 mock，无需 DB 与密钥）——AGENTS §10「不允许合并带失败检查的 PR」由此落地。
+- **提交前本地验证**：按改动范围运行 AGENTS §7 的命令（`pnpm lint` / `pnpm format:check` / `pnpm --filter=<workspace> typecheck` / `pnpm --filter=<workspace> test`）。注意 api/web 的测试经 node 解析把 `@fairy/shared` 指向其 `dist/`：改了 `packages/shared/src` 后必须先 `pnpm --filter=@fairy/shared build`，否则测试跑的还是旧 schema。
 - 改动 `agent/` 或 `tools/` 后运行 `pnpm --filter=@fairy/api test`。
 - 为每个新工具与状态迁移补充单元测试。
 - 新增意图、工具或外部集成时，保持本文档最新。
