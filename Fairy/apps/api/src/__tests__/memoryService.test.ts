@@ -589,6 +589,33 @@ describe("memoryService write-time embedding (FU-16)", () => {
     expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
     expect(embedContent).toHaveBeenCalledWith("喜欢科幻片");
   });
+
+  it("re-embeds the edited content when updateMemory changes it", async () => {
+    vi.mocked(prisma.memory.update).mockResolvedValue(prismaRecord({ content: "想周末去杭州" }));
+    vi.mocked(embedContent).mockResolvedValue(VEC_1536);
+    vi.mocked(prisma.$executeRaw).mockResolvedValue(1);
+
+    await updateMemory("mem-1", { content: "想周末去杭州" });
+
+    // 旧向量对应旧文本：编辑后不重算会让向量召回与内容静默不一致
+    expect(embedContent).toHaveBeenCalledWith("想周末去杭州");
+    expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
+    const sql = lastRawCall(vi.mocked(prisma.$executeRaw));
+    expect(sql.values).toContain(VEC_LITERAL);
+    expect(sql.values).toContain("550e8400-e29b-41d4-a716-446655440000");
+  });
+
+  it("keeps the existing vector when updateMemory only changes the kind", async () => {
+    vi.mocked(prisma.memory.update).mockResolvedValue(prismaRecord({ kind: "INTENT" }));
+    vi.mocked(embedContent).mockResolvedValue(VEC_1536);
+    vi.mocked(prisma.$executeRaw).mockResolvedValue(1);
+
+    await updateMemory("mem-1", { kind: "intent" });
+
+    // 文本未变，向量仍有效：不重算
+    expect(embedContent).not.toHaveBeenCalled();
+    expect(prisma.$executeRaw).not.toHaveBeenCalled();
+  });
 });
 
 describe("memoryService.searchMemories hybrid retrieval (FU-16)", () => {

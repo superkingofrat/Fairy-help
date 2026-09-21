@@ -326,6 +326,12 @@ export async function updateMemory(
         ...(patch.content !== undefined ? { content: patch.content } : {}),
       },
     });
+    // FU-16：编辑内容后必须重算 embedding——旧向量对应旧文本，不刷新会让向量召回
+    // 与记忆内容静默不一致（与 addMemory/createMemory 同一机制，失败静默）。
+    // 只改 kind 不动文本，向量仍有效，不重算。
+    if (patch.content !== undefined) {
+      await refreshEmbeddingQuietly(record.id, record.content);
+    }
     return toMemoryRecord(record);
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
