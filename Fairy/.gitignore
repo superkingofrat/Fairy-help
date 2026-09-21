@@ -40,3 +40,9 @@ packages/database/prisma/*.js
 packages/database/prisma/*.js.map
 packages/database/prisma/*.d.ts
 packages/database/prisma/*.d.ts.map
+
+# scripts/ 由 tsx 直接运行 .ts，任何 tsc 产物都不得入库
+scripts/*.js
+scripts/*.js.map
+scripts/*.d.ts
+scripts/*.d.ts.map
