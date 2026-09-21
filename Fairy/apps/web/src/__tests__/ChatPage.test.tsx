@@ -97,7 +97,7 @@ const tripResult: TripResult = {
 
 afterEach(() => {
   cleanup();
-  useChatStore.setState({ messages: [], activeRentals: [] });
+  useChatStore.setState({ activeRentals: [] });
   localStorage.clear();
 });
 

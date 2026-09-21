@@ -34,5 +34,9 @@ coverage/
 # Turbo 构建缓存
 .turbo/
 
-# Prisma
-packages/database/prisma/migrations/*/migration_lock.toml
+# Prisma：schema 与迁移是唯一来源，migration_lock.toml 必须随迁移提交（勿忽略）；
+# 但 prisma/ 目录下的 tsc 产物不得入库（tsconfig 只编译 src/ 到 dist/）
+packages/database/prisma/*.js
+packages/database/prisma/*.js.map
+packages/database/prisma/*.d.ts
+packages/database/prisma/*.d.ts.map
