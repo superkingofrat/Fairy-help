@@ -759,7 +759,7 @@ Authorization: Bearer <jwt>
 
 字段说明：
 
-- `popularMovies`：按借阅次数（`Rental` 按 `movieId` 分组）降序 TOP 5；`recommendCount` 来自 RECOMMEND 行为日志 `payload.movieIds` 累计；`inStock` = `stock > 0`。
+- `popularMovies`：按借阅次数（`Rental` 按 `movieId` 分组）降序 TOP 5；`recommendCount` 来自**近 30 天** RECOMMEND 行为日志 `payload.movieIds` 累计（与 `moods`/`scenes` 同窗口，窗口起点为本地午夜前的第 30 天）；`inStock` = `stock > 0`。
 - `trend`：最近 14 天逐日借出（`Rental.createdAt`）与归还（`status=RETURNED` 的 `updatedAt`）计数，缺失日期补 0；`date` 为 `yyyy-mm-dd`。窗口起点为首日**本地午夜**（00:00:00 服务器本地时间，非 UTC 午夜）——分桶随服务器时区，部署必须显式设置 `TZ`（如 `Asia/Shanghai`），否则边界随运行环境漂移。
 - `inventory`：`activeRentals` 为当前 ACTIVE 借出数；`borrowedRatio` = 借出 / 总库存（0–1）；`lowStockMovies` 为 `stock ≤ 1` 的影片（按库存升序）。
 - `moods` / `scenes`：近 30 天被借影片的标签计数 TOP 5，仅含有数据的维度；无数据显示空数组。

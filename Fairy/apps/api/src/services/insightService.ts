@@ -69,7 +69,9 @@ export async function getStoreInsightsOverview(
       take: POPULAR_LIMIT,
     }),
     prisma.behaviorLog.findMany({
-      where: { action: "RECOMMEND" },
+      // recommendCount 与 moods/scenes 共用 DISTRIBUTION_DAYS 窗口：behavior_logs
+      // 只增不减，全表累计会让看板查询成本随流水线性增长
+      where: { action: "RECOMMEND", createdAt: { gte: distStart } },
       select: { payload: true },
     }),
     prisma.rental.findMany({

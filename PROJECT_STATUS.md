@@ -91,6 +91,7 @@
 - **FU-16 真实 embed 端到端验收待跑（本环境无 OpenAI key）** — 代码、单测（mock embed + raw 伪向量）、默认无 key 回归与真库向量 SQL 冒烟均已通过；但「配 `EMBEDDING_API_KEY` 后真实 embed 落库 / 语义相似召回 / 回填脚本幂等」需负责人配置 key 后在 dev 环境补跑（脚本入口：`pnpm --filter=@fairy/database backfill:embeddings`；无 key 时脚本打印提示退出，不会误调）。
 - **新增影片校验** — 心情/场景必须点选标签；封面空串、年份字符串、总库存 < 可借库存会返回 `Invalid request body`。错误应显示在弹窗内。
 - **洞察窗口依赖服务器时区** — 运营洞察的趋势/活跃窗口按服务器本地日期分桶，起点为真本地午夜（`new Date(y, m, d)`）。部署必须显式设置 `TZ=Asia/Shanghai`（容器与 CI 同设）；若运行在 UTC 环境，窗口边界整体前移 8 小时、首日 00:00–08:00 数据缺失，且看板无任何报错提示。
+- **behavior_logs / rentals 无保留策略** — 行为日志每轮对话只增不减；洞察已按 30 天窗口控制查询成本（`recommendCount`/mood/scene），但表本身无清理或归档策略，长期仍会拖累写入与备份。须在落地前排定保留期（登记于整改批次，随 FU 排期）。
 
 ### 近期关键决策
 

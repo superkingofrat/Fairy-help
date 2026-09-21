@@ -217,3 +217,18 @@ describe("trend window boundary", () => {
     );
   });
 });
+
+describe("recommend log window", () => {
+  it("windows the RECOMMEND log query to the last 30 days", async () => {
+    await getStoreInsightsOverview(now);
+
+    // behavior_logs 只增不减：全表累计的 recommendCount 会让看板成本随流水线性增长
+    const distStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30);
+    const [recommendQuery] = vi.mocked(prisma.behaviorLog.findMany).mock.calls[0];
+    expect(recommendQuery).toEqual(
+      expect.objectContaining({
+        where: { action: "RECOMMEND", createdAt: { gte: distStart } },
+      }),
+    );
+  });
+});
