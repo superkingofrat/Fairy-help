@@ -13,7 +13,7 @@ export async function returnMovieTool(input: { userId: string; movieId: string }
     return { success: false, error: result.code };
   }
 
-  await behaviorLogService.append({
+  await behaviorLogService.appendQuietly({
     userId: input.userId,
     action: "RETURN_SUCCESS",
     movieId: input.movieId,

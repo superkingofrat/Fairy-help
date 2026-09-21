@@ -2,13 +2,15 @@ import { BehaviorAction, prisma, type Prisma } from "@fairy/database";
 import type { BehaviorLogListItem, BehaviorLogQuery } from "@fairy/shared";
 import * as movieService from "./movieService";
 
-export async function append(input: {
+export interface BehaviorLogInput {
   userId: string;
   action: BehaviorAction;
   movieId?: string;
   rentalId?: string;
   payload?: Prisma.InputJsonValue;
-}): Promise<void> {
+}
+
+async function append(input: BehaviorLogInput): Promise<void> {
   await prisma.behaviorLog.create({
     data: {
       userId: input.userId,
@@ -18,6 +20,22 @@ export async function append(input: {
       payload: input.payload,
     },
   });
+}
+
+/**
+ * 尽力而为的日志写入：失败仅记 warn，不向调用方抛出。
+ *
+ * 用于借阅/归还/推荐/行程等**已成功执行**的路径——库存或行程已经落库，
+ * 日志 insert 失败不应把既成事实翻成 500（契约错误表里没有 500 这一档），
+ * 可观测性损失优于功能损失（同会话落库旁路的取舍）。
+ */
+export async function appendQuietly(input: BehaviorLogInput): Promise<void> {
+  try {
+    await append(input);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown error";
+    console.warn(`[behaviorLog] append ${input.action} for ${input.userId} failed: ${message}`);
+  }
 }
 
 interface BehaviorLogRecord {

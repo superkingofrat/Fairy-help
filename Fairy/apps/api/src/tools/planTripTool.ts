@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { prisma, type Prisma, type BehaviorAction } from "@fairy/database";
+import { prisma, type Prisma } from "@fairy/database";
 import type { TripResult, TripPoi, RouteLeg } from "@fairy/shared";
 import { sanitizeUserInput, tryChat } from "../agent/llmClient";
 import * as profileService from "../services/profileService";
@@ -78,20 +78,6 @@ export function hasDestinationByRules(message: string): boolean {
   return DESTINATION_PATTERNS.some((pattern) => pattern.test(message));
 }
 
-// 追踪行程非成功结局（追问/草稿失败/落库失败）：也写行为日志，便于事后定位是哪一环出问题。
-// 日志尽力而为：append 失败只吞掉，不影响工具向调用方返回的原有结果。
-async function logTripOutcome(
-  userId: string,
-  action: BehaviorAction,
-  payload: Prisma.InputJsonValue,
-): Promise<void> {
-  try {
-    await behaviorLogService.append({ userId, action, payload });
-  } catch {
-    // 日志尽力而为：失败不影响行程工具向调用方返回的原有结果
-  }
-}
-
 async function draftTrip(message: string, travelStyle: string | null): Promise<TripDraft | null> {
   const text = sanitizeUserInput(message);
   if (!text) {
@@ -128,9 +114,13 @@ export async function planTripTool(input: {
   const draft = await draftTrip(input.message, profile?.travelStyle ?? null);
   if (!draft) {
     const named = hasDestinationByRules(input.message);
-    await logTripOutcome(input.userId, named ? "TRIP_DRAFT_FAILED" : "TRIP_UNRESOLVED", {
-      reason: named ? "llm_draft_failed" : "draft_failed_no_destination",
-      message: input.message.slice(0, 200),
+    await behaviorLogService.appendQuietly({
+      userId: input.userId,
+      action: named ? "TRIP_DRAFT_FAILED" : "TRIP_UNRESOLVED",
+      payload: {
+        reason: named ? "llm_draft_failed" : "draft_failed_no_destination",
+        message: input.message.slice(0, 200),
+      },
     });
     return named
       ? { success: false, error: "TRIP_DRAFT_FAILED" }
@@ -138,9 +128,13 @@ export async function planTripTool(input: {
   }
   const destination = draft.destination?.trim();
   if (!destination) {
-    await logTripOutcome(input.userId, "TRIP_UNRESOLVED", {
-      reason: "draft_destination_null",
-      message: input.message.slice(0, 200),
+    await behaviorLogService.appendQuietly({
+      userId: input.userId,
+      action: "TRIP_UNRESOLVED",
+      payload: {
+        reason: "draft_destination_null",
+        message: input.message.slice(0, 200),
+      },
     });
     return { success: true, data: { unresolved: true } };
   }
@@ -223,7 +217,7 @@ export async function planTripTool(input: {
         route: route.length > 0 ? (route as unknown as Prisma.InputJsonValue) : undefined,
       },
     });
-    await behaviorLogService.append({
+    await behaviorLogService.appendQuietly({
       userId: input.userId,
       action: "TRIP_PLANNED",
       payload: {
@@ -247,9 +241,13 @@ export async function planTripTool(input: {
     };
   } catch (error) {
     console.error("[planTripTool] persist trip failed:", error);
-    await logTripOutcome(input.userId, "TRIP_PERSIST_FAILED", {
-      reason: "db_write_failed",
-      message: input.message.slice(0, 200),
+    await behaviorLogService.appendQuietly({
+      userId: input.userId,
+      action: "TRIP_PERSIST_FAILED",
+      payload: {
+        reason: "db_write_failed",
+        message: input.message.slice(0, 200),
+      },
     });
     return { success: false, error: "TRIP_PERSIST_FAILED" };
   }

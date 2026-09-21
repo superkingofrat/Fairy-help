@@ -11,7 +11,7 @@ export async function borrowMovieTool(input: { userId: string; movieId: string }
 
   if (!result.ok) {
     if (result.code === "OUT_OF_STOCK") {
-      await behaviorLogService.append({
+      await behaviorLogService.appendQuietly({
         userId: input.userId,
         action: "BORROW_OUT_OF_STOCK",
         movieId: input.movieId,
@@ -20,7 +20,7 @@ export async function borrowMovieTool(input: { userId: string; movieId: string }
     return { success: false, error: result.code };
   }
 
-  await behaviorLogService.append({
+  await behaviorLogService.appendQuietly({
     userId: input.userId,
     action: "BORROW_SUCCESS",
     movieId: input.movieId,

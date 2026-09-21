@@ -103,7 +103,7 @@ describe("POST /api/chat", () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "");
     vi.clearAllMocks();
     vi.mocked(profileService.getByUserId).mockResolvedValue(profile);
-    vi.mocked(behaviorLogService.append).mockResolvedValue();
+    vi.mocked(behaviorLogService.appendQuietly).mockResolvedValue();
     vi.mocked(movieService.listMoviesForTitleMatch).mockResolvedValue([
       { id: sampleMovie.id, title: sampleMovie.title },
     ]);
@@ -175,7 +175,7 @@ describe("POST /api/chat", () => {
       code: "OK",
     });
     expect(events.some((event) => event.event === "text")).toBe(true);
-    expect(behaviorLogService.append).toHaveBeenCalledWith(
+    expect(behaviorLogService.appendQuietly).toHaveBeenCalledWith(
       expect.objectContaining({ action: "RETURN_SUCCESS" }),
     );
   });
@@ -199,7 +199,7 @@ describe("POST /api/chat", () => {
     });
     const text = events.find((event) => event.event === "text");
     expect((text?.data as { content: string }).content).toBe("你目前没有借这部片子。");
-    expect(behaviorLogService.append).not.toHaveBeenCalled();
+    expect(behaviorLogService.appendQuietly).not.toHaveBeenCalled();
   });
 
   it("recommends in-stock mood/scene matches and writes a log", async () => {
@@ -225,7 +225,7 @@ describe("POST /api/chat", () => {
     const items = (recommendation?.data as { items: Movie[] }).items;
     expect(items[0].title).toBe("星际穿越");
     expect(items.every((movie) => movie.stock > 0)).toBe(true);
-    expect(behaviorLogService.append).toHaveBeenCalledWith(
+    expect(behaviorLogService.appendQuietly).toHaveBeenCalledWith(
       expect.objectContaining({ action: "RECOMMEND" }),
     );
   });
@@ -263,7 +263,7 @@ describe("POST /api/chat", () => {
       remainingStock: 2,
       code: "OK",
     });
-    expect(behaviorLogService.append).toHaveBeenCalledWith(
+    expect(behaviorLogService.appendQuietly).toHaveBeenCalledWith(
       expect.objectContaining({ action: "BORROW_SUCCESS" }),
     );
   });
@@ -285,7 +285,7 @@ describe("POST /api/chat", () => {
       success: false,
       code: "ALREADY_BORROWED",
     });
-    expect(behaviorLogService.append).not.toHaveBeenCalled();
+    expect(behaviorLogService.appendQuietly).not.toHaveBeenCalled();
   });
 
   it("returns OUT_OF_STOCK and writes a failure log", async () => {
@@ -304,7 +304,7 @@ describe("POST /api/chat", () => {
       code: "OUT_OF_STOCK",
       success: false,
     });
-    expect(behaviorLogService.append).toHaveBeenCalledWith(
+    expect(behaviorLogService.appendQuietly).toHaveBeenCalledWith(
       expect.objectContaining({ action: "BORROW_OUT_OF_STOCK" }),
     );
   });
@@ -319,7 +319,7 @@ describe("POST /api/chat", () => {
     expect(events.some((event) => event.event === "recommendation")).toBe(false);
     expect(events.some((event) => event.event === "borrow")).toBe(false);
     expect(events.some((event) => event.event === "text")).toBe(true);
-    expect(behaviorLogService.append).not.toHaveBeenCalled();
+    expect(behaviorLogService.appendQuietly).not.toHaveBeenCalled();
     expect(rentalService.borrow).not.toHaveBeenCalled();
   });
 
@@ -363,7 +363,7 @@ describe("POST /api/chat", () => {
       rentalId: "880e8400-e29b-41d4-a716-446655440000",
       code: "OK",
     });
-    expect(behaviorLogService.append).toHaveBeenCalledWith(
+    expect(behaviorLogService.appendQuietly).toHaveBeenCalledWith(
       expect.objectContaining({ action: "RETURN_SUCCESS" }),
     );
   });
@@ -387,7 +387,7 @@ describe("POST /api/chat", () => {
       success: false,
       code: "RENTAL_NOT_FOUND",
     });
-    expect(behaviorLogService.append).not.toHaveBeenCalled();
+    expect(behaviorLogService.appendQuietly).not.toHaveBeenCalled();
   });
 
   it("does not misfire a return for the homograph 还 (still)", async () => {
