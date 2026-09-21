@@ -50,17 +50,12 @@ function profileWithLikes(likeGenres: string[]): Profile {
 describe("recommendMovieTool with patched likeGenres", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(movieService.listMoviesForRecommend).mockResolvedValue([
-      sciFiMovie,
-      animeMovie,
-    ]);
+    vi.mocked(movieService.listMoviesForRecommend).mockResolvedValue([sciFiMovie, animeMovie]);
     vi.mocked(behaviorLogService.append).mockResolvedValue(undefined);
   });
 
   it("ranks exact genre overlap first and flips after likeGenres patch", async () => {
-    vi.mocked(profileService.getByUserId).mockResolvedValueOnce(
-      profileWithLikes(["科幻", "悬疑"])
-    );
+    vi.mocked(profileService.getByUserId).mockResolvedValueOnce(profileWithLikes(["科幻", "悬疑"]));
 
     const before = await recommendMovieTool({
       userId: DEV_USER_ID,
@@ -69,9 +64,7 @@ describe("recommendMovieTool with patched likeGenres", () => {
     });
     expect(before.data?.[0]?.title).toBe("星际穿越");
 
-    vi.mocked(profileService.getByUserId).mockResolvedValueOnce(
-      profileWithLikes(["动画"])
-    );
+    vi.mocked(profileService.getByUserId).mockResolvedValueOnce(profileWithLikes(["动画"]));
 
     const after = await recommendMovieTool({
       userId: DEV_USER_ID,
@@ -82,9 +75,7 @@ describe("recommendMovieTool with patched likeGenres", () => {
   });
 
   it("falls back to title order when no likes overlap", async () => {
-    vi.mocked(profileService.getByUserId).mockResolvedValue(
-      profileWithLikes(["爱情"])
-    );
+    vi.mocked(profileService.getByUserId).mockResolvedValue(profileWithLikes(["爱情"]));
 
     const result = await recommendMovieTool({
       userId: DEV_USER_ID,

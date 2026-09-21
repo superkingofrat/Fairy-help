@@ -37,9 +37,7 @@ describe("movies routes", () => {
       pagination: { page: 1, limit: 10, total: 1, totalPages: 1 },
     });
 
-    const response = await request(app)
-      .get("/api/movies")
-      .set("Authorization", authHeader("user"));
+    const response = await request(app).get("/api/movies").set("Authorization", authHeader("user"));
 
     expect(response.status).toBe(200);
     expect(response.body.code).toBe("OK");

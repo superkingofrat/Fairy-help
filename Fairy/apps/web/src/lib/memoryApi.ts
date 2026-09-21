@@ -9,12 +9,14 @@ import type {
 } from "@fairy/shared";
 
 // FU-15：记忆管理面（admin-only /api/memories）的 web 客户端。
-export async function fetchMemories(params: {
-  page?: number;
-  limit?: number;
-  kind?: MemoryKind;
-  keyword?: string;
-} = {}): Promise<MemoryListFeed> {
+export async function fetchMemories(
+  params: {
+    page?: number;
+    limit?: number;
+    kind?: MemoryKind;
+    keyword?: string;
+  } = {},
+): Promise<MemoryListFeed> {
   const query = new URLSearchParams();
   if (params.kind) query.set("kind", params.kind);
   if (params.keyword) query.set("keyword", params.keyword);
@@ -26,12 +28,14 @@ export async function fetchMemories(params: {
 
 // FU-17：自查面 GET /api/memories/me（任意已登录角色）——只返回本人记忆；身份由 token 决定，
 // 该客户端不携带 userId/email 参数。
-export async function listMyMemories(params: {
-  page?: number;
-  limit?: number;
-  kind?: MemoryKind;
-  keyword?: string;
-} = {}): Promise<MemorySelfListFeed> {
+export async function listMyMemories(
+  params: {
+    page?: number;
+    limit?: number;
+    kind?: MemoryKind;
+    keyword?: string;
+  } = {},
+): Promise<MemorySelfListFeed> {
   const query = new URLSearchParams();
   if (params.kind) query.set("kind", params.kind);
   if (params.keyword) query.set("keyword", params.keyword);

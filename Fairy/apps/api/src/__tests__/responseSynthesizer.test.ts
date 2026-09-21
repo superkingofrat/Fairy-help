@@ -58,12 +58,11 @@ describe("synthesize with LLM reply", () => {
   });
 
   it("uses the LLM text and keeps the recommendation payload intact", async () => {
-    vi.mocked(llmClient.tryChat).mockResolvedValue(llmResult("雨天配《星际穿越》刚刚好，点卡片就能借。"));
-
-    const result = await synthesize(
-      { kind: "recommend", movies: [sampleMovie] },
-      context
+    vi.mocked(llmClient.tryChat).mockResolvedValue(
+      llmResult("雨天配《星际穿越》刚刚好，点卡片就能借。"),
     );
+
+    const result = await synthesize({ kind: "recommend", movies: [sampleMovie] }, context);
 
     expect(result.texts[0].content).toBe("雨天配《星际穿越》刚刚好，点卡片就能借。");
     expect(result.recommendation?.items).toEqual([sampleMovie]);
@@ -76,13 +75,13 @@ describe("synthesize with LLM reply", () => {
           content: expect.stringContaining("喜欢的类型 科幻"),
         }),
       ]),
-      expect.anything()
+      expect.anything(),
     );
   });
 
   it("injects retrieved memories into the reply prompt (FU-14)", async () => {
     vi.mocked(llmClient.tryChat).mockResolvedValue(
-      llmResult("你最喜欢科幻片啦，这次还是照这个口味来？")
+      llmResult("你最喜欢科幻片啦，这次还是照这个口味来？"),
     );
 
     const result = await synthesize(
@@ -100,7 +99,7 @@ describe("synthesize with LLM reply", () => {
             createdAt: "2026-09-01T10:00:00Z",
           },
         ],
-      }
+      },
     );
 
     expect(result.texts[0].content).toBe("你最喜欢科幻片啦，这次还是照这个口味来？");
@@ -116,7 +115,7 @@ describe("synthesize with LLM reply", () => {
           content: expect.stringContaining("- [preference] 喜欢科幻片"),
         }),
       ]),
-      expect.anything()
+      expect.anything(),
     );
   });
 
@@ -148,7 +147,9 @@ describe("synthesize with LLM reply", () => {
 
     const result = await synthesize({ kind: "recommend", movies: [] }, context);
 
-    expect(result.texts[0].content).toBe("这会儿没有符合心情和场景、又有库存的片子。换个标签再试试？");
+    expect(result.texts[0].content).toBe(
+      "这会儿没有符合心情和场景、又有库存的片子。换个标签再试试？",
+    );
     expect(result.recommendation).toBeUndefined();
   });
 
@@ -167,7 +168,7 @@ describe("synthesize with LLM reply", () => {
 
     const result = await synthesize(
       { kind: "borrow", success: true, remainingStock: 2, rentalId: "r1", code: "OK" },
-      context
+      context,
     );
 
     expect(result.texts[0].content).toBe("借好了，这部还剩 2 盘。");
@@ -183,8 +184,14 @@ describe("synthesize with LLM reply", () => {
     vi.mocked(llmClient.tryChat).mockResolvedValue(null);
 
     const result = await synthesize(
-      { kind: "borrow", success: false, remainingStock: null, rentalId: null, code: "OUT_OF_STOCK" },
-      context
+      {
+        kind: "borrow",
+        success: false,
+        remainingStock: null,
+        rentalId: null,
+        code: "OUT_OF_STOCK",
+      },
+      context,
     );
 
     expect(result.texts[0].content).toBe("该影片暂时缺货。");
@@ -196,7 +203,9 @@ describe("synthesize with LLM reply", () => {
 
     const result = await synthesize({ kind: "none", reason: "borrow_unresolved" }, context);
 
-    expect(result.texts[0].content).toBe("没能确定要借哪一部。可以说完整片名，或点推荐卡片上的借阅按钮。");
+    expect(result.texts[0].content).toBe(
+      "没能确定要借哪一部。可以说完整片名，或点推荐卡片上的借阅按钮。",
+    );
   });
 
   it("falls back to the template when the LLM text is blank", async () => {
@@ -204,7 +213,9 @@ describe("synthesize with LLM reply", () => {
 
     const result = await synthesize({ kind: "none", reason: "unmatched" }, context);
 
-    expect(result.texts[0].content).toBe("可以说一个心情或场景，比如「雨天」或「治愈」，也可以点卡片借阅。");
+    expect(result.texts[0].content).toBe(
+      "可以说一个心情或场景，比如「雨天」或「治愈」，也可以点卡片借阅。",
+    );
   });
 
   it("uses the LLM for return success and keeps the return payload", async () => {
@@ -212,7 +223,7 @@ describe("synthesize with LLM reply", () => {
 
     const result = await synthesize(
       { kind: "return", success: true, remainingStock: 3, rentalId: "r1", code: "OK" },
-      context
+      context,
     );
 
     expect(result.texts[0].content).toBe("还好啦，这片回到架子上了。");
@@ -229,8 +240,14 @@ describe("synthesize with LLM reply", () => {
     vi.mocked(llmClient.tryChat).mockResolvedValue(null);
 
     const result = await synthesize(
-      { kind: "return", success: false, remainingStock: null, rentalId: null, code: "RENTAL_NOT_FOUND" },
-      context
+      {
+        kind: "return",
+        success: false,
+        remainingStock: null,
+        rentalId: null,
+        code: "RENTAL_NOT_FOUND",
+      },
+      context,
     );
 
     expect(result.texts[0].content).toBe("你目前没有借这部片子。");
@@ -242,11 +259,11 @@ describe("synthesize with LLM reply", () => {
 
     const result = await synthesize(
       { kind: "none", reason: "return_unresolved" },
-      { ...context, activeRentals: [{ movieTitle: "千与千寻" }, { movieTitle: "星际穿越" }] }
+      { ...context, activeRentals: [{ movieTitle: "千与千寻" }, { movieTitle: "星际穿越" }] },
     );
 
     expect(result.texts[0].content).toBe(
-      "你当前借阅中的影片：《千与千寻》、《星际穿越》。可以说完整片名归还。"
+      "你当前借阅中的影片：《千与千寻》、《星际穿越》。可以说完整片名归还。",
     );
     expect(result.return).toBeUndefined();
   });
@@ -256,7 +273,7 @@ describe("synthesize with LLM reply", () => {
 
     const result = await synthesize(
       { kind: "none", reason: "return_unresolved" },
-      { ...context, activeRentals: [] }
+      { ...context, activeRentals: [] },
     );
 
     expect(result.texts[0].content).toBe("你目前没有借阅中的影片。");
@@ -299,7 +316,7 @@ describe("synthesize store insight (FU-12)", () => {
         overview: null,
         code: "FORBIDDEN",
       },
-      { message: "最近什么片最火", profile: null }
+      { message: "最近什么片最火", profile: null },
     );
 
     expect(result.texts[0].content).toBe("这个功能目前只对门店管理员开放哦。");
@@ -318,7 +335,7 @@ describe("synthesize store insight (FU-12)", () => {
         overview,
         code: "OK",
       },
-      { message: "最近什么片最火", profile: null }
+      { message: "最近什么片最火", profile: null },
     );
 
     expect(result.texts[0].content).toContain("海蒂");
@@ -337,7 +354,7 @@ describe("synthesize store insight (FU-12)", () => {
         overview,
         code: "OK",
       },
-      { message: "库存怎么样", profile: null }
+      { message: "库存怎么样", profile: null },
     );
 
     expect(result.texts[0].content).toContain("低库存片");
@@ -356,7 +373,7 @@ describe("synthesize store insight (FU-12)", () => {
         overview: { ...overview, popularMovies: [] },
         code: "OK",
       },
-      { message: "最近什么片最火", profile: null }
+      { message: "最近什么片最火", profile: null },
     );
 
     expect(result.texts[0].content).toContain("还没有足够的借阅数据");
@@ -374,7 +391,7 @@ describe("synthesize store insight (FU-12)", () => {
         overview,
         code: "OK",
       },
-      { message: "最近借阅趋势", profile: null }
+      { message: "最近借阅趋势", profile: null },
     );
 
     expect(result.texts[0].content).toContain("3");
@@ -393,7 +410,7 @@ describe("synthesize store insight (FU-12)", () => {
         overview,
         code: "OK",
       },
-      { message: "店里情况怎么样", profile: null }
+      { message: "店里情况怎么样", profile: null },
     );
 
     expect(result.texts[0].content).toContain("海蒂");
@@ -412,7 +429,7 @@ describe("synthesize store insight (FU-12)", () => {
         overview: null,
         code: "INSIGHT_UNAVAILABLE",
       },
-      { message: "店里情况怎么样", profile: null }
+      { message: "店里情况怎么样", profile: null },
     );
 
     expect(result.texts[0].content).toContain("拉取失败");
@@ -461,7 +478,7 @@ describe("synthesize trip planning (FU-13)", () => {
 
     const result = await synthesize(
       { kind: "trip", success: true, unresolved: false, trip: tripResult, code: "OK" },
-      { message: "帮我规划周末去杭州玩", profile: null }
+      { message: "帮我规划周末去杭州玩", profile: null },
     );
 
     expect(result.texts[0].content).toContain("杭州");
@@ -476,7 +493,7 @@ describe("synthesize trip planning (FU-13)", () => {
 
     const result = await synthesize(
       { kind: "trip", success: true, unresolved: false, trip: unvalidated, code: "OK" },
-      { message: "帮我规划周末去杭州玩", profile: null }
+      { message: "帮我规划周末去杭州玩", profile: null },
     );
 
     expect(result.texts[0].content).toContain("仅供参考");
@@ -487,11 +504,19 @@ describe("synthesize trip planning (FU-13)", () => {
     vi.mocked(llmClient.tryChat).mockResolvedValue(null);
 
     const result = await synthesize(
-      { kind: "trip", success: true, unresolved: true, trip: null, code: "TRIP_DESTINATION_REQUIRED" },
-      { message: "帮我规划个行程", profile: null }
+      {
+        kind: "trip",
+        success: true,
+        unresolved: true,
+        trip: null,
+        code: "TRIP_DESTINATION_REQUIRED",
+      },
+      { message: "帮我规划个行程", profile: null },
     );
 
-    expect(result.texts[0].content).toBe("想去哪儿玩呀？告诉我一个目的地（比如城市名），我来帮你规划。");
+    expect(result.texts[0].content).toBe(
+      "想去哪儿玩呀？告诉我一个目的地（比如城市名），我来帮你规划。",
+    );
     expect(result.trip).toBeUndefined();
   });
 
@@ -500,7 +525,7 @@ describe("synthesize trip planning (FU-13)", () => {
 
     const result = await synthesize(
       { kind: "trip", success: false, unresolved: false, trip: null, code: "TRIP_FORBIDDEN" },
-      { message: "帮我规划周末去北京玩", profile: null }
+      { message: "帮我规划周末去北京玩", profile: null },
     );
 
     expect(result.texts[0].content).toContain("不是我的专长");
@@ -512,7 +537,7 @@ describe("synthesize trip planning (FU-13)", () => {
 
     const result = await synthesize(
       { kind: "trip", success: false, unresolved: false, trip: null, code: "TRIP_DRAFT_FAILED" },
-      { message: "帮我规划周末去杭州玩", profile: null }
+      { message: "帮我规划周末去杭州玩", profile: null },
     );
 
     expect(result.texts[0].content).toContain("出了点状况");

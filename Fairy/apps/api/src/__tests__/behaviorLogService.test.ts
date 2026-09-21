@@ -87,7 +87,7 @@ describe("behaviorLogService.listLogs", () => {
         skip: 5,
         take: 5,
         orderBy: { createdAt: "desc" },
-      })
+      }),
     );
   });
 

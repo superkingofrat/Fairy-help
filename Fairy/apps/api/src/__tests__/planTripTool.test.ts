@@ -168,9 +168,11 @@ describe("planTripTool", () => {
       llmResult(
         JSON.stringify({
           destination: null,
-          itinerary: [{ day: 1, title: "x", steps: [{ time: "09:00", poi: "西湖", category: "景点" }] }],
-        })
-      )
+          itinerary: [
+            { day: 1, title: "x", steps: [{ time: "09:00", poi: "西湖", category: "景点" }] },
+          ],
+        }),
+      ),
     );
 
     const result = await planTripTool({ userId: USER_ID, message: "帮我规划个行程" });

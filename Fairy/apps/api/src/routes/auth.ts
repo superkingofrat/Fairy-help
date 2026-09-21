@@ -1,6 +1,12 @@
 import { Router, type IRouter } from "express";
 import { loginSchema, registerSchema, refreshTokenSchema } from "@fairy/shared";
-import { loginHandler, meHandler, registerHandler, refreshHandler, logoutHandler } from "../controllers/authController";
+import {
+  loginHandler,
+  meHandler,
+  registerHandler,
+  refreshHandler,
+  logoutHandler,
+} from "../controllers/authController";
 import { authMiddleware } from "../middleware/auth";
 import { validateBody } from "../middleware/validateBody";
 

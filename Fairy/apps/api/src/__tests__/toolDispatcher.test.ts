@@ -29,11 +29,7 @@ describe("dispatch insight tool (FU-12)", () => {
       data: overviewFixture,
     });
 
-    const observation = await dispatch(
-      { tool: "insight", topic: "popular" },
-      "user-1",
-      "admin"
-    );
+    const observation = await dispatch({ tool: "insight", topic: "popular" }, "user-1", "admin");
 
     expect(observation).toEqual({
       kind: "insight",
@@ -47,11 +43,7 @@ describe("dispatch insight tool (FU-12)", () => {
   });
 
   it("forbids a non-admin without calling the tool", async () => {
-    const observation = await dispatch(
-      { tool: "insight", topic: "inventory" },
-      "user-1",
-      "user"
-    );
+    const observation = await dispatch({ tool: "insight", topic: "inventory" }, "user-1", "user");
 
     expect(observation).toEqual({
       kind: "insight",
@@ -77,11 +69,7 @@ describe("dispatch insight tool (FU-12)", () => {
       error: "INSIGHT_UNAVAILABLE",
     });
 
-    const observation = await dispatch(
-      { tool: "insight", topic: "trend" },
-      "user-1",
-      "admin"
-    );
+    const observation = await dispatch({ tool: "insight", topic: "trend" }, "user-1", "admin");
 
     expect(observation).toEqual({
       kind: "insight",
@@ -147,7 +135,7 @@ describe("dispatch trip tool (FU-13)", () => {
       "user-1",
       "user",
       "帮我规划周末去杭州玩",
-      agentProfile
+      agentProfile,
     );
 
     expect(observation).toEqual({
@@ -174,7 +162,7 @@ describe("dispatch trip tool (FU-13)", () => {
       "user-1",
       "user",
       "帮我规划个行程",
-      agentProfile
+      agentProfile,
     );
 
     expect(observation).toEqual({
@@ -197,7 +185,7 @@ describe("dispatch trip tool (FU-13)", () => {
       "user-1",
       "user",
       "帮我规划周末去杭州玩",
-      agentProfile
+      agentProfile,
     );
 
     expect(observation).toEqual({
@@ -232,7 +220,7 @@ describe("dispatch trip tool (FU-13)", () => {
       { tool: "trip" },
       "admin-1",
       "admin",
-      "帮我规划周末去北京玩"
+      "帮我规划周末去北京玩",
     );
 
     expect(observation).toEqual({

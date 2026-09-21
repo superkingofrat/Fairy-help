@@ -157,7 +157,9 @@ export function InsightsAdminPage(): JSX.Element {
                       <th className="pb-2 pr-2 text-right font-medium">
                         {t("insights.table.recommendCount")}
                       </th>
-                      <th className="pb-2 text-right font-medium">{t("insights.table.availability")}</th>
+                      <th className="pb-2 text-right font-medium">
+                        {t("insights.table.availability")}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -166,7 +168,9 @@ export function InsightsAdminPage(): JSX.Element {
                         <td className="py-2 pr-2 text-slate-500">{index + 1}</td>
                         <td className="py-2 pr-2 text-slate-800">《{movie.title}》</td>
                         <td className="py-2 pr-2 text-right text-slate-700">{movie.borrowCount}</td>
-                        <td className="py-2 pr-2 text-right text-slate-700">{movie.recommendCount}</td>
+                        <td className="py-2 pr-2 text-right text-slate-700">
+                          {movie.recommendCount}
+                        </td>
                         <td className="py-2 text-right">
                           {movie.inStock ? (
                             <span className="text-emerald-600">{t("insights.available")}</span>
@@ -189,8 +193,12 @@ export function InsightsAdminPage(): JSX.Element {
                   <thead className="text-slate-500">
                     <tr>
                       <th className="pb-2 pr-2 font-medium">{t("insights.table.title")}</th>
-                      <th className="pb-2 pr-2 text-right font-medium">{t("insights.inventory.stock")}</th>
-                      <th className="pb-2 text-right font-medium">{t("insights.inventory.totalStock")}</th>
+                      <th className="pb-2 pr-2 text-right font-medium">
+                        {t("insights.inventory.stock")}
+                      </th>
+                      <th className="pb-2 text-right font-medium">
+                        {t("insights.inventory.totalStock")}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>

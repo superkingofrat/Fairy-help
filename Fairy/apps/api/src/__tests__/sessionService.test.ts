@@ -174,7 +174,12 @@ describe("getRecentMessages", () => {
     vi.mocked(prisma.session.findUnique).mockResolvedValue(sessionRow as never);
     // findMany 按 createdAt desc 返回（新的在前）：assistant 回复新于 user 消息
     vi.mocked(prisma.chatMessage.findMany).mockResolvedValue([
-      { ...messageRow, id: "880e8400-e29b-41d4-a716-446655440000", role: "ASSISTANT", content: "第一条回复" },
+      {
+        ...messageRow,
+        id: "880e8400-e29b-41d4-a716-446655440000",
+        role: "ASSISTANT",
+        content: "第一条回复",
+      },
       { ...messageRow, role: "USER", content: "第二条" },
     ] as never);
 
@@ -209,9 +214,9 @@ describe("appendTurn", () => {
   beforeEach(() => {
     tx.session.update.mockResolvedValue(sessionRow as never);
     tx.chatMessage.create.mockResolvedValue(messageRow as never);
-    vi.mocked(prisma.$transaction).mockImplementation(
-      (async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx)) as unknown as typeof prisma.$transaction
-    );
+    vi.mocked(prisma.$transaction).mockImplementation((async (
+      fn: (client: typeof tx) => Promise<unknown>,
+    ) => fn(tx)) as unknown as typeof prisma.$transaction);
   });
 
   it("writes title, USER and ASSISTANT messages in one transaction", async () => {

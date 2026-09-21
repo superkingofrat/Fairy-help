@@ -64,8 +64,7 @@ export async function listLogs(query: BehaviorLogQuery): Promise<{
   const movieIds = [
     ...new Set(records.map((record) => record.movieId).filter((id): id is string => Boolean(id))),
   ];
-  const movies =
-    movieIds.length > 0 ? await movieService.listMoviesByIds(movieIds) : [];
+  const movies = movieIds.length > 0 ? await movieService.listMoviesByIds(movieIds) : [];
   const titleById = new Map(movies.map((movie) => [movie.id, movie.title]));
 
   const items: BehaviorLogListItem[] = records.map((record) => ({

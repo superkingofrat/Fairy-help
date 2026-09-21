@@ -154,10 +154,7 @@ function buildVectorQuery(
 
 /** raw 行映射：raw 查询下 jsonb 可能以字符串返回，规范化回 JSON 值再走共享 mapper。 */
 function toVectorRecord(row: VectorRow): MemoryRecord {
-  const metadata =
-    typeof row.metadata === "string"
-      ? parseRawJson(row.metadata)
-      : row.metadata;
+  const metadata = typeof row.metadata === "string" ? parseRawJson(row.metadata) : row.metadata;
   return toMemoryRecord({ ...row, metadata });
 }
 
@@ -170,10 +167,7 @@ function parseRawJson(value: string): unknown {
 }
 
 /** FU-16：embed 成功则 raw UPDATE 写回 embedding 列；任何失败只记日志，不抛给调用方。 */
-async function refreshEmbeddingQuietly(
-  memoryId: string,
-  content: string,
-): Promise<void> {
+async function refreshEmbeddingQuietly(memoryId: string, content: string): Promise<void> {
   const vector = await embedContent(content).catch(() => null);
   if (!vector) {
     return;
@@ -185,9 +179,7 @@ async function refreshEmbeddingQuietly(
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown error";
-    console.warn(
-      `[memory-embedding] write-back failed for memory ${memoryId}: ${message}`,
-    );
+    console.warn(`[memory-embedding] write-back failed for memory ${memoryId}: ${message}`);
   }
 }
 
@@ -288,9 +280,7 @@ export async function listOwnMemories(
 
 export async function createMemory(
   input: MemoryCreateInput,
-): Promise<
-  { ok: true; record: MemoryRecord } | { ok: false; code: "PROFILE_NOT_FOUND" }
-> {
+): Promise<{ ok: true; record: MemoryRecord } | { ok: false; code: "PROFILE_NOT_FOUND" }> {
   // Memory.profileId 外键指向 Profile.userId：目标用户须已建 Profile，否则落库会 P2003。
   const profile = await prisma.profile.findUnique({
     where: { userId: input.userId },
@@ -332,18 +322,13 @@ export async function updateMemory(
     const record = await prisma.memory.update({
       where: { id },
       data: {
-        ...(patch.kind !== undefined
-          ? { kind: KIND_TO_PRISMA[patch.kind] }
-          : {}),
+        ...(patch.kind !== undefined ? { kind: KIND_TO_PRISMA[patch.kind] } : {}),
         ...(patch.content !== undefined ? { content: patch.content } : {}),
       },
     });
     return toMemoryRecord(record);
   } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2025"
-    ) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
       return null;
     }
     throw error;

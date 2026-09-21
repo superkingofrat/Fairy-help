@@ -28,9 +28,9 @@ describe("RentalService.borrow", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(prisma.$transaction).mockImplementation(
-      (async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx)) as unknown as typeof prisma.$transaction
-    );
+    vi.mocked(prisma.$transaction).mockImplementation((async (
+      fn: (client: typeof tx) => Promise<unknown>,
+    ) => fn(tx)) as unknown as typeof prisma.$transaction);
     tx.$queryRaw.mockResolvedValue(undefined);
   });
 
@@ -77,9 +77,9 @@ describe("RentalService.returnRental", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(prisma.$transaction).mockImplementation(
-      (async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx)) as unknown as typeof prisma.$transaction
-    );
+    vi.mocked(prisma.$transaction).mockImplementation((async (
+      fn: (client: typeof tx) => Promise<unknown>,
+    ) => fn(tx)) as unknown as typeof prisma.$transaction);
   });
 
   it("closes the rental and increments stock (CAS)", async () => {
@@ -142,7 +142,7 @@ describe("RentalService.listActiveRentals", () => {
       expect.objectContaining({
         where: { userId: "u1", status: "ACTIVE" },
         orderBy: { createdAt: "desc" },
-      })
+      }),
     );
     expect(result).toEqual([
       {

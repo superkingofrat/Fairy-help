@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  loginSchema,
-  registerSchema,
-  refreshTokenSchema,
-  authUserSchema,
-} from "./authSchemas";
+import { loginSchema, registerSchema, refreshTokenSchema, authUserSchema } from "./authSchemas";
 
 describe("loginSchema", () => {
   it("accepts a valid email and password", () => {
@@ -16,15 +11,11 @@ describe("loginSchema", () => {
   });
 
   it("rejects a malformed email", () => {
-    expect(
-      loginSchema.safeParse({ email: "not-an-email", password: "x" }).success,
-    ).toBe(false);
+    expect(loginSchema.safeParse({ email: "not-an-email", password: "x" }).success).toBe(false);
   });
 
   it("rejects an empty password", () => {
-    expect(
-      loginSchema.safeParse({ email: "user@fairy.local", password: "" }).success,
-    ).toBe(false);
+    expect(loginSchema.safeParse({ email: "user@fairy.local", password: "" }).success).toBe(false);
   });
 });
 
@@ -67,9 +58,7 @@ describe("registerSchema", () => {
 
 describe("refreshTokenSchema", () => {
   it("accepts a non-empty refresh token", () => {
-    expect(refreshTokenSchema.safeParse({ refreshToken: "abc.def" }).success).toBe(
-      true,
-    );
+    expect(refreshTokenSchema.safeParse({ refreshToken: "abc.def" }).success).toBe(true);
   });
 
   it("rejects a blank refresh token", () => {

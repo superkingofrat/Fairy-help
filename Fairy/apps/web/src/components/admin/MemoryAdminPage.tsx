@@ -1,12 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { MemoryKind, MemoryListItem, ProfileListItem } from "@fairy/shared";
 import { fetchProfiles } from "../../lib/profileApi";
-import {
-  createMemory,
-  deleteMemory,
-  fetchMemories,
-  updateMemory,
-} from "../../lib/memoryApi";
+import { createMemory, deleteMemory, fetchMemories, updateMemory } from "../../lib/memoryApi";
 import { t } from "../../lib/i18n";
 
 const MEMORY_KINDS: MemoryKind[] = ["preference", "fact", "intent"];
@@ -37,30 +32,27 @@ export function MemoryAdminPage(): JSX.Element {
 
   const [deleteTarget, setDeleteTarget] = useState<MemoryListItem | null>(null);
 
-  const loadMemories = useCallback(
-    async (currentPage: number, kind: string, keyword: string) => {
-      setLoading(true);
-      setError(null);
+  const loadMemories = useCallback(async (currentPage: number, kind: string, keyword: string) => {
+    setLoading(true);
+    setError(null);
 
-      try {
-        const feed = await fetchMemories({
-          page: currentPage,
-          limit: 20,
-          ...(kind ? { kind: kind as MemoryKind } : {}),
-          ...(keyword.trim() ? { keyword: keyword.trim() } : {}),
-        });
-        setMemories(feed.items);
-        setTotalPages(feed.pagination.totalPages);
-      } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : t("memory.error.load"));
-        setMemories([]);
-        setTotalPages(0);
-      } finally {
-        setLoading(false);
-      }
-    },
-    []
-  );
+    try {
+      const feed = await fetchMemories({
+        page: currentPage,
+        limit: 20,
+        ...(kind ? { kind: kind as MemoryKind } : {}),
+        ...(keyword.trim() ? { keyword: keyword.trim() } : {}),
+      });
+      setMemories(feed.items);
+      setTotalPages(feed.pagination.totalPages);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : t("memory.error.load"));
+      setMemories([]);
+      setTotalPages(0);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     void loadMemories(page, kindFilter, appliedKeyword);

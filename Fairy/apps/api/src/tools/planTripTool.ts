@@ -33,10 +33,10 @@ const tripDraftSchema = z.object({
               poi: z.string().min(1),
               category: z.string(),
               note: z.string().nullish(),
-            })
+            }),
           )
           .min(1),
-      })
+      }),
     )
     .min(1),
 });
@@ -83,7 +83,7 @@ export function hasDestinationByRules(message: string): boolean {
 async function logTripOutcome(
   userId: string,
   action: BehaviorAction,
-  payload: Prisma.InputJsonValue
+  payload: Prisma.InputJsonValue,
 ): Promise<void> {
   try {
     await behaviorLogService.append({ userId, action, payload });
@@ -220,8 +220,7 @@ export async function planTripTool(input: {
         destination,
         days: itinerary.length,
         itinerary: itinerary as unknown as Prisma.InputJsonValue,
-        route:
-          route.length > 0 ? (route as unknown as Prisma.InputJsonValue) : undefined,
+        route: route.length > 0 ? (route as unknown as Prisma.InputJsonValue) : undefined,
       },
     });
     await behaviorLogService.append({

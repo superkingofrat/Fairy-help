@@ -69,18 +69,14 @@ async function main(): Promise<void> {
     );
     return;
   }
-  console.log(
-    `[backfill-memory-embeddings] embed model: ${provider.defaultModel}`,
-  );
+  console.log(`[backfill-memory-embeddings] embed model: ${provider.defaultModel}`);
 
   const stats = { embedded: 0, skipped: 0, failed: 0, batches: 0 };
   const startedAt = Date.now();
 
   // 幂等：只取 embedding 为 NULL 的行，循环处理直到没有剩余。
   for (;;) {
-    const pending = await prisma.$queryRaw<
-      Array<{ id: string; content: string }>
-    >(Prisma.sql`
+    const pending = await prisma.$queryRaw<Array<{ id: string; content: string }>>(Prisma.sql`
       SELECT "id", "content"
       FROM "memories"
       WHERE "embedding" IS NULL
@@ -114,11 +110,8 @@ async function main(): Promise<void> {
         `);
         stats.embedded += 1;
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "unknown error";
-        console.warn(
-          `[backfill-memory-embeddings] row ${row.id} failed: ${message}`,
-        );
+        const message = error instanceof Error ? error.message : "unknown error";
+        console.warn(`[backfill-memory-embeddings] row ${row.id} failed: ${message}`);
         stats.failed += 1;
       }
     }

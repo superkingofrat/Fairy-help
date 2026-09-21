@@ -35,7 +35,7 @@ export async function rawRequest<T>(path: string, options: RequestInit = {}): Pr
       throw new ApiRequestError(
         response.ok
           ? "Invalid API response"
-          : `Request failed (${response.status}): API returned non-JSON response. Is the API running on port 3000?`
+          : `Request failed (${response.status}): API returned non-JSON response. Is the API running on port 3000?`,
       );
     }
   }
@@ -44,12 +44,12 @@ export async function rawRequest<T>(path: string, options: RequestInit = {}): Pr
     throw new ApiRequestError(
       payload?.msg ??
         `Request failed (${response.status}). Check that pnpm --filter=@fairy/api dev is running.`,
-      payload?.code
+      payload?.code,
     );
   }
   if (!payload) {
     throw new ApiRequestError(
-      "Empty API response. Check that pnpm --filter=@fairy/api dev is running."
+      "Empty API response. Check that pnpm --filter=@fairy/api dev is running.",
     );
   }
 
@@ -108,7 +108,7 @@ async function requestInner<T>(path: string, options: RequestInit): Promise<T> {
       throw new ApiRequestError(
         response.ok
           ? "Invalid API response"
-          : `Request failed (${response.status}): API returned non-JSON response. Is the API running on port 3000?`
+          : `Request failed (${response.status}): API returned non-JSON response. Is the API running on port 3000?`,
       );
     }
   }
@@ -120,12 +120,12 @@ async function requestInner<T>(path: string, options: RequestInit): Promise<T> {
     throw new ApiRequestError(
       payload?.msg ??
         `Request failed (${response.status}). Check that pnpm --filter=@fairy/api dev is running.`,
-      payload?.code
+      payload?.code,
     );
   }
   if (!payload) {
     throw new ApiRequestError(
-      "Empty API response. Check that pnpm --filter=@fairy/api dev is running."
+      "Empty API response. Check that pnpm --filter=@fairy/api dev is running.",
     );
   }
 

@@ -35,7 +35,7 @@ export function parseSseBuffer(buffer: string): { events: ParsedSseEvent[]; rest
 export async function postChat(
   body: ChatRequest,
   onEvent: (event: ParsedSseEvent) => void,
-  options?: { timeoutMs?: number; signal?: AbortSignal }
+  options?: { timeoutMs?: number; signal?: AbortSignal },
 ): Promise<void> {
   const token = useAuthStore.getState().token;
   const controller = options?.signal ? undefined : new AbortController();
@@ -77,7 +77,8 @@ export async function postChat(
     const decoder = new TextDecoder();
     let buffer = "";
 
-    while (true) {
+    // 流读取循环：无测试条件的 for 等价于 while (true)，但不受 no-constant-condition 约束
+    for (;;) {
       if (timedOut) {
         throw new Error("chat.error.timeout");
       }

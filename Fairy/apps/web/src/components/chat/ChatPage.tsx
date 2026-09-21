@@ -2,11 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import type { ChatMessageDto, Movie, SessionListItem, TripResult } from "@fairy/shared";
 import { postChat } from "../../lib/chatApi";
 import { t } from "../../lib/i18n";
-import {
-  createSession,
-  getSessionMessages,
-  listSessions,
-} from "../../lib/sessionApi";
+import { createSession, getSessionMessages, listSessions } from "../../lib/sessionApi";
 import { useChatStore } from "../../stores/chatStore";
 import { MemorySelfPanel } from "./MemorySelfPanel";
 import { MessageStream } from "./MessageStream";
@@ -24,9 +20,7 @@ interface ChatMessage {
 const SESSION_STORAGE_KEY = "fairy.sessionId";
 
 function dtoToMessage(dto: ChatMessageDto): ChatMessage {
-  const recommendation = dto.payload?.events.find(
-    (event) => event.type === "recommendation"
-  );
+  const recommendation = dto.payload?.events.find((event) => event.type === "recommendation");
   const tripEvent = dto.payload?.events.find((event) => event.type === "trip");
   return {
     id: dto.id,
@@ -60,7 +54,7 @@ export function ChatPage(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(() =>
-    localStorage.getItem(SESSION_STORAGE_KEY)
+    localStorage.getItem(SESSION_STORAGE_KEY),
   );
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [showMemories, setShowMemories] = useState(false);
@@ -153,7 +147,15 @@ export function ChatPage(): JSX.Element {
       ...current,
       ...(body.movieId
         ? []
-        : [{ id: `user-${Date.now()}`, role: "user" as const, content: body.message, cards: [], trips: [] }]),
+        : [
+            {
+              id: `user-${Date.now()}`,
+              role: "user" as const,
+              content: body.message,
+              cards: [],
+              trips: [],
+            },
+          ]),
       { id: fairyId, role: "fairy", content: "", cards: [], trips: [] },
     ]);
 
@@ -216,10 +218,8 @@ export function ChatPage(): JSX.Element {
         }
         setMessages((current) =>
           current.map((message) =>
-            message.id === fairyId
-              ? { ...message, content: fairyText, cards, trips }
-              : message
-          )
+            message.id === fairyId ? { ...message, content: fairyText, cards, trips } : message,
+          ),
         );
       });
       void refreshSessionList().catch(() => undefined);
@@ -336,9 +336,7 @@ export function ChatPage(): JSX.Element {
             </ul>
           </section>
         ) : null}
-        {messages.length === 0 ? (
-          <p className="text-sm text-slate-500">{t("chat.empty")}</p>
-        ) : null}
+        {messages.length === 0 ? <p className="text-sm text-slate-500">{t("chat.empty")}</p> : null}
         <div className="flex flex-col gap-4">
           {messages.map((message) => (
             <div key={message.id} className="rounded-lg bg-white p-4 shadow-sm">

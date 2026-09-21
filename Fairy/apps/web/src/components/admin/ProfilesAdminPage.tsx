@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Profile, ProfileListItem } from "@fairy/shared";
-import {
-  createProfile,
-  fetchProfiles,
-  updateProfile,
-} from "../../lib/profileApi";
+import { createProfile, fetchProfiles, updateProfile } from "../../lib/profileApi";
 import { t } from "../../lib/i18n";
 
 interface ProfileFormState {
@@ -266,9 +262,7 @@ export function ProfilesAdminPage(): JSX.Element {
       {modalOpen && editingUser ? (
         <ProfileFormModal
           title={
-            editingUser.profile
-              ? t("profiles.modal.editTitle")
-              : t("profiles.modal.createTitle")
+            editingUser.profile ? t("profiles.modal.editTitle") : t("profiles.modal.createTitle")
           }
           form={form}
           formError={formError}

@@ -1,5 +1,10 @@
 import { request } from "./http";
-import type { Profile, ProfileListItem, CreateProfileInput, UpdateProfileInput } from "@fairy/shared";
+import type {
+  Profile,
+  ProfileListItem,
+  CreateProfileInput,
+  UpdateProfileInput,
+} from "@fairy/shared";
 
 export async function fetchProfiles(): Promise<ProfileListItem[]> {
   return request<ProfileListItem[]>("/api/profiles");

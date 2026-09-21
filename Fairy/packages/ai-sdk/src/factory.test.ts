@@ -81,9 +81,7 @@ describe("createAiProvider factory", () => {
   it("honours AI_MODEL override", async () => {
     const fetchImpl = vi
       .fn()
-      .mockResolvedValue(
-        jsonResponse({ choices: [{ message: { content: "hi" } }], usage: {} }),
-      );
+      .mockResolvedValue(jsonResponse({ choices: [{ message: { content: "hi" } }], usage: {} }));
     const provider = createAiProvider({
       env: { ...deepseekEnv, AI_MODEL: "my-model" },
       fetchImpl: fetchImpl as unknown as typeof fetch,
@@ -117,9 +115,7 @@ describe("openai-compatible chat (deepseek)", () => {
 
     const [url, init] = fetchImpl.mock.calls[0];
     expect(url).toBe("https://api.deepseek.com/chat/completions");
-    expect((init.headers as Record<string, string>).Authorization).toBe(
-      "Bearer sk-ds",
-    );
+    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer sk-ds");
     const body = JSON.parse(init.body as string);
     expect(body.model).toBe(PROVIDER_DEFAULT_MODELS.deepseek);
     expect(body.max_tokens).toBe(200);
@@ -156,9 +152,7 @@ describe("openai-compatible chat (deepseek)", () => {
   it("maps 429 to RATE_LIMITED", async () => {
     const provider = createAiProvider({
       env: deepseekEnv,
-      fetchImpl: vi
-        .fn()
-        .mockResolvedValue(jsonResponse({}, 429)) as unknown as typeof fetch,
+      fetchImpl: vi.fn().mockResolvedValue(jsonResponse({}, 429)) as unknown as typeof fetch,
     });
 
     try {
@@ -180,9 +174,7 @@ describe("openai-compatible stream", () => {
     ];
     const provider = createAiProvider({
       env: deepseekEnv,
-      fetchImpl: vi
-        .fn()
-        .mockResolvedValue(sseResponse(blocks)) as unknown as typeof fetch,
+      fetchImpl: vi.fn().mockResolvedValue(sseResponse(blocks)) as unknown as typeof fetch,
     });
 
     const chunks = [];
@@ -215,9 +207,7 @@ describe("embed support matrix", () => {
 
     const result = await provider.embed({ input: "hello" });
 
-    expect(fetchImpl.mock.calls[0][0]).toBe(
-      "https://api.openai.com/v1/embeddings",
-    );
+    expect(fetchImpl.mock.calls[0][0]).toBe("https://api.openai.com/v1/embeddings");
     expect(result.vectors).toEqual([[0.1, 0.2]]);
   });
 
@@ -265,9 +255,7 @@ describe("createEmbeddingProvider (FU-16 optional embed client)", () => {
 
     const [url, init] = fetchImpl.mock.calls[0];
     expect(url).toBe("https://api.openai.com/v1/embeddings");
-    expect((init.headers as Record<string, string>).Authorization).toBe(
-      "Bearer sk-oa",
-    );
+    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer sk-oa");
     const body = JSON.parse(init.body as string);
     expect(body.model).toBe(EMBEDDING_DEFAULT_MODEL);
     expect(result?.vectors).toEqual([[0.1, 0.2]]);
@@ -276,9 +264,7 @@ describe("createEmbeddingProvider (FU-16 optional embed client)", () => {
   it("prefers EMBEDDING_API_KEY and honours EMBEDDING_MODEL", async () => {
     const fetchImpl = vi
       .fn()
-      .mockResolvedValue(
-        jsonResponse({ data: [{ embedding: [0.3, 0.4] }], usage: {} }),
-      );
+      .mockResolvedValue(jsonResponse({ data: [{ embedding: [0.3, 0.4] }], usage: {} }));
     const provider = createEmbeddingProvider({
       env: {
         EMBEDDING_API_KEY: "sk-embed",
@@ -291,9 +277,7 @@ describe("createEmbeddingProvider (FU-16 optional embed client)", () => {
     await provider?.embed({ input: "x" });
 
     const [, init] = fetchImpl.mock.calls[0];
-    expect((init.headers as Record<string, string>).Authorization).toBe(
-      "Bearer sk-embed",
-    );
+    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer sk-embed");
     const body = JSON.parse(init.body as string);
     expect(body.model).toBe("text-embedding-3-large");
   });
@@ -339,9 +323,7 @@ describe("claude provider", () => {
     ];
     const provider = createAiProvider({
       env: claudeEnv,
-      fetchImpl: vi
-        .fn()
-        .mockResolvedValue(sseResponse(blocks)) as unknown as typeof fetch,
+      fetchImpl: vi.fn().mockResolvedValue(sseResponse(blocks)) as unknown as typeof fetch,
     });
 
     const chunks = [];

@@ -1,9 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@fairy/database";
-import {
-  getStoreInsightsOverview,
-  toLocalDateKey,
-} from "../services/insightService";
+import { getStoreInsightsOverview, toLocalDateKey } from "../services/insightService";
 
 vi.mock("@fairy/database", () => ({
   prisma: {
@@ -47,15 +44,9 @@ describe("getStoreInsightsOverview", () => {
       { payload: null },
     ] as never);
     vi.mocked(prisma.rental.findMany)
-      .mockResolvedValueOnce([
-        { createdAt: borrowA },
-        { createdAt: borrowB },
-      ] as never)
+      .mockResolvedValueOnce([{ createdAt: borrowA }, { createdAt: borrowB }] as never)
       .mockResolvedValueOnce([{ updatedAt: returnC }] as never)
-      .mockResolvedValueOnce([
-        { movieId: "m1" },
-        { movieId: "m2" },
-      ] as never);
+      .mockResolvedValueOnce([{ movieId: "m1" }, { movieId: "m2" }] as never);
     vi.mocked(prisma.rental.count).mockResolvedValue(2);
     vi.mocked(prisma.movie.aggregate).mockResolvedValue({
       _sum: { totalStock: 7 },
@@ -81,9 +72,7 @@ describe("getStoreInsightsOverview", () => {
           scenes: ["INSOMNIA"],
         },
       ] as never);
-    vi.mocked(prisma.user.count)
-      .mockResolvedValueOnce(4)
-      .mockResolvedValueOnce(1);
+    vi.mocked(prisma.user.count).mockResolvedValueOnce(4).mockResolvedValueOnce(1);
     vi.mocked(prisma.behaviorLog.groupBy).mockResolvedValue([
       { userId: "u1" },
       { userId: "u2" },
@@ -104,20 +93,20 @@ describe("getStoreInsightsOverview", () => {
 
     expect(overview.trend).toHaveLength(14);
     expect(overview.trend[0].date).toBe(
-      toLocalDateKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 13))
+      toLocalDateKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 13)),
     );
     expect(overview.trend[13].date).toBe(toLocalDateKey(now));
     expect(
-      overview.trend.find((point) => point.date === toLocalDateKey(borrowA))?.borrowCount
+      overview.trend.find((point) => point.date === toLocalDateKey(borrowA))?.borrowCount,
     ).toBe(1);
     expect(
-      overview.trend.find((point) => point.date === toLocalDateKey(borrowB))?.borrowCount
+      overview.trend.find((point) => point.date === toLocalDateKey(borrowB))?.borrowCount,
     ).toBe(1);
     expect(
-      overview.trend.find((point) => point.date === toLocalDateKey(returnC))?.returnCount
+      overview.trend.find((point) => point.date === toLocalDateKey(returnC))?.returnCount,
     ).toBe(1);
     expect(
-      overview.trend.find((point) => point.date === toLocalDateKey(borrowA))?.returnCount
+      overview.trend.find((point) => point.date === toLocalDateKey(borrowA))?.returnCount,
     ).toBe(0);
   });
 
@@ -161,7 +150,9 @@ describe("getStoreInsightsOverview", () => {
     vi.mocked(prisma.rental.findMany)
       .mockReset()
       .mockResolvedValue([] as never);
-    vi.mocked(prisma.movie.findMany).mockReset().mockResolvedValue([] as never);
+    vi.mocked(prisma.movie.findMany)
+      .mockReset()
+      .mockResolvedValue([] as never);
     vi.mocked(prisma.rental.count).mockResolvedValue(0);
     vi.mocked(prisma.movie.aggregate).mockResolvedValue({
       _sum: { totalStock: null },

@@ -97,7 +97,9 @@ describe("MovieLibraryPage", () => {
 
     expect(await screen.findByText("借阅成功")).toBeDefined();
     expect(movieApi.borrowMovie).toHaveBeenCalledWith(MOVIE_ID);
-    const borrowedButton = (await screen.findByRole("button", { name: "已借" })) as HTMLButtonElement;
+    const borrowedButton = (await screen.findByRole("button", {
+      name: "已借",
+    })) as HTMLButtonElement;
     expect(borrowedButton.disabled).toBe(true);
   });
 

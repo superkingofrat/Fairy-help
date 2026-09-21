@@ -162,8 +162,8 @@ describe("ChatPage", () => {
     await waitFor(() =>
       expect(chatApi.postChat).toHaveBeenLastCalledWith(
         { message: "", movieId: MOVIE_ID, sessionId: SESSION_ID },
-        expect.any(Function)
-      )
+        expect.any(Function),
+      ),
     );
   });
 
@@ -204,8 +204,8 @@ describe("ChatPage", () => {
     await waitFor(() =>
       expect(chatApi.postChat).toHaveBeenLastCalledWith(
         { message: "", movieId: MOVIE_ID, action: "return" },
-        expect.any(Function)
-      )
+        expect.any(Function),
+      ),
     );
     expect(sessionApi.createSession).not.toHaveBeenCalled();
     await waitFor(() => expect(screen.queryByText("盗梦空间")).toBeNull());
@@ -226,7 +226,7 @@ describe("ChatPage", () => {
     await waitFor(() => expect(sessionApi.createSession).toHaveBeenCalled());
     expect(chatApi.postChat).toHaveBeenLastCalledWith(
       { message: "你好呀", sessionId: SESSION_ID },
-      expect.any(Function)
+      expect.any(Function),
     );
   });
 
@@ -251,8 +251,8 @@ describe("ChatPage", () => {
     await waitFor(() =>
       expect(chatApi.postChat).toHaveBeenLastCalledWith(
         { message: "", movieId: MOVIE_ID, sessionId: SESSION_ID },
-        expect.any(Function)
-      )
+        expect.any(Function),
+      ),
     );
   });
 
@@ -267,7 +267,7 @@ describe("ChatPage", () => {
     fireEvent.click(await screen.findByText("通勤"));
 
     await waitFor(() =>
-      expect(sessionApi.getSessionMessages).toHaveBeenCalledWith(OTHER_SESSION_ID)
+      expect(sessionApi.getSessionMessages).toHaveBeenCalledWith(OTHER_SESSION_ID),
     );
   });
 
@@ -354,7 +354,7 @@ describe("RecommendationCard borrow/return toggle", () => {
         isBorrowed
         onBorrow={vi.fn()}
         onReturn={onReturn}
-      />
+      />,
     );
 
     const button = screen.getByRole("button", { name: "归还" });

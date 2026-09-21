@@ -30,12 +30,16 @@ describe("RegisterPage", () => {
   }
 
   it("submits credentials and stores the session", async () => {
-    vi.mocked(authApi.register).mockResolvedValue({ token: "t", refreshToken: "rt", user: newUser });
+    vi.mocked(authApi.register).mockResolvedValue({
+      token: "t",
+      refreshToken: "rt",
+      user: newUser,
+    });
 
     render(
       <MemoryRouter>
         <RegisterPage />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     fillForm();
@@ -53,7 +57,7 @@ describe("RegisterPage", () => {
     render(
       <MemoryRouter>
         <RegisterPage />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     fillForm("secret123", "secret124");
@@ -67,7 +71,7 @@ describe("RegisterPage", () => {
     render(
       <MemoryRouter>
         <RegisterPage />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     fillForm("12345");
@@ -83,7 +87,7 @@ describe("RegisterPage", () => {
     render(
       <MemoryRouter>
         <RegisterPage />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     fillForm();

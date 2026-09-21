@@ -68,19 +68,14 @@ export function createApp(): express.Application {
   app.use("/api/memories", authMiddleware, memoriesRouter);
 
   app.use(
-    (
-      err: Error,
-      _req: express.Request,
-      res: express.Response,
-      _next: express.NextFunction
-    ) => {
+    (err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
       console.error(err);
       res.status(500).json({
         code: "INTERNAL_ERROR",
         data: null,
         msg: "Unexpected server error",
       });
-    }
+    },
   );
 
   return app;

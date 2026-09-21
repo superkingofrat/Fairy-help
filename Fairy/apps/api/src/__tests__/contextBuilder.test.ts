@@ -18,7 +18,7 @@ describe("buildConversationHistory", () => {
     ];
 
     expect(buildConversationHistory(turns)).toBe(
-      "用户：雨天想看点什么\nFairy：为你推荐《星际穿越》"
+      "用户：雨天想看点什么\nFairy：为你推荐《星际穿越》",
     );
   });
 });
@@ -51,7 +51,7 @@ describe("buildMemoryBlock", () => {
     ];
 
     expect(buildMemoryBlock(memories)).toBe(
-      "【记忆】\n- [preference] 喜欢科幻片\n- [fact] 家住上海"
+      "【记忆】\n- [preference] 喜欢科幻片\n- [fact] 家住上海",
     );
   });
 });

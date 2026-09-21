@@ -12,10 +12,7 @@ function estimateTokens(text: string): number {
 }
 
 // 裁剪历史使 prompt 不超出预算：记忆不裁剪，只从历史尾部截断。
-export function trimHistoryToBudget(
-  historyText: string,
-  memoryBlock: string
-): string {
+export function trimHistoryToBudget(historyText: string, memoryBlock: string): string {
   const memoryTokens = estimateTokens(memoryBlock);
   const budget = MAX_PROMPT_TOKENS - memoryTokens;
   if (budget <= 0) {
@@ -64,8 +61,6 @@ export function buildMemoryBlock(memories: MemoryRecord[]): string {
   if (memories.length === 0) {
     return "";
   }
-  const lines = memories
-    .map((memory) => `- [${memory.kind}] ${memory.content}`)
-    .join("\n");
+  const lines = memories.map((memory) => `- [${memory.kind}] ${memory.content}`).join("\n");
   return `【记忆】\n${lines}`;
 }

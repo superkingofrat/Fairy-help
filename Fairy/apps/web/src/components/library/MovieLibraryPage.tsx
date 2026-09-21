@@ -39,7 +39,7 @@ export function MovieLibraryPage(): JSX.Element {
 
   const filtering = useMemo(
     () => moods.length > 0 || scenes.length > 0 || keyword.trim() !== "",
-    [moods, scenes, keyword]
+    [moods, scenes, keyword],
   );
 
   const refreshRentals = useCallback(async () => {
@@ -113,7 +113,7 @@ export function MovieLibraryPage(): JSX.Element {
       void refreshRentals();
       setRefreshTick((tick) => tick + 1);
     },
-    [refreshRentals]
+    [refreshRentals],
   );
 
   const handleSearch = (): void => {

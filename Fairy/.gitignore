@@ -31,5 +31,8 @@ Thumbs.db
 # Testing
 coverage/
 
+# Turbo 构建缓存
+.turbo/
+
 # Prisma
 packages/database/prisma/migrations/*/migration_lock.toml

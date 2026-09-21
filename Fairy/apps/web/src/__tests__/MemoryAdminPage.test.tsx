@@ -55,7 +55,7 @@ describe("MemoryAdminPage", () => {
           content: "不吃香菜",
           sessionId: "session-abc123",
         }),
-      ])
+      ]),
     );
 
     render(<MemoryAdminPage />);
@@ -79,7 +79,7 @@ describe("MemoryAdminPage", () => {
     });
 
     expect(memoryApi.fetchMemories).toHaveBeenLastCalledWith(
-      expect.objectContaining({ kind: "intent", page: 1 })
+      expect.objectContaining({ kind: "intent", page: 1 }),
     );
   });
 
@@ -95,7 +95,7 @@ describe("MemoryAdminPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "搜索" }));
 
     expect(memoryApi.fetchMemories).toHaveBeenLastCalledWith(
-      expect.objectContaining({ keyword: "科幻", page: 1 })
+      expect.objectContaining({ keyword: "科幻", page: 1 }),
     );
   });
 
@@ -108,18 +108,14 @@ describe("MemoryAdminPage", () => {
   });
 
   it("moves to the next page when pagination is available", async () => {
-    vi.mocked(memoryApi.fetchMemories).mockResolvedValue(
-      feed([memoryItem()], 2)
-    );
+    vi.mocked(memoryApi.fetchMemories).mockResolvedValue(feed([memoryItem()], 2));
 
     render(<MemoryAdminPage />);
     await screen.findByText("user@fairy.local");
 
     fireEvent.click(screen.getByRole("button", { name: "下一页" }));
 
-    expect(memoryApi.fetchMemories).toHaveBeenLastCalledWith(
-      expect.objectContaining({ page: 2 })
-    );
+    expect(memoryApi.fetchMemories).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 }));
   });
 
   it("creates a memory for a selected user and reloads the list", async () => {
@@ -142,7 +138,7 @@ describe("MemoryAdminPage", () => {
       target: { value: "喜欢太空题材科幻片" },
     });
     fireEvent.submit(
-      screen.getByRole("heading", { name: "新增记忆" }).closest("form") as HTMLFormElement
+      screen.getByRole("heading", { name: "新增记忆" }).closest("form") as HTMLFormElement,
     );
 
     await waitFor(() =>
@@ -150,11 +146,9 @@ describe("MemoryAdminPage", () => {
         userId: DEV_ADMIN_ID,
         kind: "preference",
         content: "喜欢太空题材科幻片",
-      })
+      }),
     );
-    expect(memoryApi.fetchMemories).toHaveBeenLastCalledWith(
-      expect.objectContaining({ page: 1 })
-    );
+    expect(memoryApi.fetchMemories).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1 }));
   });
 
   it("requires a user before creating", async () => {
@@ -170,7 +164,7 @@ describe("MemoryAdminPage", () => {
     await screen.findByRole("option", { name: "admin@fairy.local" });
 
     fireEvent.submit(
-      screen.getByRole("heading", { name: "新增记忆" }).closest("form") as HTMLFormElement
+      screen.getByRole("heading", { name: "新增记忆" }).closest("form") as HTMLFormElement,
     );
 
     expect(await screen.findByText("请选择用户")).toBeDefined();
@@ -185,7 +179,7 @@ describe("MemoryAdminPage", () => {
           kind: "fact",
           content: "不吃香菜",
         }),
-      ])
+      ]),
     );
 
     render(<MemoryAdminPage />);
@@ -198,14 +192,14 @@ describe("MemoryAdminPage", () => {
       target: { value: "开始吃香菜了" },
     });
     fireEvent.submit(
-      screen.getByRole("heading", { name: "编辑记忆" }).closest("form") as HTMLFormElement
+      screen.getByRole("heading", { name: "编辑记忆" }).closest("form") as HTMLFormElement,
     );
 
     await waitFor(() =>
       expect(memoryApi.updateMemory).toHaveBeenCalledWith("mem-1", {
         kind: "fact",
         content: "开始吃香菜了",
-      })
+      }),
     );
   });
 
@@ -221,8 +215,6 @@ describe("MemoryAdminPage", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "删除" })[1]);
 
     await waitFor(() => expect(memoryApi.deleteMemory).toHaveBeenCalledWith("mem-9"));
-    expect(memoryApi.fetchMemories).toHaveBeenLastCalledWith(
-      expect.objectContaining({ page: 1 })
-    );
+    expect(memoryApi.fetchMemories).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1 }));
   });
 });

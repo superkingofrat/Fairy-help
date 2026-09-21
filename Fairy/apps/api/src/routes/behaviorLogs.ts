@@ -6,6 +6,11 @@ import { validateQuery } from "../middleware/validateBody";
 
 const router: IRouter = Router();
 
-router.get("/", requireRole("admin"), validateQuery(behaviorLogQuerySchema), listBehaviorLogsHandler);
+router.get(
+  "/",
+  requireRole("admin"),
+  validateQuery(behaviorLogQuerySchema),
+  listBehaviorLogsHandler,
+);
 
 export { router as behaviorLogsRouter };

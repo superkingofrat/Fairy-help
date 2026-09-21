@@ -16,9 +16,7 @@ const KIND_LABEL_KEY: Record<MemoryKind, keyof Messages> = {
 };
 
 function originLabel(item: MemorySelfListItem): string {
-  return item.sessionId
-    ? t("memory.self.source.conversation")
-    : t("memory.self.source.system");
+  return item.sessionId ? t("memory.self.source.conversation") : t("memory.self.source.system");
 }
 
 function formatMemoryTime(iso: string): string {

@@ -78,7 +78,11 @@ describe("App", () => {
   it("renders admin navigation for admin role", async () => {
     useAuthStore.setState({
       token: "t",
-      user: { id: "00000000-0000-4000-8000-000000000002", email: "admin@fairy.local", role: "admin" },
+      user: {
+        id: "00000000-0000-4000-8000-000000000002",
+        email: "admin@fairy.local",
+        role: "admin",
+      },
     });
     render(<App />);
     expect(await screen.findByText("影片管理")).toBeDefined();
@@ -94,7 +98,7 @@ describe("App", () => {
     vi.mocked(ensureSessionOnBoot).mockReturnValueOnce(
       new Promise<"ok" | "expired">((resolve) => {
         resolveBoot = resolve;
-      })
+      }),
     );
     useAuthStore.setState({
       token: "t",
@@ -188,7 +192,7 @@ describe("MoviesAdminPage", () => {
     render(
       <MemoryRouter>
         <MoviesAdminPage />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     expect(await screen.findByText("星际穿越")).toBeDefined();
@@ -199,7 +203,7 @@ describe("MoviesAdminPage", () => {
     render(
       <MemoryRouter>
         <MoviesAdminPage />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     fireEvent.click(await screen.findByRole("button", { name: "新增影片" }));
@@ -209,7 +213,9 @@ describe("MoviesAdminPage", () => {
     fireEvent.change(screen.getByLabelText("类型"), { target: { value: "剧情" } });
     fireEvent.change(screen.getByLabelText("可借库存"), { target: { value: "1" } });
     fireEvent.change(screen.getByLabelText("总库存"), { target: { value: "1" } });
-    fireEvent.submit(screen.getByRole("heading", { name: "新增影片" }).closest("form") as HTMLFormElement);
+    fireEvent.submit(
+      screen.getByRole("heading", { name: "新增影片" }).closest("form") as HTMLFormElement,
+    );
 
     expect(await screen.findByText(/请选择 1 到 3 个心情标签/)).toBeDefined();
     expect(screen.getByText(/请选择 1 到 3 个场景标签/)).toBeDefined();

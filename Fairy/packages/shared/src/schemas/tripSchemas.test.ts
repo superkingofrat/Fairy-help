@@ -106,12 +106,8 @@ describe("tripPoiSchema", () => {
 
 describe("itineraryDaySchema / routeLegSchema", () => {
   it("requires day >= 1 and at least one step", () => {
-    expect(
-      itineraryDaySchema.safeParse({ day: 0, title: "x", steps: [] }).success,
-    ).toBe(false);
-    expect(itineraryDaySchema.safeParse({ day: 1, title: "x", steps: [] }).success).toBe(
-      false
-    );
+    expect(itineraryDaySchema.safeParse({ day: 0, title: "x", steps: [] }).success).toBe(false);
+    expect(itineraryDaySchema.safeParse({ day: 1, title: "x", steps: [] }).success).toBe(false);
     expect(
       itineraryDaySchema.safeParse({
         day: 1,
@@ -159,9 +155,9 @@ describe("tripResultSchema", () => {
   });
 
   it("rejects an invalid tripId", () => {
-    expect(
-      tripResultSchema.safeParse({ ...tripResultFixture, tripId: "not-a-uuid" }).success,
-    ).toBe(false);
+    expect(tripResultSchema.safeParse({ ...tripResultFixture, tripId: "not-a-uuid" }).success).toBe(
+      false,
+    );
   });
 });
 

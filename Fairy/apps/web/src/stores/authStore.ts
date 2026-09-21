@@ -19,6 +19,6 @@ export const useAuthStore = create<AuthState>()(
       setSession: (token, user, refreshToken) => set({ token, user, refreshToken }),
       clear: () => set({ token: null, refreshToken: null, user: null }),
     }),
-    { name: "fairy-auth" }
-  )
+    { name: "fairy-auth" },
+  ),
 );

@@ -22,9 +22,7 @@ function blockToSseBlock(block: string): SseBlock | null {
   return { event, data: dataLines.join("\n") };
 }
 
-export async function* parseSseBlocks(
-  body: ReadableStream<Uint8Array>
-): AsyncGenerator<SseBlock> {
+export async function* parseSseBlocks(body: ReadableStream<Uint8Array>): AsyncGenerator<SseBlock> {
   const decoder = new TextDecoder();
   let buffer = "";
 

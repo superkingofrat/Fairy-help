@@ -74,7 +74,7 @@ describe("TripTimeline", () => {
             },
           ],
         }}
-      />
+      />,
     );
 
     expect(screen.getByText("未验证")).toBeDefined();

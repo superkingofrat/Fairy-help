@@ -19,11 +19,7 @@ import { validateBody, validateQuery } from "../middleware/validateBody";
 // FU-17：GET /me 自查面——任意已登录角色（router 已在 app.ts 挂 authMiddleware，身份在 res.locals.userId）。
 const router: IRouter = Router();
 
-router.get(
-  "/me",
-  validateQuery(memorySelfQuerySchema),
-  listMyMemoriesHandler
-);
+router.get("/me", validateQuery(memorySelfQuerySchema), listMyMemoriesHandler);
 router.get("/", requireRole("admin"), validateQuery(memoryQuerySchema), listMemoriesHandler);
 router.post("/", requireRole("admin"), validateBody(memoryCreateSchema), createMemoryHandler);
 router.patch("/:id", requireRole("admin"), validateBody(memoryUpdateSchema), updateMemoryHandler);

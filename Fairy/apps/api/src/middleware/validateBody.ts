@@ -25,7 +25,7 @@ export function validateQuery(schema: ZodSchema) {
 
     if (!result.success) {
       const isMissingSearchCriteria = result.error.issues.some(
-        (issue) => issue.message === "At least one of mood, scene, or keyword is required"
+        (issue) => issue.message === "At least one of mood, scene, or keyword is required",
       );
 
       res.status(400).json({

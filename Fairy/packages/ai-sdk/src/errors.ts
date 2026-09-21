@@ -13,11 +13,7 @@ export class AiProviderError extends Error {
   readonly code: AiProviderErrorCode;
   readonly provider: AiProviderName | "unknown";
 
-  constructor(
-    code: AiProviderErrorCode,
-    provider: AiProviderName | "unknown",
-    message: string
-  ) {
+  constructor(code: AiProviderErrorCode, provider: AiProviderName | "unknown", message: string) {
     super(message);
     this.name = "AiProviderError";
     this.code = code;

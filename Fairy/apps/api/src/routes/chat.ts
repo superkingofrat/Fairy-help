@@ -55,9 +55,7 @@ router.post("/", validateBody(chatRequestSchema), async (req, res, next) => {
       sessionId = created.id;
     }
 
-    const history = sessionId
-      ? await sessionService.getRecentMessages(userId, sessionId, 10)
-      : [];
+    const history = sessionId ? await sessionService.getRecentMessages(userId, sessionId, 10) : [];
     const historyText = buildConversationHistory(history);
 
     res.status(200);
@@ -81,7 +79,7 @@ router.post("/", validateBody(chatRequestSchema), async (req, res, next) => {
         (delta) => {
           streamed = true;
           writeSse(res, "text", { content: delta });
-        }
+        },
       );
 
       // 落库是旁路：失败不中断 SSE（可观测性损失，非功能损失）

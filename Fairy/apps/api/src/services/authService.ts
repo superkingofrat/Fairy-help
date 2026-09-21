@@ -16,8 +16,7 @@ export interface LoginResult {
 }
 
 export type RegisterResult =
-  | { ok: true; user: AuthUser }
-  | { ok: false; code: "EMAIL_ALREADY_EXISTS" };
+  { ok: true; user: AuthUser } | { ok: false; code: "EMAIL_ALREADY_EXISTS" };
 
 export type RefreshResult =
   | { ok: true; token: string; refreshToken: string; user: AuthUser }
@@ -59,14 +58,17 @@ export async function registerUser(email: string, password: string): Promise<Reg
         travelStyle: null,
       });
     } catch (profileError) {
-      // eslint-disable-next-line no-console
       console.warn("[auth] blank profile creation failed:", profileError);
     }
 
     return { ok: true, user: { id: user.id, email: user.email, role: user.role } };
   } catch (error) {
     // P2002: unique constraint（email 已存在）
-    if (error instanceof Error && "code" in error && (error as { code?: string }).code === "P2002") {
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      (error as { code?: string }).code === "P2002"
+    ) {
       return { ok: false, code: "EMAIL_ALREADY_EXISTS" };
     }
     throw error;
@@ -149,7 +151,9 @@ export async function rotateRefreshToken(refreshToken: string): Promise<RefreshR
 }
 
 export async function revokeRefreshToken(refreshToken: string): Promise<boolean> {
-  const existing = await prisma.refreshToken.findUnique({ where: { tokenHash: hashToken(refreshToken) } });
+  const existing = await prisma.refreshToken.findUnique({
+    where: { tokenHash: hashToken(refreshToken) },
+  });
   if (!existing || existing.revokedAt) {
     return false;
   }

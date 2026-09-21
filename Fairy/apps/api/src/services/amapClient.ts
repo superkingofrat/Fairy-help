@@ -94,7 +94,7 @@ interface DrivingResponse {
 
 export async function planRoute(
   from: AmapPoiLocation,
-  to: AmapPoiLocation
+  to: AmapPoiLocation,
 ): Promise<AmapRouteMetrics | null> {
   const data = await amapGet<DrivingResponse>("/direction/driving", {
     origin: `${from.lng},${from.lat}`,

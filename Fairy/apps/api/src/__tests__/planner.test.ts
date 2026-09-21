@@ -13,9 +13,10 @@ describe("plan", () => {
   });
 
   it("keeps existing intent mappings intact", () => {
-    expect(
-      plan({ type: "borrow", movieId: "550e8400-e29b-41d4-a716-446655440000" })
-    ).toEqual({ tool: "borrow", movieId: "550e8400-e29b-41d4-a716-446655440000" });
+    expect(plan({ type: "borrow", movieId: "550e8400-e29b-41d4-a716-446655440000" })).toEqual({
+      tool: "borrow",
+      movieId: "550e8400-e29b-41d4-a716-446655440000",
+    });
     expect(plan({ type: "chitchat" })).toEqual({ tool: "none", reason: "chitchat" });
     expect(plan({ type: "unmatched" })).toEqual({ tool: "none", reason: "unmatched" });
   });

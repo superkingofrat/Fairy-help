@@ -186,9 +186,7 @@ describe("memoryService.addMemory", () => {
   });
 
   it("passes sessionId and metadata when provided", async () => {
-    vi.mocked(prisma.memory.create).mockResolvedValue(
-      prismaRecord({ sessionId: "sess-1" }),
-    );
+    vi.mocked(prisma.memory.create).mockResolvedValue(prismaRecord({ sessionId: "sess-1" }));
 
     await addMemory({
       profileId: PROFILE_ID,
@@ -272,9 +270,7 @@ describe("memoryService.listMemories", () => {
       ...prismaRecord(),
       profile: { user: { email: "user@fairy.local" } },
     };
-    vi.mocked(prisma.memory.findMany).mockResolvedValue([
-      listRow,
-    ] as unknown as Memory[]);
+    vi.mocked(prisma.memory.findMany).mockResolvedValue([listRow] as unknown as Memory[]);
     vi.mocked(prisma.memory.count).mockResolvedValue(1);
 
     const { items, total } = await listMemories({ page: 1, limit: 20 });
@@ -329,9 +325,7 @@ describe("memoryService.listOwnMemories", () => {
   });
 
   it("returns only the owner's rows without an email/userId join", async () => {
-    vi.mocked(prisma.memory.findMany).mockResolvedValue([
-      prismaRecord(),
-    ] as unknown as Memory[]);
+    vi.mocked(prisma.memory.findMany).mockResolvedValue([prismaRecord()] as unknown as Memory[]);
     vi.mocked(prisma.memory.count).mockResolvedValue(1);
 
     const { items, total } = await listOwnMemories(PROFILE_ID, {
@@ -550,9 +544,7 @@ describe("memoryService write-time embedding (FU-16)", () => {
   });
 
   it("keeps the memory row when the embedding write-back fails (log only)", async () => {
-    vi.mocked(prisma.memory.create).mockResolvedValue(
-      prismaRecord({ content: "家住上海" }),
-    );
+    vi.mocked(prisma.memory.create).mockResolvedValue(prismaRecord({ content: "家住上海" }));
     vi.mocked(embedContent).mockResolvedValue(VEC_1536);
     vi.mocked(prisma.$executeRaw).mockRejectedValue(new Error("vector down"));
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
@@ -564,9 +556,7 @@ describe("memoryService write-time embedding (FU-16)", () => {
     });
 
     expect(record).toMatchObject({ content: "家住上海" });
-    expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining("write-back failed"),
-    );
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("write-back failed"));
     warn.mockRestore();
   });
 
@@ -620,9 +610,7 @@ describe("memoryService.searchMemories hybrid retrieval (FU-16)", () => {
 
   it("ranks by cosine similarity via raw SQL and skips the structured path when the limit is met", async () => {
     vi.mocked(embedContent).mockResolvedValue(VEC_1536);
-    vi.mocked(prisma.$queryRaw).mockResolvedValue(
-      mockVectorRows(5, "喜欢科幻"),
-    );
+    vi.mocked(prisma.$queryRaw).mockResolvedValue(mockVectorRows(5, "喜欢科幻"));
 
     const records = await searchMemories(PROFILE_ID, {
       query: "我喜欢什么类型的片子",
@@ -726,9 +714,7 @@ describe("memoryService.searchMemories hybrid retrieval (FU-16)", () => {
 
   it("keeps the vector query isolated to the requested profileId", async () => {
     vi.mocked(embedContent).mockResolvedValue(VEC_1536);
-    vi.mocked(prisma.$queryRaw).mockResolvedValue([
-      vectorRow({ profileId: OTHER_PROFILE_ID }),
-    ]);
+    vi.mocked(prisma.$queryRaw).mockResolvedValue([vectorRow({ profileId: OTHER_PROFILE_ID })]);
 
     await searchMemories(OTHER_PROFILE_ID, { query: "科幻片" });
 

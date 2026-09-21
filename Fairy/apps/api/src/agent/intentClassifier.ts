@@ -21,8 +21,7 @@ export type ChatIntent =
   | { type: "chitchat" }
   | { type: "unmatched" };
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const INTENT_SYSTEM_PROMPT = `你是录像带门店助理 Fairy 的意图理解模块。只输出一个 JSON 对象，不要输出任何解释或代码块标记。
 JSON 格式：{"intent":"borrow|return|recommend|store_insight|plan_trip|chitchat","movieTitle":string|null,"moods":string[],"scenes":string[],"topic":"popular|trend|inventory|mood_scene|activity|overview"}
@@ -38,14 +37,7 @@ JSON 格式：{"intent":"borrow|return|recommend|store_insight|plan_trip|chitcha
 口语映射参考：emo/想哭/难过→致郁；睡不着/失眠→失眠夜；治愈/温暖→治愈；放松→轻松；约会/浪漫→浪漫；一个人在家→独自在家；通勤/路上→通勤路上。拿不准就选最接近的枚举，宁缺毋滥。`;
 
 const llmIntentSchema = z.object({
-  intent: z.enum([
-    "borrow",
-    "return",
-    "recommend",
-    "store_insight",
-    "plan_trip",
-    "chitchat",
-  ]),
+  intent: z.enum(["borrow", "return", "recommend", "store_insight", "plan_trip", "chitchat"]),
   movieTitle: z.string().nullish(),
   moods: z.array(z.string()).nullish(),
   scenes: z.array(z.string()).nullish(),
@@ -72,7 +64,7 @@ function extractJson(text: string): unknown {
 
 function toValidatedEnums(
   values: string[] | null | undefined,
-  allowed: readonly string[]
+  allowed: readonly string[],
 ): string[] {
   if (!values) {
     return [];
@@ -92,7 +84,7 @@ async function resolveTitleToId(title: string): Promise<string | null> {
 
 async function classifyIntentWithLlm(
   message: string,
-  history?: string
+  history?: string,
 ): Promise<ChatIntent | null> {
   const text = sanitizeUserInput(message);
   if (!text) {
@@ -106,7 +98,7 @@ async function classifyIntentWithLlm(
       { role: "system", content: INTENT_SYSTEM_PROMPT },
       { role: "user", content: `${historyLine}用户说：「${text}」` },
     ],
-    { maxTokens: 200, temperature: 0 }
+    { maxTokens: 200, temperature: 0 },
   );
   if (!result) {
     return null;

@@ -6,13 +6,13 @@ Fairy 智能体可调用的业务工具定义。工具由 `classifyIntent → pl
 
 ## 工具清单
 
-| 工具 | 源码 | 触发意图 | 参数 | 权限 | 说明 |
-|---|---|---|---|---|---|
-| recommendMovieTool | `apps/api/src/tools/recommendMovieTool.ts` | `recommend` | `moods` / `scenes` / 片名约束 | 登录用户 | 按画像与情绪/场景推荐影片，返回候选片单 |
-| borrowMovieTool | `apps/api/src/tools/borrowMovieTool.ts` | `borrow` | `movieTitle` | 登录用户 | 借出影片；库存为 0 或租期冲突时返回失败原因 |
-| returnMovieTool | `apps/api/src/tools/returnMovieTool.ts` | `return` | `movieTitle` | 登录用户 | 归还影片；校验租约存在与状态 |
-| planTripTool | `apps/api/src/tools/planTripTool.ts` | `trip` | 出行意图参数 | 登录用户 | 旅行规划（接入外部出行/地图能力，见 services/amapClient） |
-| storeInsightTool | `apps/api/src/tools/storeInsightTool.ts` | `store_insight` | 无（零参） | **仅 admin** | 聚合门店运营看板（热门/趋势/库存/分布/活跃），复用 `insightService.getStoreInsightsOverview()`；非 admin 在 dispatch 层直接拒绝（`code: FORBIDDEN`），不调用工具（FU-12） |
+| 工具               | 源码                                       | 触发意图        | 参数                          | 权限         | 说明                                                                                                                                                                      |
+| ------------------ | ------------------------------------------ | --------------- | ----------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| recommendMovieTool | `apps/api/src/tools/recommendMovieTool.ts` | `recommend`     | `moods` / `scenes` / 片名约束 | 登录用户     | 按画像与情绪/场景推荐影片，返回候选片单                                                                                                                                   |
+| borrowMovieTool    | `apps/api/src/tools/borrowMovieTool.ts`    | `borrow`        | `movieTitle`                  | 登录用户     | 借出影片；库存为 0 或租期冲突时返回失败原因                                                                                                                               |
+| returnMovieTool    | `apps/api/src/tools/returnMovieTool.ts`    | `return`        | `movieTitle`                  | 登录用户     | 归还影片；校验租约存在与状态                                                                                                                                              |
+| planTripTool       | `apps/api/src/tools/planTripTool.ts`       | `trip`          | 出行意图参数                  | 登录用户     | 旅行规划（接入外部出行/地图能力，见 services/amapClient）                                                                                                                 |
+| storeInsightTool   | `apps/api/src/tools/storeInsightTool.ts`   | `store_insight` | 无（零参）                    | **仅 admin** | 聚合门店运营看板（热门/趋势/库存/分布/活跃），复用 `insightService.getStoreInsightsOverview()`；非 admin 在 dispatch 层直接拒绝（`code: FORBIDDEN`），不调用工具（FU-12） |
 
 ## 执行链路
 

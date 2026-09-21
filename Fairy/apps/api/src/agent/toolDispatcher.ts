@@ -4,7 +4,13 @@ import { returnMovieTool } from "../tools/returnMovieTool";
 import { storeInsightTool } from "../tools/storeInsightTool";
 import { planTripTool } from "../tools/planTripTool";
 import type { PlannedCall } from "./planner";
-import type { Movie, StoreInsightsOverview, InsightTopic, TripResult, Profile } from "@fairy/shared";
+import type {
+  Movie,
+  StoreInsightsOverview,
+  InsightTopic,
+  TripResult,
+  Profile,
+} from "@fairy/shared";
 import type { Role } from "../middleware/auth";
 
 export type ToolObservation =
@@ -48,7 +54,7 @@ export async function dispatch(
   userId: string,
   role: Role = "user",
   message?: string,
-  profile: Profile | null = null
+  profile: Profile | null = null,
 ): Promise<ToolObservation> {
   if (plan.tool === "recommend") {
     const result = await recommendMovieTool({

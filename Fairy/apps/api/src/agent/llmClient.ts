@@ -10,11 +10,12 @@ import { recordUsage } from "./usage";
 
 const MAX_INPUT_CHARS = 2000;
 
+// 剥离 C0/C1 控制字符与 DEL：清洗用户输入本身就是目的，正则必须匹配它们
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
+
 export function sanitizeUserInput(message: string): string {
-  return message
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
-    .trim()
-    .slice(0, MAX_INPUT_CHARS);
+  return message.replace(CONTROL_CHARS, "").trim().slice(0, MAX_INPUT_CHARS);
 }
 
 let cachedProvider: AiProvider | null | undefined;
@@ -39,9 +40,8 @@ export function getLlmProvider(): AiProvider | null {
     cachedProvider = createAiProvider();
   } catch (error) {
     if (isAiProviderError(error)) {
-      // eslint-disable-next-line no-console
       console.warn(
-        JSON.stringify({ source: "llmClient", code: error.code, provider: error.provider })
+        JSON.stringify({ source: "llmClient", code: error.code, provider: error.provider }),
       );
     }
     cachedProvider = null;
@@ -67,12 +67,10 @@ const NULL_USAGE: UsageMetadata = {
 
 function logProviderWarn(_source: string, error: unknown): void {
   if (isAiProviderError(error)) {
-    // eslint-disable-next-line no-console
     console.warn(
-      JSON.stringify({ source: "llmClient", code: error.code, provider: error.provider })
+      JSON.stringify({ source: "llmClient", code: error.code, provider: error.provider }),
     );
   } else {
-    // eslint-disable-next-line no-console
     console.warn(JSON.stringify({ source: "llmClient", code: "UNKNOWN" }));
   }
 }
@@ -85,7 +83,7 @@ async function streamFromProvider(
   provider: AiProvider,
   messages: ChatMessage[],
   options: TryChatOptions | undefined,
-  onDelta: (delta: string) => void
+  onDelta: (delta: string) => void,
 ): Promise<ChatResult | null> {
   let text = "";
   let usage: UsageMetadata = NULL_USAGE;
@@ -127,7 +125,7 @@ export async function tryChat(
   source: string,
   messages: ChatMessage[],
   options?: TryChatOptions,
-  onDelta?: (delta: string) => void
+  onDelta?: (delta: string) => void,
 ): Promise<ChatResult | null> {
   const provider = getLlmProvider();
   if (!provider) {

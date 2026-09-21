@@ -126,7 +126,7 @@ export function MoviesAdminPage(): JSX.Element {
 
   const isSearchActive = useMemo(
     () => Boolean(keyword.trim() || filterMood || filterScene),
-    [filterMood, filterScene, keyword]
+    [filterMood, filterScene, keyword],
   );
 
   const loadMovies = useCallback(async () => {

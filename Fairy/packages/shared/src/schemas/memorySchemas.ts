@@ -22,7 +22,7 @@ export const memoryExtractionSchema = z.object({
       z.object({
         kind: memoryKindSchema,
         content: z.string().min(1),
-      })
+      }),
     )
     .max(10),
   // FU-18：画像反向回写——LLM 每轮额外输出本轮对话体现的偏好类型（最多 3 个）。
@@ -111,4 +111,3 @@ export type MemorySelfListItem = z.infer<typeof memorySelfListItemSchema>;
 export type MemorySelfListFeed = z.infer<typeof memorySelfListFeedSchema>;
 export type MemoryCreateInput = z.infer<typeof memoryCreateSchema>;
 export type MemoryUpdateInput = z.infer<typeof memoryUpdateSchema>;
-
