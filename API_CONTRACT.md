@@ -275,14 +275,16 @@ Authorization: Bearer <jwt>
 
 ```ts
 {
-  message: string;     // 可为空（仅 movieId 借阅 / action 归还时）
+  message: string;     // 可为空（仅 movieId 借阅 / action 归还时）；上限 2000 字符
   movieId?: string;    // UUID，一键借阅或 action 归还
   action?: "return";   // FU-8：确定性归还，必须携带 movieId（否则 400）
-  sessionId?: string;  // FU-7：可选；普通消息缺省时后端自动创建会话
+  sessionId?: string;  // FU-7：可选 UUID；普通消息缺省时后端自动创建会话
 }
 ```
 
 `action: "return"` 与 `movieId` 必须同时出现；缺失其一返回 400 `VALIDATION_ERROR`。
+
+`message` 上限 2000 字符、`sessionId` 必须为 UUID；超出上限或非 UUID 均返回 400 `VALIDATION_ERROR`（与 `movieId` 同规则，不静默截断消息）。
 
 会话行为（FU-7 起）：
 
@@ -325,7 +327,7 @@ Authorization: Bearer <jwt>
 
 | 状态 | Code | 场景 |
 |---|---|---|
-| 400 | `VALIDATION_ERROR` | 请求体不合法（如 `movieId` 不是 UUID）。 |
+| 400 | `VALIDATION_ERROR` | 请求体不合法（如 `movieId`/`sessionId` 不是 UUID、`message` 超 2000 字符）。 |
 | 403 | `SESSION_FORBIDDEN` | `sessionId` 属于其他用户（FU-7 起）。 |
 | 404 | `SESSION_NOT_FOUND` | `sessionId` 不存在（FU-7 起）。 |
 

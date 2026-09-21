@@ -140,6 +140,27 @@ describe("POST /api/chat", () => {
     expect(response.body.code).toBe("VALIDATION_ERROR");
   });
 
+  it("rejects a non-uuid sessionId before any session lookup", async () => {
+    const response = await request(app)
+      .post("/api/chat")
+      .set("Authorization", authHeader("user"))
+      .send({ message: "雨天", sessionId: "session-1" });
+
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe("VALIDATION_ERROR");
+    expect(sessionService.getOwnedSession).not.toHaveBeenCalled();
+  });
+
+  it("rejects a message over the input cap", async () => {
+    const response = await request(app)
+      .post("/api/chat")
+      .set("Authorization", authHeader("user"))
+      .send({ message: "a".repeat(2001) });
+
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe("VALIDATION_ERROR");
+  });
+
   it("rejects action return without movieId with 400", async () => {
     const response = await request(app)
       .post("/api/chat")
