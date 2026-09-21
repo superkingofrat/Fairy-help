@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@fairy/database";
-import { getStoreInsightsOverview, toLocalDateKey } from "../services/insightService";
+import {
+  getStoreInsightsOverview,
+  localMidnight,
+  toLocalDateKey,
+} from "../services/insightService";
 
 vi.mock("@fairy/database", () => ({
   prisma: {
@@ -24,9 +28,9 @@ vi.mock("@fairy/database", () => ({
 }));
 
 const DAY = 24 * 60 * 60 * 1000;
+const now = new Date("2026-08-31T12:00:00.000Z");
 
 describe("getStoreInsightsOverview", () => {
-  const now = new Date("2026-08-31T12:00:00.000Z");
   const borrowA = new Date(now.getTime() - DAY);
   const borrowB = new Date(now.getTime() - 3 * DAY);
   const returnC = new Date(now.getTime() - 2 * DAY);
@@ -177,5 +181,39 @@ describe("getStoreInsightsOverview", () => {
       activeUsers7d: 0,
       newUsers7d: 0,
     });
+  });
+});
+
+describe("localMidnight", () => {
+  it("returns local midnight of the given calendar day, not UTC midnight", () => {
+    const afternoon = new Date(2026, 7, 31, 15, 30, 45, 500);
+
+    const midnight = localMidnight(afternoon);
+
+    // UTC+8 下 UTC 午夜等于本地 08:00，会让趋势首日丢掉 00:00-08:00 的数据
+    expect(midnight.getTime()).toBe(new Date(2026, 7, 31).getTime());
+    expect(midnight.getHours()).toBe(0);
+    expect(midnight.getMinutes()).toBe(0);
+    expect(midnight.getSeconds()).toBe(0);
+    expect(midnight.getMilliseconds()).toBe(0);
+  });
+
+  it("keeps the calendar day when the input is already local midnight", () => {
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 13);
+
+    expect(localMidnight(firstDay).getTime()).toBe(firstDay.getTime());
+    expect(toLocalDateKey(localMidnight(firstDay))).toBe(toLocalDateKey(firstDay));
+  });
+});
+
+describe("trend window boundary", () => {
+  it("starts the borrow window at local midnight of the first trend day", async () => {
+    await getStoreInsightsOverview(now);
+
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 13);
+    const [borrowQuery] = vi.mocked(prisma.rental.findMany).mock.calls[0];
+    expect(borrowQuery).toEqual(
+      expect.objectContaining({ where: { createdAt: { gte: firstDay } } }),
+    );
   });
 });

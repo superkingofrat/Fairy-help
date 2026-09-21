@@ -623,6 +623,7 @@ interface AgentState {
 | 前端 401 单飞刷新 | 共享 in-flight refresh promise，并发 401 只发一次 `/auth/refresh`，成功后重试原请求；刷新失败才清登录并跳转。SSE（chatApi）保持直连 401 → 清登录，不引入流中断重试。 |
 | 运营洞察单端点一次返回全部 | `GET /api/insights/overview`（admin-only）聚合热门影片/趋势/库存/分布/活跃五类卡片，减少 round-trip；数据量小，窗口与低库存阈值（`stock ≤ 1`）为契约常量（FU-11）。 |
 | 聚合用 Prisma groupBy/count 并行 + JS 补零 | 数据量级下 `Promise.all` 并行规避 Neon 冷启动串行延迟；趋势缺日补 0 在 JS 内存按服务器本地日期分桶完成，避免 SQL 时区逻辑（FU-11）。 |
+| 洞察窗口起点为真本地午夜，部署须显式 `TZ` | `localMidnight` 用 `new Date(y, m, d)` 取服务器本地时区当日 00:00 作为窗口起点；`${dateKey}T00:00:00.000Z` 是 UTC 午夜，UTC+8 下等于本地 08:00，会让窗口首日静默丢掉 00:00–08:00 的数据。分桶随服务器时区，故部署必须显式设置 `TZ=Asia/Shanghai`（容器与 CI 同设），否则窗口边界随运行环境漂移。 |
 | insight 工具 admin 门禁放在 dispatch | 非 admin 在分发层直接拒绝，不调用工具、不返回数据；role 经 `routes/chat.ts` → `runChatTurn` → `dispatch` 透传（默认 `"user"` 保守），复用 `authMiddleware` 已写入的 `res.locals.role`（FU-12）。 |
 | insight 工具返回完整 overview，切片在 synthesizer | 工具零参数、零聚合逻辑，复用 FU-11 单端点「一次返回全部」决策；topic 只决定 synthesizer 构造哪些【事实】，回复聚焦且省 token（FU-12）。 |
 | 运营问数规则优先级：mood/scene 枚举 > insight 关键词；借/还分支内嵌 insight 判定 | 「心情不好想看治愈的」是 recommend 而非 mood_scene 洞察；「最近借阅情况」含「借」字但属 trend，借分支无唯一片名时先试 insight 再判 borrow_unresolved（FU-12）。 |

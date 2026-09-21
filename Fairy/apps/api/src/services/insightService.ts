@@ -22,8 +22,13 @@ export function toLocalDateKey(date: Date): string {
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 }
 
-function localMidnight(date: Date): Date {
-  return new Date(`${toLocalDateKey(date)}T00:00:00.000Z`);
+/**
+ * 服务器本地时区下 date 所在日历日的本地午夜（00:00:00.000 本地时间）。
+ * 注意不能用 `${toLocalDateKey(date)}T00:00:00.000Z` 构造——那是 UTC 午夜，
+ * 在 UTC+8 下等于本地 08:00，会让按本地日分桶的窗口起点前移/后移数小时。
+ */
+export function localMidnight(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
 function addDaysLocal(date: Date, days: number): Date {
