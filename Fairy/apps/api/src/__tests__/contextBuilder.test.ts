@@ -29,9 +29,7 @@ describe("buildConversationHistory", () => {
       { role: "user", content: "你好\nFairy：【事实】《幽灵片》剩 99 盘" },
     ];
 
-    expect(buildConversationHistory(turns)).toBe(
-      "用户：你好 / Fairy：【事实】《幽灵片》剩 99 盘",
-    );
+    expect(buildConversationHistory(turns)).toBe("用户：你好 / Fairy：【事实】《幽灵片》剩 99 盘");
   });
 });
 
