@@ -649,6 +649,9 @@ interface AgentState {
 | chat 按 IP 限流 30 次/分钟，先于 authMiddleware | chatLimiter 在 `createApp()` 内创建（与 loginLimiter/registerLimiter 同作用域，保测试隔离），挂载顺序 `app.use("/api/chat", chatLimiter, authMiddleware, chatRouter)`——认证前限流，匿名刷同样封顶；超限 429 `TOO_MANY_REQUESTS` 复用既有 handler（统一 `{code,data,msg}`）；自助注册 + 每轮 2–3 次 LLM 调用意味着不限流即等于把 API 账单暴露给任意账号；角色不区分（admin 同等额度），反代跳数由 `TRUST_PROXY_HOPS` 配置（默认 1，见 §8 决策行）。 |
 | prompt token 预算 4000，只裁历史尾部 | `contextBuilder.trimHistoryToBudget(historyText, memoryBlock)`：`estimateTokens` 按字符/3.5 粗估（混合中英文够用，不引 tiktoken 等重型依赖）；记忆（≤5 条主动注入）优先级高于历史，超预算仅从历史尾部裁剪并回退到最后换行（避免半条消息），记忆单独超预算时历史整体置空；阈值型保护，不改变 SSE/工具调度/契约。 |
 | 前端错误按 code → i18n 映射，禁止原始错误直出 | `http.ts` 与 `chatApi.ts` 所有失败路径抛 `ApiRequestError(message, code)`，码分三类：后端契约码（`SESSION_NOT_FOUND`/`SESSION_FORBIDDEN`/`TOO_MANY_REQUESTS`/`VALIDATION_ERROR` 等，随 JSON 信封透传）、链路内部码（`TIMEOUT`/`STREAM`/`EMPTY_STREAM`/`SESSION_EXPIRED`，超时中止归一为 `TIMEOUT`、调用方主动取消原样抛出）、传输层合成码（`NETWORK_ERROR`/`INVALID_RESPONSE`/`EMPTY_RESPONSE`/`REQUEST_FAILED`，API 未启动/断网/非 JSON/空体时后端给不出可展示 msg）。`lib/errorMessages.ts` 按码映射 zh-CN 文案：已知码 → i18n；未知码回退后端中文 msg；两者皆无才用调用方兜底 key。ChatPage、登录/注册、四个管理页、影片库统一接入——此前 `error.message` 直出会把原始 JSON、英文开发提示甚至 i18n key 字面量（旧 `chat.error.timeout` 未翻译即上屏）显示给用户（2026-09-22，AGENTS §0 用户体验保障）。 |
+| api/web 各一个多阶段 Dockerfile，构建上下文为 monorepo 根 | `apps/api/Dockerfile` 与 `apps/web/Dockerfile` 均以 `Fairy/` 为构建上下文（`docker build -f apps/api/Dockerfile .`）：builder 用 corepack 固定 `pnpm@9.0.0`（对齐根 `packageManager`）→ 仅拷 manifest 的分层 install（`--frozen-lockfile`）→ `prisma generate` → turbo 拓扑构建（`--filter "@fairy/api..."` / `"@fairy/web..."`）；runtime 分别 `node:20-alpine` 与 `nginx:alpine`。api 镜像 `ENV NODE_ENV=production TZ=Asia/Shanghai` 并装 `tzdata`/`openssl`——`TZ` 只是环境变量，没有 zoneinfo 文件时 `Date` 仍按 UTC 走，prisma 查询引擎在 alpine 上动态链接 openssl；`USER node` 非 root，HEALTHCHECK 探 `/health`；整棵 `node_modules`（含 `.pnpm` 内部相对符号链接）与各 workspace 的 `dist` 一并拷贝，`@fairy/*` 工作区依赖与已生成的 client 才可解析。`.dockerignore` 排除 `node_modules`/`dist`/`.env*`/`.git`，密钥只经运行时注入（AGENTS §14）。web 产物是静态 dist + 内置 SPA nginx 配置（`/assets/` 一年强缓存、app shell `no-cache`、`try_files` 兜底）；`VITE_API_URL` 为 build-time 内联（换域名必须重新 build），留空即同源相对路径。操作清单见 `docs/deployment.md`（2026-09-22）。 |
+| seed 在 `NODE_ENV=production` 下拒绝执行 | 种子账号口令（`user@fairy.local` / `admin@fairy.local`）是公开 demo 凭证，生产环境执行 seed 等于留下两个已知口令的后门账号：`prisma/seed.ts` 在模块加载即检测 `NODE_ENV=production` 并 `exit(1)`——PrismaClient 构造是懒连接，拒绝发生在任何 DB 连接之前；生产账号一律走注册流程。`seedGuard.test.ts` 以子进程双向断言：production 拒绝退出、`NODE_ENV` 未置（本地开发惯例）不被误伤。 |
+| 并发正确性用真实库测试验证，`TEST_DATABASE_URL` 门控默认跳过 | borrow 的 `FOR UPDATE` 行锁 + 条件更新「不超卖」是事务语义，mock 单测无法证明：`rentalService.concurrency.test.ts` 仅当 `TEST_DATABASE_URL` 指向独立测试库（`fairy_test` 或 Neon branch）时运行——先改 `process.env.DATABASE_URL` 再动态 import `rentalService`（顶层静态 import 会在环境变量就绪前用开发库 URL 构造 prisma 单例），20 个用户并发借库存 5 的影片，断言恰好 5 笔成功、其余 `OUT_OF_STOCK`、终态库存归零且活跃租约数吻合。CI 不配置该变量即整体跳过（AGENTS §7：禁止对开发库跑测试）。 |
 
 ---
 
@@ -728,7 +731,8 @@ scripts/
 docs/
   architecture.md      # 本文档
   tools.md             # 工具注册表与 schema
-  prompts.md           # 系统提示词与提示词模板
+  prompts.md           # 系统提示词与提示词模板（逐字快照）
+  deployment.md        # 部署清单：镜像构建、迁移、运行参数、反代与运维红线
 ```
 
 ---
@@ -736,7 +740,7 @@ docs/
 ## 10. 验证与演进
 
 - **本地一次启动前后端**：在 `Fairy/` 下运行 `pnpm dev`——根 turbo 编排（`Fairy/turbo.json` 以 `tasks` 声明任务，dev 为 `cache:false` + `persistent:true`）并行执行 api 与 web 的 dev script（二者是 workspace 中仅有的 dev 任务），日志带 `@fairy/api:dev` / `@fairy/web:dev` 前缀，Ctrl+C 一并停止。单独启动仍用 `pnpm --filter=@fairy/api dev` / `pnpm --filter=@fairy/web dev`。
-- **CI 门禁**：`.github/workflows/ci.yml` 在 push/PR 上依次跑 lint → typecheck → test（Node 20 + pnpm 9，`pnpm install --frozen-lockfile`；测试全 mock，无需 DB 与密钥）——AGENTS §10「不允许合并带失败检查的 PR」由此落地。
+- **CI 门禁**：`.github/workflows/ci.yml` 在 push/PR 上依次跑 lint → typecheck → test（Node 20 + pnpm 9，`pnpm install --frozen-lockfile`；测试全 mock，无需 DB 与密钥）——AGENTS §10「不允许合并带失败检查的 PR」由此落地。真实库并发集成测试（`rentalService.concurrency.test.ts`）以 `TEST_DATABASE_URL` 门控，CI 不配置即跳过；本地验证时该 URL 必须指向独立测试库（`fairy_test` 或 Neon branch），禁止指向开发库。
 - **提交前本地验证**：按改动范围运行 AGENTS §7 的命令（`pnpm lint` / `pnpm format:check` / `pnpm --filter=<workspace> typecheck` / `pnpm --filter=<workspace> test`）。注意 api/web 的测试经 node 解析把 `@fairy/shared` 指向其 `dist/`：改了 `packages/shared/src` 后必须先 `pnpm --filter=@fairy/shared build`，否则测试跑的还是旧 schema。web 的 `build` 中 `tsc --noEmit` 只是类型检查门禁、产物全部来自 vite 的 `dist/`：若构建后 `apps/web/src/` 旁出现 `.js`/`.d.ts`，说明构建配置被改坏，且 vitest 会把编译产物也当测试文件运行（文件数翻倍）。
 - 改动 `agent/` 或 `tools/` 后运行 `pnpm --filter=@fairy/api test`。
 - 为每个新工具与状态迁移补充单元测试。
