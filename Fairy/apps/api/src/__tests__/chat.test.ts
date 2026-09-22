@@ -661,7 +661,7 @@ describe("POST /api/chat", () => {
 
     const response = await request(app)
       .post("/api/chat")
-      .set("Authorization", authHeader("user"))
+      .set("Authorization", authHeader("agent"))
       .send({ message: "帮我规划周末去杭州玩" });
 
     expect(response.status).toBe(200);

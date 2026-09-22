@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { dispatch } from "../agent/toolDispatcher";
 import * as storeInsightTool from "../tools/storeInsightTool";
 import * as planTripTool from "../tools/planTripTool";
-import type { Profile, StoreInsightsOverview, TripResult } from "@fairy/shared";
+import type { StoreInsightsOverview, TripResult } from "@fairy/shared";
 
 vi.mock("../tools/storeInsightTool");
 vi.mock("../tools/planTripTool");
@@ -87,19 +87,6 @@ describe("dispatch trip tool (FU-13)", () => {
     vi.clearAllMocks();
   });
 
-  const agentProfile: Profile = {
-    userId: "user-1",
-    name: "铃",
-    avatarUrl: null,
-    styleTags: ["夜猫子"],
-    likeGenres: ["科幻", "悬疑"],
-    avoidFood: [],
-    dietPreference: null,
-    travelStyle: null,
-    createdAt: "2026-08-20T00:00:00.000Z",
-    updatedAt: "2026-08-20T00:00:00.000Z",
-  };
-
   const tripResult: TripResult = {
     tripId: "550e8400-e29b-41d4-a716-446655440000",
     destination: "杭州",
@@ -130,13 +117,7 @@ describe("dispatch trip tool (FU-13)", () => {
       data: tripResult,
     });
 
-    const observation = await dispatch(
-      { tool: "trip" },
-      "user-1",
-      "user",
-      "帮我规划周末去杭州玩",
-      agentProfile,
-    );
+    const observation = await dispatch({ tool: "trip" }, "user-1", "agent", "帮我规划周末去杭州玩");
 
     expect(observation).toEqual({
       kind: "trip",
@@ -157,13 +138,7 @@ describe("dispatch trip tool (FU-13)", () => {
       data: { unresolved: true },
     });
 
-    const observation = await dispatch(
-      { tool: "trip" },
-      "user-1",
-      "user",
-      "帮我规划个行程",
-      agentProfile,
-    );
+    const observation = await dispatch({ tool: "trip" }, "user-1", "agent", "帮我规划个行程");
 
     expect(observation).toEqual({
       kind: "trip",
@@ -180,13 +155,7 @@ describe("dispatch trip tool (FU-13)", () => {
       error: "TRIP_DRAFT_FAILED",
     });
 
-    const observation = await dispatch(
-      { tool: "trip" },
-      "user-1",
-      "user",
-      "帮我规划周末去杭州玩",
-      agentProfile,
-    );
+    const observation = await dispatch({ tool: "trip" }, "user-1", "agent", "帮我规划周末去杭州玩");
 
     expect(observation).toEqual({
       kind: "trip",
@@ -197,7 +166,7 @@ describe("dispatch trip tool (FU-13)", () => {
     });
   });
 
-  it("forbids trip planning for other users without calling the tool", async () => {
+  it("forbids trip planning for plain users without calling the tool", async () => {
     const observation = await dispatch({ tool: "trip" }, "user-2", "user", "帮我规划周末去北京玩");
 
     expect(observation).toEqual({

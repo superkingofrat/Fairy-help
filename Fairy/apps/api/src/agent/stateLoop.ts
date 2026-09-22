@@ -70,7 +70,7 @@ export async function runChatTurn(
     history: input.history,
   });
   const planned = plan(intent);
-  const observation = await dispatch(planned, input.userId, input.role, input.message, profile);
+  const observation = await dispatch(planned, input.userId, input.role, input.message);
 
   if (observation.kind === "none" && observation.reason === "return_unresolved") {
     const activeRentals = await rentalService.listActiveRentals(input.userId).catch(() => []);

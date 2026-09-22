@@ -282,7 +282,7 @@ export async function synthesize(
   }
 
   if (observation.kind === "trip") {
-    // 非代理人（绳匠/其他用户）请求行程规划：仅影片服务，婉拒并引导推荐
+    // 非 agent/admin 角色请求行程规划：仅影片服务，婉拒并引导推荐
     if (observation.code === "TRIP_FORBIDDEN") {
       const template =
         "行程规划可不是我的专长哦，不过如果你想找旅行或目的地相关的片子，我可以帮你推荐几部。";

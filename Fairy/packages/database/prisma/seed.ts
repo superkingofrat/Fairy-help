@@ -97,11 +97,11 @@ async function main(): Promise<void> {
 
   await prisma.user.upsert({
     where: { id: DEV_USER_ID },
-    update: { email: "user@fairy.local", role: "user", passwordHash: userPasswordHash },
+    update: { email: "user@fairy.local", role: "agent", passwordHash: userPasswordHash },
     create: {
       id: DEV_USER_ID,
       email: "user@fairy.local",
-      role: "user",
+      role: "agent",
       passwordHash: userPasswordHash,
     },
   });

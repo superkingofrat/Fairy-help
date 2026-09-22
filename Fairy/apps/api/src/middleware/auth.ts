@@ -1,7 +1,8 @@
 import jwt from "jsonwebtoken";
 import type { Request, Response, NextFunction } from "express";
 
-export type Role = "admin" | "user";
+// agent：智能体角色，可行程规划；admin：管理员；user：普通注册用户
+export type Role = "admin" | "agent" | "user";
 
 interface TokenPayload {
   userId?: string;
@@ -31,7 +32,7 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
   }
 
   const { userId, role } = payload;
-  if (!userId || (role !== "admin" && role !== "user")) {
+  if (!userId || (role !== "admin" && role !== "agent" && role !== "user")) {
     res.status(401).json(UNAUTHORIZED_BODY);
     return;
   }
