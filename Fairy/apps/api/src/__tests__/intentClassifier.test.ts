@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { classifyIntent, classifyStoreInsightByRules } from "../agent/intentClassifier";
+import {
+  classifyIntent,
+  classifyStoreInsightByRules,
+  isPlanTripByRules,
+} from "../agent/intentClassifier";
 import * as llmClient from "../agent/llmClient";
 import * as movieService from "../services/movieService";
 import type { ChatResult } from "@fairy/ai-sdk";
@@ -222,6 +226,14 @@ describe("classifyIntent store_insight (FU-12)", () => {
     expect(intent).toEqual({ type: "recommend", moods: ["治愈"], scenes: [] });
   });
 
+  it("falls back to recommend when a borrow request carries a mood", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const intent = await classifyIntent({ message: "想借个治愈的片子" });
+
+    expect(intent).toEqual({ type: "recommend", moods: ["治愈"], scenes: [] });
+  });
+
   it("maps 运营/数据 questions to overview via rules", async () => {
     vi.mocked(llmClient.tryChat).mockResolvedValue(null);
 
@@ -314,6 +326,15 @@ describe("classifyIntent plan_trip (FU-13)", () => {
 
     expect(intent).toEqual({ type: "recommend", moods: [], scenes: ["雨天"] });
   });
+
+  it("keeps a movie-genre question out of trip planning and defers to the LLM", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const intent = await classifyIntent({ message: "有没有旅行为主题的片子" });
+
+    expect(intent).toEqual({ type: "unmatched" });
+    expect(llmClient.tryChat).toHaveBeenCalled();
+  });
 });
 
 describe("classifyStoreInsightByRules topic mapping", () => {
@@ -325,5 +346,19 @@ describe("classifyStoreInsightByRules topic mapping", () => {
     expect(classifyStoreInsightByRules("活跃用户数")).toBe("activity");
     expect(classifyStoreInsightByRules("运营看板")).toBe("overview");
     expect(classifyStoreInsightByRules("今天天气不错")).toBeNull();
+  });
+});
+
+describe("isPlanTripByRules travel keyword matching", () => {
+  it("matches bare travel keywords without a movie noun", () => {
+    expect(isPlanTripByRules("我想去旅行")).toBe(true);
+    expect(isPlanTripByRules("帮我规划周末去杭州玩")).toBe(true);
+    expect(isPlanTripByRules("安排一下行程")).toBe(true);
+  });
+
+  it("does not match when a movie noun turns travel into a genre modifier", () => {
+    expect(isPlanTripByRules("有没有旅行为主题的片子")).toBe(false);
+    expect(isPlanTripByRules("推荐几部旅游题材的电影")).toBe(false);
+    expect(isPlanTripByRules("有讲旅行的纪录片吗")).toBe(false);
   });
 });
