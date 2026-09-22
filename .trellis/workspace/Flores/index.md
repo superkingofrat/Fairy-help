@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 20
-- **Last Active**: 2026-09-20
+- **Total Sessions**: 21
+- **Last Active**: 2026-09-22
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~979 | Active |
+| `journal-1.md` | ~1055 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 21 | 2026-09-22 | 工程验证门禁与可靠性整改：15 个提交（门禁+CI+8 个 P1 bug） | `be0f8c7`, `9d816e5`, `3c9dacf`, `c50cf39`, `b384984`, `40e00c2`, `7d771c9`, `78d5e70`, `070575e`, `f85f4e0`, `ae8151d`, `c889d5b`, `171b0f9`, `74f8b32`, `870a5ac` | `chore/reliability-fixes` |
 | 20 | 2026-09-20 | P0/P1 audit fixes: register blank profile + chat rate limit + prompt token budget | `1eb4375`, `7e591dc`, `3c348a1`, `44571a5` | `master` |
 | 19 | 2026-09-20 | True streaming chat + borrow/return concurrency safety + frontend SSE event handling (journal: `2026-09-20-streaming-cas-sse.md`) | `7908089`, `56eb3b2`, `e699f44`, `8bdd77c` | `master` |
 | 18 | 2026-09-07 | FU-18 profile writeback (preference memory → Profile.likeGenres auto merge) delivery and archive | `925c457`, `a546693`, `96348db` | `master` |
