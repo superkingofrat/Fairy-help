@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 21
+- **Total Sessions**: 22
 - **Last Active**: 2026-09-22
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1055 | Active |
+| `journal-1.md` | ~1090 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 22 | 2026-09-22 | 安全整改批次（批次 5）：prompt 不可信跨度标记 + refresh 旋转 CAS + 多标签会话同步与 SSE 401 刷新 | `43e0850` | `chore/reliability-fixes` |
 | 21 | 2026-09-22 | 工程验证门禁与可靠性整改：15 个提交（门禁+CI+8 个 P1 bug） | `be0f8c7`, `9d816e5`, `3c9dacf`, `c50cf39`, `b384984`, `40e00c2`, `7d771c9`, `78d5e70`, `070575e`, `f85f4e0`, `ae8151d`, `c889d5b`, `171b0f9`, `74f8b32`, `870a5ac` | `chore/reliability-fixes` |
 | 20 | 2026-09-20 | P0/P1 audit fixes: register blank profile + chat rate limit + prompt token budget | `1eb4375`, `7e591dc`, `3c348a1`, `44571a5` | `master` |
 | 19 | 2026-09-20 | True streaming chat + borrow/return concurrency safety + frontend SSE event handling (journal: `2026-09-20-streaming-cas-sse.md`) | `7908089`, `56eb3b2`, `e699f44`, `8bdd77c` | `master` |

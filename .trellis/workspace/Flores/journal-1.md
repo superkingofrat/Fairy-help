@@ -1053,3 +1053,38 @@ Delivered FU-18 — 画像反向回写：每轮对话抽取（FU-14 旁路）在
 ### Status
 
 [OK] **Completed**
+
+
+## Session 22: 安全整改批次（批次 5）：prompt 不可信跨度标记 + refresh 旋转 CAS + 多标签会话同步与 SSE 401 刷新
+
+**Date**: 2026-09-22
+**Task**: 安全整改批次（批次 5）：prompt 不可信跨度标记 + refresh 旋转 CAS + 多标签会话同步与 SSE 401 刷新
+**Branch**: `chore/reliability-fixes`
+
+### Summary
+
+Session summary was not supplied.
+
+### Main Changes
+
+- api: 新增 agent/sanitize.ts 控制字符单一来源，contextBuilder sanitizeUntrustedEntry（换行折叠「 / 」+2000 字截断）与 wrapUntrustedSpan，对话历史/当轮消息/记忆在 intentClassifier 与 responseSynthesizer 对称包装，【事实】留跨度外
+- api: rotateRefreshToken 整体进事务，「旧 token 仍 revokedAt: null」作 updateMany where，count===0 判并发失败并同路径吊销全家；删除死代码 revokeAllUserRefreshTokens
+- web: authStore 建 fairy-auth BroadcastChannel（setSession/clear 广播、接收方 setState 不回播、无频道环境静默跳过）；chatApi SSE 401 改走共用单飞刷新后重试一次流请求
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `43e0850` | (see git log) |
+
+### Testing
+
+- [OK] api 340 / web 91 / shared 99 全绿；pnpm run ci（lint→typecheck→test→build）5/5；新增 authStore 跨标签 6 例、chatApi 6 例、auth 旋转竞争 1 例，chat.test.ts 记忆断言同步
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 批次 6（产品）：行程门禁身份化、意图规则语境修正、错误信息归一化；classifyIntent 历史不走预算裁剪的残余已登记风险
