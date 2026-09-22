@@ -1088,3 +1088,43 @@ Session summary was not supplied.
 ### Next Steps
 
 - 批次 6（产品）：行程门禁身份化、意图规则语境修正、错误信息归一化；classifyIntent 历史不走预算裁剪的残余已登记风险
+
+
+## Session 23: 产品修复批次（批次 6）：行程门禁身份化（role∈{admin,agent}）+ 意图规则语境修正 + 错误信息归一化
+
+**Date**: 2026-09-22
+**Task**: 产品修复批次（批次 6）：行程门禁身份化（role∈{admin,agent}）+ 意图规则语境修正 + 错误信息归一化
+**Branch**: `chore/reliability-fixes`
+
+### Summary
+
+路线图批次 6（负责人「继续」确认，§15.2 P1 豁免）：行程门禁从画像名硬编码改 role∈{admin,agent} 免迁移；意图规则给影片名词与心情词让位；前端错误按 code→i18n 映射，原始 JSON/英文/i18n key 字面量不再上屏。
+
+### Main Changes
+
+- api: dispatch trip 门禁改 role∈{admin,agent}（Role 联合加 agent、authMiddleware 同步校验、seed create/update 双分支置 agent、测试 fixture 同步 authHeader），注册仍只签 user，无 DB 迁移
+- api: isPlanTripByRules 增加影片名词守卫（「有没有旅行为主题的片子」交 LLM）+ 关键词表去「规划」；借分支 insight 判定后内嵌心情/场景词检查（「想借个治愈的片子」回落 recommend）；INTENT_SYSTEM_PROMPT 补反例
+- web: http.ts 抽 fetchResponse + readEnvelope 共用，失败统一 ApiRequestError(message, code)（契约码透传 + 链路码 TIMEOUT/STREAM/EMPTY_STREAM/SESSION_EXPIRED + 传输码 NETWORK_ERROR/INVALID_RESPONSE/EMPTY_RESPONSE/REQUEST_FAILED）；新增 lib/errorMessages.ts 按 code→zh-CN 映射，十处组件接入；i18n 补 10 键并修复旧 chat.error.timeout 未翻译上屏
+- docs: API_CONTRACT §3.7 三处（门禁角色表述、意图注记、前端错误展示约定）；ARCHITECTURE §8 决策行 ×3 + 注记 ×2；PROJECT_STATUS Completed/Next/Decisions/Last Updated
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `19da2df` | (see git log) |
+| `4b18057` | (see git log) |
+| `0db19a2` | (see git log) |
+| `8c20656` | (see git log) |
+
+### Testing
+
+- [OK] api 344（33 文件）/ web 103（15 文件）/ shared 99 全绿；pnpm run ci（lint→typecheck→test→build）5/5；prettier check 通过；无新端点、无 DB 迁移、契约响应形状不变
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 批次 7（落地件）：Dockerfile（api+web，显式 TZ=Asia/Shanghai）+ 部署清单、seed NODE_ENV=production 防护、真实库并发集成测试（TEST_DATABASE_URL 门控，20 并发 borrow 断言不超卖）、docs/prompts.md、README prisma 步骤——执行前与负责人确认
+- 残余：classifyIntent 历史注入不走 token 预算裁剪（PROJECT_STATUS 风险，成本关注）；存量 dev 库重复 seed 后验证 user@fairy.local 变为 agent 且行程可用；全部提交未推送
