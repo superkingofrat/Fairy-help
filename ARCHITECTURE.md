@@ -732,7 +732,7 @@ docs/
 
 - **本地一次启动前后端**：在 `Fairy/` 下运行 `pnpm dev`——根 turbo 编排（`Fairy/turbo.json` 以 `tasks` 声明任务，dev 为 `cache:false` + `persistent:true`）并行执行 api 与 web 的 dev script（二者是 workspace 中仅有的 dev 任务），日志带 `@fairy/api:dev` / `@fairy/web:dev` 前缀，Ctrl+C 一并停止。单独启动仍用 `pnpm --filter=@fairy/api dev` / `pnpm --filter=@fairy/web dev`。
 - **CI 门禁**：`.github/workflows/ci.yml` 在 push/PR 上依次跑 lint → typecheck → test（Node 20 + pnpm 9，`pnpm install --frozen-lockfile`；测试全 mock，无需 DB 与密钥）——AGENTS §10「不允许合并带失败检查的 PR」由此落地。
-- **提交前本地验证**：按改动范围运行 AGENTS §7 的命令（`pnpm lint` / `pnpm format:check` / `pnpm --filter=<workspace> typecheck` / `pnpm --filter=<workspace> test`）。注意 api/web 的测试经 node 解析把 `@fairy/shared` 指向其 `dist/`：改了 `packages/shared/src` 后必须先 `pnpm --filter=@fairy/shared build`，否则测试跑的还是旧 schema。
+- **提交前本地验证**：按改动范围运行 AGENTS §7 的命令（`pnpm lint` / `pnpm format:check` / `pnpm --filter=<workspace> typecheck` / `pnpm --filter=<workspace> test`）。注意 api/web 的测试经 node 解析把 `@fairy/shared` 指向其 `dist/`：改了 `packages/shared/src` 后必须先 `pnpm --filter=@fairy/shared build`，否则测试跑的还是旧 schema。web 的 `build` 中 `tsc --noEmit` 只是类型检查门禁、产物全部来自 vite 的 `dist/`：若构建后 `apps/web/src/` 旁出现 `.js`/`.d.ts`，说明构建配置被改坏，且 vitest 会把编译产物也当测试文件运行（文件数翻倍）。
 - 改动 `agent/` 或 `tools/` 后运行 `pnpm --filter=@fairy/api test`。
 - 为每个新工具与状态迁移补充单元测试。
 - 新增意图、工具或外部集成时，保持本文档最新。
