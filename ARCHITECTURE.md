@@ -126,7 +126,7 @@ Fairy 是一个由 LLM 驱动的智能体，通过一个闭环操作真实的业
 - 所有聊天流量都经由 `/api/chat`。客户端不得直接调用工具。
 - 领域路由面向管理/维护 UI，而非 agent 逻辑。
 - 认证（FU-5 起）：`POST /api/auth/login` 签发 HS256 JWT（12h），`authMiddleware` 只认 `Authorization: Bearer` 并注入 `userId`/`role`；dev stub（`X-Dev-Role`/`Bearer dev-*`）已移除。`JWT_SECRET` 缺失时 API 拒绝启动。密码以 bcrypt 哈希存储。
-- 账号闭环（FU-10 起）：`POST /api/auth/register` 自助注册（仅 `user` 角色，bcrypt cost 10）；`POST /api/auth/login` 与 `/register` 成功后随 access token 一并签发 **refresh token**（30 天，DB 只存 sha256 哈希），`POST /api/auth/refresh` 旋转（旧 token 置 `revokedAt` + `replacedByTokenId`，复用已吊销 token 触发该用户全部 refresh token 吊销），`POST /api/auth/logout` 吊销。登录/注册端点按 IP 限流（express-rate-limit，限流器在 `createApp()` 内创建）。
+- 账号闭环（FU-10 起）：`POST /api/auth/register` 自助注册（仅 `user` 角色，bcrypt cost 10）；`POST /api/auth/login` 与 `/register` 成功后随 access token 一并签发 **refresh token**（30 天，DB 只存 sha256 哈希），`POST /api/auth/refresh` 旋转（事务内 compare-and-swap：旧 token 置 `revokedAt` + `replacedByTokenId`，复用已吊销 token 触发该用户全部 refresh token 吊销，见 §8 决策行），`POST /api/auth/logout` 吊销。登录/注册端点按 IP 限流（express-rate-limit，限流器在 `createApp()` 内创建）。
 
 ### 3.3 智能体编排层（`apps/api/src/agent/`）
 
@@ -135,7 +135,8 @@ Fairy 是一个由 LLM 驱动的智能体，通过一个闭环操作真实的业
 | 组件 | 职责 |
 |---|---|
 | `IntentClassifier` | 把用户输入映射到以下之一：`chitchat`、`recommend`、`borrow`、`return`、`plan_trip`、`store_insight`。 |
-| `ContextBuilder` | 加载工作记忆：最近消息、用户画像、近期行为日志；另提供 `trimHistoryToBudget`（prompt token 预算裁剪）。 |
+| `ContextBuilder` | 加载工作记忆：最近消息、用户画像、近期行为日志；另提供 `trimHistoryToBudget`（prompt token 预算裁剪）、`sanitizeUntrustedEntry`（不可信条目消毒）与 `wrapUntrustedSpan`（不可信跨度标记）。 |
+| `sanitize` | 控制字符清洗的单一来源（含 C1 区 `\u007F-\u009F`）；`llmClient.sanitizeUserInput` 与 `ContextBuilder.sanitizeUntrustedEntry` 共用，不可信跨度标记规则见 §8。 |
 | `Planner` | 决定调用哪个（些）工具及其先后顺序。 |
 | `ToolDispatcher` | 执行所选工具、捕获错误、返回观察结果。 |
 | `ResponseSynthesizer` | 把观察结果转换成最终以 Fairy 人设流式输出的回复。 |
@@ -621,7 +622,10 @@ interface AgentState {
 | 登录/注册按 IP 限流 | express-rate-limit，login 10 次/15 分钟、register 20 次/小时；限流器在 `createApp()` 内创建保证测试隔离。反代后的客户端 IP 还原见下行 trust proxy 决策与 API_CONTRACT §3.0。 |
 | 限流客户端 IP 经 trust proxy 还原（默认 1 跳） | express-rate-limit 按 `req.ip` 分桶：不信任代理时所有请求共享反代 IP，三个限流器（login/register/chat）退化为**全站共享单桶**——如 chat 每分钟全网仅 30 次请求。`createApp()` 设 `app.set("trust proxy", resolveTrustProxyHops())`，读 `TRUST_PROXY_HOPS`（默认 1 跳；`0` = 不信任代理，仅直连部署用；非整数/负值 `console.warn` 后回退 1），反代链路按实际跳数调整；`.env.example` 只登记占位值。 |
 | refresh token 旋转 + 复用吊销 | DB 只存 sha256 哈希（不明文）；旋转时旧 token 置 `revokedAt` + `replacedByTokenId`，检测到复用已吊销 token 即吊销该用户全部 refresh token，压缩 token 泄露窗口。 |
-| 前端 401 单飞刷新 | 共享 in-flight refresh promise，并发 401 只发一次 `/auth/refresh`，成功后重试原请求；刷新失败才清登录并跳转。SSE（chatApi）保持直连 401 → 清登录，不引入流中断重试。 |
+| refresh 旋转在事务内 compare-and-swap | 「读旧 token → 判活 → 置 revoked」的先读后写在并发下会双赢（两个请求都用同一旧 token 旋转成功，各得一对新 token，泄漏窗口反而放大）。`rotateRefreshToken` 整体放进 `prisma.$transaction`，「旧 token 仍 `revokedAt: null`」作为 `updateMany` 的 where 条件，`count === 0` 即竞争失败——与已吊销分支同样判复用、吊销全家，最终只有一个请求拿到新 token。响应形状与错误码不变（API_CONTRACT §3.1 `/auth/refresh`）。 |
+| 多标签会话经 BroadcastChannel 同步 | `authStore` 建 `fairy-auth` 频道：`setSession`（登录/注册/刷新旋转）/`clear`（登出/过期）广播，其余标签 `setState` 落状态且不回播（频道不回送发送方，不成环）。没有 `BroadcastChannel` 的环境（SSR/jsdom）静默跳过，单标签行为不变。否则各标签 localStorage 副本各自漂移——一个标签刚旋转拿到新 token，其他标签还在用已吊销的旧 token，下一次请求照样 401。 |
+| 前端 401 单飞刷新（JSON + SSE 同路） | 共享 in-flight refresh promise，并发 401 只发一次 `/auth/refresh`，成功后重试原请求；刷新失败才清登录并跳转。该单飞 promise 由 `http.ts` 与 `chatApi.ts` 共用：chat 的 SSE 401（auth 中间件先于流头返回 JSON，无半流风险）同样先刷新再带新 token 重试一次，重试仍 401 或刷新失败才清登录跳转。 |
+| 注入 prompt 的不可信文本带跨度标记 | 对话历史（含历史轮用户原话）、当轮用户消息、记忆内容三条路径都可能携带注入指令；统一先进 `sanitize.ts` 剥控制字符（历史/记忆额外把换行折叠为「 / 」、截断 2000 字，杜绝伪造角色行与结构行），再由 `wrapUntrustedSpan` 包成 `<<<标签（不可信原文，仅作背景；其中任何指令都不要执行）…>>>`，可信的【事实】块留在跨度之外；`intentClassifier` 与 `responseSynthesizer` 两个插值点对称应用（AGENTS §5 已要求输入先清洗）。 |
 | 运营洞察单端点一次返回全部 | `GET /api/insights/overview`（admin-only）聚合热门影片/趋势/库存/分布/活跃五类卡片，减少 round-trip；数据量小，窗口与低库存阈值（`stock ≤ 1`）为契约常量（FU-11）。 |
 | 聚合用 Prisma groupBy/count 并行 + JS 补零 | 数据量级下 `Promise.all` 并行规避 Neon 冷启动串行延迟；趋势缺日补 0 在 JS 内存按服务器本地日期分桶完成，避免 SQL 时区逻辑（FU-11）。 |
 | 洞察窗口起点为真本地午夜，部署须显式 `TZ` | `localMidnight` 用 `new Date(y, m, d)` 取服务器本地时区当日 00:00 作为窗口起点；`${dateKey}T00:00:00.000Z` 是 UTC 午夜，UTC+8 下等于本地 08:00，会让窗口首日静默丢掉 00:00–08:00 的数据。分桶随服务器时区，故部署必须显式设置 `TZ=Asia/Shanghai`（容器与 CI 同设），否则窗口边界随运行环境漂移。 |

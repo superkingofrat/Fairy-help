@@ -78,6 +78,8 @@ interface Profile {
 
 请求体 `{ refreshToken }`。校验通过后**旋转**：旧 token 立即失效（`revokedAt` + 记录 `replacedByTokenId`），返回新的一对 `{ code, data: { token, refreshToken, user } }`。**复用检测**：已吊销/已替换的 token 再次出现 → 401 `INVALID_REFRESH_TOKEN`，并吊销该用户全部 refresh token（强制重新登录）。过期/不存在的 token 同样 401。
 
+旋转在单个事务内 compare-and-swap：并发的两个相同旧 token 只有一个成功，另一个按复用检测同一路径返回 401 `INVALID_REFRESH_TOKEN`（响应形状与错误码不变，详见 ARCHITECTURE §8）。
+
 **POST** `/auth/logout` — **Public**（FU-10）
 
 请求体 `{ refreshToken }`；吊销该 token（幂等，未知 token 也返回 200）。access token 不做服务端吊销，自然过期。
