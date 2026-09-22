@@ -1128,3 +1128,55 @@ Session summary was not supplied.
 
 - 批次 7（落地件）：Dockerfile（api+web，显式 TZ=Asia/Shanghai）+ 部署清单、seed NODE_ENV=production 防护、真实库并发集成测试（TEST_DATABASE_URL 门控，20 并发 borrow 断言不超卖）、docs/prompts.md、README prisma 步骤——执行前与负责人确认
 - 残余：classifyIntent 历史注入不走 token 预算裁剪（PROJECT_STATUS 风险，成本关注）；存量 dev 库重复 seed 后验证 user@fairy.local 变为 agent 且行程可用；全部提交未推送
+
+
+## Session 24: 部署落地批次（批次 7）：容器化、部署清单、真实库并发集成测试、文档补全
+
+**Date**: 2026-09-22
+**Task**: 部署落地批次（批次 7）：容器化、部署清单、真实库并发集成测试、文档补全
+**Branch**: `chore/reliability-fixes`
+
+### Summary
+
+完成路线图批次 7 五项：api/web 多阶段 Dockerfile（TZ=Asia/Shanghai、非 root）+ docs/deployment.md 部署清单、seed NODE_ENV=production 防护、TEST_DATABASE_URL 门控的真实库并发集成测试（20 并发借阅断言不超卖）、docs/prompts.md 提示词逐字文档、README 数据库初始化步骤 + packages/database/.env.example。脊柱文档（AGENTS/ARCHITECTURE/PROJECT_STATUS）同步更新。pnpm run ci 5/5，api 344+1 skipped / web 103 / shared 99 / database 6 / ai-sdk 16 全绿。镜像未在有 Docker 的环境实际构建，已登记风险；提交未推送。
+
+### Main Changes
+
+- 40bfd4e db: seed 模块级守卫拒绝 NODE_ENV=production 运行（懒连接前退出）+ 子进程测试（不可达 URL 反证不误伤未置 NODE_ENV）
+- f814ea9 api: rentalService.concurrency.test.ts 真实库 20 并发借阅（默认跳过，TEST_DATABASE_URL 门控，库存 5 恰 5 成功/其余 OUT_OF_STOCK/remaining 恰 [0-4]）；@fairy/database 全部动态 import 避开单例绑定开发库
+- 9bc90a3 chore: apps/api + apps/web 多阶段 Dockerfile（node:20-alpine + tzdata/openssl、USER node、HEALTHCHECK、corepack 固定 pnpm@9.0.0）、apps/web/nginx.conf（SPA 兜底/immutable assets/gzip）、.dockerignore 排除 .env
+- 0c0e3d1 db: 新增 migrate:deploy 脚本（部署先行迁移，不 reset 可重复执行）
+- 005d826 docs: docs/deployment.md 八节部署清单 + .env.example 补登三个 provider BASE_URL；9bc90a3 同轮容器化上下文支撑
+- e76962e docs: docs/prompts.md 三系统提示词逐字快照（脚本校验）+ 调用链总览 + 公共约束表 + 变更规则
+- 41da6fe docs: README 快速开始六步（install/三份 .env/generate/migrate:dev/可选 seed/pnpm dev）+ 常见问题 + 测试命令；新建 packages/database/.env.example
+- ed2a737 docs: 脊柱同步——ARCHITECTURE §8 三决策行 + §9/§10、AGENTS §7 TEST_DATABASE_URL 约定、PROJECT_STATUS 五节
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `40bfd4e` | (see git log) |
+| `f814ea9` | (see git log) |
+| `9bc90a3` | (see git log) |
+| `0c0e3d1` | (see git log) |
+| `005d826` | (see git log) |
+| `e76962e` | (see git log) |
+| `41da6fe` | (see git log) |
+| `ed2a737` | (see git log) |
+
+### Testing
+
+- [OK] pnpm run ci（lint/typecheck/test/build）5/5 任务通过；api 344 passed + 1 skipped（门控并发用例）/ web 103 / shared 99 / database 6 / ai-sdk 16 全绿；prettier format:check 通过；提示词逐字比对三例 VERBATIM-OK；seed 生产防护子进程测试（退出码 1 + stderr）+ 未误伤用例
+- [OK] Docker 镜像未实际构建（本环境无 Docker）——仅静态核对（COPY 路径存在、workspace 成员匹配、脚本名存在），已登记 PROJECT_STATUS 风险
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 真实库并发测试首次配置 fairy_test/Neon branch 并跑通（确认 5/15 分流断言）
+- 首次部署前在有 Docker 的环境构建两镜像并冒烟 /health 与 web SPA
+- classifyIntent 历史注入绕过 token 预算裁剪（上轮遗留，已登记风险）
+- 存量 dev 库 seed 时验证 user@fairy.local 已迁 role=agent
+- 提交均在本地 chore/reliability-fixes，未推送（需负责人指示）

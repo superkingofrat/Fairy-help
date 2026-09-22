@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 23
+- **Total Sessions**: 24
 - **Last Active**: 2026-09-22
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1130 | Active |
+| `journal-1.md` | ~1182 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 24 | 2026-09-22 | 部署落地批次（批次 7）：容器化、部署清单、真实库并发集成测试、文档补全 | `40bfd4e`, `f814ea9`, `9bc90a3`, `0c0e3d1`, `005d826`, `e76962e`, `41da6fe`, `ed2a737` | `chore/reliability-fixes` |
 | 23 | 2026-09-22 | 产品修复批次（批次 6）：行程门禁身份化（role∈{admin,agent}）+ 意图规则语境修正 + 错误信息归一化 | `19da2df`, `4b18057`, `0db19a2`, `8c20656` | `chore/reliability-fixes` |
 | 22 | 2026-09-22 | 安全整改批次（批次 5）：prompt 不可信跨度标记 + refresh 旋转 CAS + 多标签会话同步与 SSE 401 刷新 | `43e0850` | `chore/reliability-fixes` |
 | 21 | 2026-09-22 | 工程验证门禁与可靠性整改：15 个提交（门禁+CI+8 个 P1 bug） | `be0f8c7`, `9d816e5`, `3c9dacf`, `c50cf39`, `b384984`, `40e00c2`, `7d771c9`, `78d5e70`, `070575e`, `f85f4e0`, `ae8151d`, `c889d5b`, `171b0f9`, `74f8b32`, `870a5ac` | `chore/reliability-fixes` |
