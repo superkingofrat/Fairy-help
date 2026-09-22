@@ -9,6 +9,7 @@ import {
 } from "@fairy/shared";
 import * as movieService from "../services/movieService";
 import { sanitizeUserInput, tryChat } from "./llmClient";
+import { wrapUntrustedSpan } from "./contextBuilder";
 
 export type ChatIntent =
   | { type: "borrow"; movieId: string }
@@ -91,12 +92,12 @@ async function classifyIntentWithLlm(
     return null;
   }
 
-  const historyLine = history ? `对话历史：\n${history}\n\n` : "";
+  const historySpan = history ? `${wrapUntrustedSpan("对话历史", history)}\n` : "";
   const result = await tryChat(
     "agent.intent",
     [
       { role: "system", content: INTENT_SYSTEM_PROMPT },
-      { role: "user", content: `${historyLine}用户说：「${text}」` },
+      { role: "user", content: `${historySpan}${wrapUntrustedSpan("用户消息", text)}` },
     ],
     { maxTokens: 200, temperature: 0 },
   );

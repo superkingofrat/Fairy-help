@@ -7,15 +7,12 @@ import {
   type UsageMetadata,
 } from "@fairy/ai-sdk";
 import { recordUsage } from "./usage";
+import { stripControlChars } from "./sanitize";
 
 const MAX_INPUT_CHARS = 2000;
 
-// 剥离 C0/C1 控制字符与 DEL：清洗用户输入本身就是目的，正则必须匹配它们
-// eslint-disable-next-line no-control-regex
-const CONTROL_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
-
 export function sanitizeUserInput(message: string): string {
-  return message.replace(CONTROL_CHARS, "").trim().slice(0, MAX_INPUT_CHARS);
+  return stripControlChars(message).trim().slice(0, MAX_INPUT_CHARS);
 }
 
 let cachedProvider: AiProvider | null | undefined;

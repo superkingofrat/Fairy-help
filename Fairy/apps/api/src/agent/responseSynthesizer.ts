@@ -13,7 +13,7 @@ import type {
   RouteLeg,
 } from "@fairy/shared";
 import { sanitizeUserInput, tryChat } from "./llmClient";
-import { buildMemoryBlock } from "./contextBuilder";
+import { buildMemoryBlock, wrapUntrustedSpan } from "./contextBuilder";
 import type { ToolObservation } from "./toolDispatcher";
 
 export interface SynthesizedResponse {
@@ -186,12 +186,22 @@ async function generateReply(
   onDelta?: (delta: string) => void,
 ): Promise<string | null> {
   const message = sanitizeUserInput(context.message);
-  const historyLine = context.history ? `对话历史：\n${context.history}\n` : "";
-  const memoryLine =
+  // 三个不可信跨度（对话历史/当前消息/记忆）显式包裹，模型只把跨度内内容当数据；
+  // 【事实】来自工具执行结果、是可信数据，永远放在跨度之外的末尾
+  const historySpan = context.history ? wrapUntrustedSpan("对话历史", context.history) : "";
+  const memorySpan =
     context.memories && context.memories.length > 0
-      ? `\n${buildMemoryBlock(context.memories)}\n`
+      ? wrapUntrustedSpan("记忆", buildMemoryBlock(context.memories))
       : "";
-  const userContent = `${historyLine}用户说：「${message}」\n${profileLine(context.profile)}${memoryLine}\n【事实】${facts}`;
+  const userContent = [
+    historySpan,
+    wrapUntrustedSpan("用户消息", message),
+    profileLine(context.profile),
+    memorySpan,
+    `【事实】${facts}`,
+  ]
+    .filter((part) => part.length > 0)
+    .join("\n");
 
   const options = { maxTokens: 300, temperature: 0.5 };
   const result = onDelta

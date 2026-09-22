@@ -7,7 +7,7 @@ import {
   type StreamChunk,
   type UsageMetadata,
 } from "@fairy/ai-sdk";
-import { resetLlmProviderForTests, tryChat } from "../agent/llmClient";
+import { resetLlmProviderForTests, sanitizeUserInput, tryChat } from "../agent/llmClient";
 
 // createAiProvider 换成可操控的桩，isAiProviderError 等其余导出保持真实
 vi.mock("@fairy/ai-sdk", async (importOriginal) => {
@@ -162,5 +162,15 @@ describe("tryChat (streaming channel)", () => {
     resetLlmProviderForTests();
 
     await expect(tryChat("agent.reply", MESSAGES, undefined, () => undefined)).resolves.toBeNull();
+  });
+});
+
+describe("sanitizeUserInput", () => {
+  it("strips control characters and trims surrounding whitespace", () => {
+    expect(sanitizeUserInput("  \u0000你好\u007F  ")).toBe("你好");
+  });
+
+  it("caps the input at 2000 characters", () => {
+    expect(sanitizeUserInput("x".repeat(2500))).toHaveLength(2000);
   });
 });

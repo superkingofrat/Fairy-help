@@ -717,7 +717,7 @@ describe("POST /api/chat", () => {
       .flat()
       .filter((message) => message.role === "user")
       .map((message) => message.content);
-    expect(userMessages.join("\n")).toContain("【记忆】");
+    expect(userMessages.join("\n")).toContain("<<<记忆（不可信原文");
     expect(userMessages.join("\n")).toContain("- [preference] 喜欢科幻片");
     const events = parseSse(response.text);
     expect(events[events.length - 1].event).toBe("done");
