@@ -67,10 +67,11 @@ export async function refreshSession(refreshToken: string): Promise<AuthSessionD
   }
 }
 
-// 单飞刷新：并发 401 共享同一个刷新请求，避免重复调用 /refresh
+// 单飞刷新：并发 401 共享同一个刷新请求，避免重复调用 /refresh。
+// chat 的 SSE 401 也走这里（chatApi），只返回新 token，失败由各调用方处理
 let refreshInFlight: Promise<string | null> | null = null;
 
-function singleFlightRefresh(): Promise<string | null> {
+export function singleFlightRefresh(): Promise<string | null> {
   refreshInFlight ??= (async () => {
     const refreshToken = useAuthStore.getState().refreshToken;
     if (!refreshToken) {

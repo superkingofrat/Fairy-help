@@ -1,4 +1,5 @@
 import type { BorrowSseEvent, ChatRequest, Movie, RecommendationSseEvent } from "@fairy/shared";
+import { singleFlightRefresh } from "./http";
 import { useAuthStore } from "../stores/authStore";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
@@ -32,12 +33,19 @@ export function parseSseBuffer(buffer: string): { events: ParsedSseEvent[]; rest
   return { events, rest };
 }
 
+// 401 专用：与网络错误、流错误区分开，触发刷新重试
+class ChatAuthExpiredError extends Error {
+  constructor() {
+    super("chat unauthorized");
+    this.name = "ChatAuthExpiredError";
+  }
+}
+
 export async function postChat(
   body: ChatRequest,
   onEvent: (event: ParsedSseEvent) => void,
   options?: { timeoutMs?: number; signal?: AbortSignal },
 ): Promise<void> {
-  const token = useAuthStore.getState().token;
   const controller = options?.signal ? undefined : new AbortController();
   const signal = options?.signal ?? controller?.signal;
   const timeout = options?.timeoutMs ?? 60_000;
@@ -48,7 +56,15 @@ export async function postChat(
     controller?.abort();
   }, timeout);
 
-  try {
+  const expireSession = (): never => {
+    useAuthStore.getState().clear();
+    window.location.assign("/login");
+    throw new Error("会话已失效，请重新登录");
+  };
+
+  const send = async (): Promise<void> => {
+    // 每次尝试都重新读 token：刷新可能已被并发请求或其它标签页完成
+    const token = useAuthStore.getState().token;
     const response = await fetch(`${API_BASE}/api/chat`, {
       method: "POST",
       headers: {
@@ -61,9 +77,7 @@ export async function postChat(
 
     if (!response.ok) {
       if (response.status === 401) {
-        useAuthStore.getState().clear();
-        window.location.assign("/login");
-        throw new Error("会话已失效，请重新登录");
+        throw new ChatAuthExpiredError();
       }
       const raw = await response.text();
       throw new Error(raw || `Chat failed (${response.status})`);
@@ -92,6 +106,28 @@ export async function postChat(
       for (const event of parsed.events) {
         onEvent(event);
       }
+    }
+  };
+
+  try {
+    try {
+      await send();
+    } catch (error) {
+      if (!(error instanceof ChatAuthExpiredError)) {
+        throw error;
+      }
+      // 401：访问令牌可能刚过期，走与普通请求共享的单飞刷新，成功后重试一次
+      if (await singleFlightRefresh()) {
+        try {
+          await send();
+          return;
+        } catch (retryError) {
+          if (!(retryError instanceof ChatAuthExpiredError)) {
+            throw retryError;
+          }
+        }
+      }
+      expireSession();
     }
   } finally {
     clearTimeout(timer);
