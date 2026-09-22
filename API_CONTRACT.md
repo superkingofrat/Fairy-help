@@ -307,9 +307,11 @@ Authorization: Bearer <jwt>
 
 `borrow.code` 成功为 `OK`；失败为 `OUT_OF_STOCK`、`ALREADY_BORROWED`、`MOVIE_NOT_FOUND`。`return.code` 成功为 `OK`；失败为 `RENTAL_NOT_FOUND`。
 
-`trip` 事件仅在行程规划成功时发出，`data` 为完整 `TripResult`（`tripId`、`destination`、`days`、`itinerary`——按天分组的 POI 步骤，每步含 `time`/`name`/`category`/`note`/`location`/`validated`、`route`——相邻已校验 POI 间的路线 `from`/`to`/`distanceMeters`/`durationSeconds`，无校验时为 `null`、`validated`）。行程规划对代理人「铃」（画像名 `铃`）与绳匠（admin）开放：其他身份请求时**不调用规划工具、不落库、不发出事件**，回复婉拒文本并引导推荐影片。目的地无法从消息确定时**不落库、不发出事件**，只返回追问文本；高德不可用（`AMAP_SERVER_KEY` 缺失/超时/报错）时 POI 标 `validated: false`、`route: null`，仍返回行程，且不暴露密钥、原始响应或堆栈（FU-13）。
+`trip` 事件仅在行程规划成功时发出，`data` 为完整 `TripResult`（`tripId`、`destination`、`days`、`itinerary`——按天分组的 POI 步骤，每步含 `time`/`name`/`category`/`note`/`location`/`validated`、`route`——相邻已校验 POI 间的路线 `from`/`to`/`distanceMeters`/`durationSeconds`，无校验时为 `null`、`validated`）。行程规划对 `admin` 与 `agent` 两种角色开放（按 token 中的 `role` 判定；种子账号 `user@fairy.local` 为 agent，新注册用户默认为 `user`）：其他身份请求时**不调用规划工具、不落库、不发出事件**，回复婉拒文本并引导推荐影片。目的地无法从消息确定时**不落库、不发出事件**，只返回追问文本；高德不可用（`AMAP_SERVER_KEY` 缺失/超时/报错）时 POI 标 `validated: false`、`route: null`，仍返回行程，且不暴露密钥、原始响应或堆栈（FU-13）。
 
-意图顺序：合法 `movieId` → 手打「借」+ 唯一片名 → 手打「还」+ 唯一片名 → 消息含子串 mood/scene → 引导语（不调工具）。LLM 路径（FU-2 起）按结构化意图输出，规则链为降级路径；归还仅在用户明确表达归还影片时触发（「还」有 hái/huán 歧义）。
+意图顺序：合法 `movieId` → 手打「借」+ 唯一片名 → 手打「还」+ 唯一片名 → 消息含子串 mood/scene → 引导语（不调工具）。LLM 路径（FU-2 起）按结构化意图输出，规则链为降级路径；归还仅在用户明确表达归还影片时触发（「还」有 hái/huán 歧义）。规则层语境修正（2026-09-22）：消息含影片名词（片子/影片/电影/短片/纪录片/碟片/录像带）时旅行词只是题材修饰，「有没有旅行为主题的片子」不触发行程意图，交 LLM 判定；「借」请求携带心情/场景词（如「想借个治愈的片子」）时回落 `recommend`，不再作为无片名的借阅追问。
+
+前端错误展示（2026-09-22，消费方约定，不改变本契约负载）：开启 SSE 前的 JSON 错误码（`SESSION_NOT_FOUND`/`SESSION_FORBIDDEN`/`TOO_MANY_REQUESTS`/`VALIDATION_ERROR` 等）与流中断场景在前端映射为 `chat.error.*` 本地化文案；界面不展示原始 JSON、英文开发提示或 i18n key 字面量。传输层合成码（`NETWORK_ERROR`/`INVALID_RESPONSE`/`EMPTY_RESPONSE`/`REQUEST_FAILED`）属前端 lib 层内部码，不对应任何后端响应。
 
 #### LLM 行为与降级（FU-2 起）
 
