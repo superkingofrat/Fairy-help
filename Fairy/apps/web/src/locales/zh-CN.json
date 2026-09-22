@@ -41,8 +41,14 @@
   "chat.stock": "库存",
   "chat.empty": "说说心情或场景，例如「雨天」。",
   "chat.error": "对话失败，请确认 API 已启动。",
-  "chat.error.timeout": "对话超时，请重试",
+  "chat.error.TIMEOUT": "对话超时，请重试",
   "chat.error.stream": "Fairy 这边出了点小状况，请稍后再试",
+  "chat.error.EMPTY_STREAM": "Fairy 这边出了点小状况，请稍后再试",
+  "chat.error.SESSION_EXPIRED": "会话已失效，请重新登录",
+  "chat.error.SESSION_NOT_FOUND": "会话不存在或已结束，请新建会话后重试",
+  "chat.error.SESSION_FORBIDDEN": "没有权限访问这个会话",
+  "chat.error.TOO_MANY_REQUESTS": "发送太频繁了，请稍后再试",
+  "chat.error.VALIDATION_ERROR": "消息内容不合法，请调整后重试",
   "chat.loading": "发送中...",
   "chat.you": "你",
   "chat.session.title": "会话",
@@ -256,5 +262,10 @@
   "register.loginLink": "已有账号？去登录",
   "nav.login": "登录",
   "nav.register": "注册",
-  "nav.logout": "退出"
+  "nav.logout": "退出",
+  "error.network": "网络连接失败，请检查网络后重试",
+  "error.requestFailed": "请求失败，请稍后重试",
+  "error.invalidResponse": "服务响应异常，请稍后重试",
+  "error.emptyResponse": "服务没有返回内容，请稍后重试",
+  "error.unauthorized": "会话已失效，请重新登录"
 }

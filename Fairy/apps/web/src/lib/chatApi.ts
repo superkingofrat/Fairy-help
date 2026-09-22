@@ -1,8 +1,6 @@
 import type { BorrowSseEvent, ChatRequest, Movie, RecommendationSseEvent } from "@fairy/shared";
-import { singleFlightRefresh } from "./http";
+import { ApiRequestError, fetchResponse, singleFlightRefresh } from "./http";
 import { useAuthStore } from "../stores/authStore";
-
-const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
 export interface ParsedSseEvent {
   event: string;
@@ -41,6 +39,25 @@ class ChatAuthExpiredError extends Error {
   }
 }
 
+interface ChatErrorEnvelope {
+  code?: string;
+  msg?: string;
+}
+
+// 开启 SSE 前的后端错误响应：解出 { code, msg }，带码上抛。
+// 组件层按码映射 chat.error.* 本地化文案（lib/errorMessages），
+// 不把原始 JSON、英文提示或 i18n key 字面量直接显示给用户
+function parseChatError(raw: string): ChatErrorEnvelope | null {
+  if (!raw.trim()) {
+    return null;
+  }
+  try {
+    return JSON.parse(raw) as ChatErrorEnvelope;
+  } catch {
+    return null;
+  }
+}
+
 export async function postChat(
   body: ChatRequest,
   onEvent: (event: ParsedSseEvent) => void,
@@ -59,13 +76,13 @@ export async function postChat(
   const expireSession = (): never => {
     useAuthStore.getState().clear();
     window.location.assign("/login");
-    throw new Error("会话已失效，请重新登录");
+    throw new ApiRequestError("session expired", "SESSION_EXPIRED");
   };
 
   const send = async (): Promise<void> => {
     // 每次尝试都重新读 token：刷新可能已被并发请求或其它标签页完成
     const token = useAuthStore.getState().token;
-    const response = await fetch(`${API_BASE}/api/chat`, {
+    const response = await fetchResponse("/api/chat", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -79,12 +96,15 @@ export async function postChat(
       if (response.status === 401) {
         throw new ChatAuthExpiredError();
       }
-      const raw = await response.text();
-      throw new Error(raw || `Chat failed (${response.status})`);
+      const payload = parseChatError(await response.text());
+      throw new ApiRequestError(
+        payload?.msg ?? `Chat failed (${response.status})`,
+        payload?.code ?? "CHAT_FAILED",
+      );
     }
 
     if (!response.body) {
-      throw new Error("Empty chat stream");
+      throw new ApiRequestError("empty chat stream", "EMPTY_STREAM");
     }
 
     const reader = response.body.getReader();
@@ -94,13 +114,26 @@ export async function postChat(
     // 流读取循环：无测试条件的 for 等价于 while (true)，但不受 no-constant-condition 约束
     for (;;) {
       if (timedOut) {
-        throw new Error("chat.error.timeout");
+        throw new ApiRequestError("chat request timed out", "TIMEOUT");
       }
-      const { done, value } = await reader.read();
-      if (done) {
+      let chunk: ReadableStreamReadResult<Uint8Array>;
+      try {
+        chunk = await reader.read();
+      } catch (error) {
+        // 超时中止会把 pending read 拒绝为 AbortError，按 timedOut 归一为 TIMEOUT；
+        // 调用方主动取消原样抛出；其余流中断归 STREAM
+        if (timedOut) {
+          throw new ApiRequestError("chat request timed out", "TIMEOUT");
+        }
+        if (options?.signal?.aborted) {
+          throw error;
+        }
+        throw new ApiRequestError("chat stream failed", "STREAM");
+      }
+      if (chunk.done) {
         break;
       }
-      buffer += decoder.decode(value, { stream: true });
+      buffer += decoder.decode(chunk.value, { stream: true });
       const parsed = parseSseBuffer(buffer);
       buffer = parsed.rest;
       for (const event of parsed.events) {

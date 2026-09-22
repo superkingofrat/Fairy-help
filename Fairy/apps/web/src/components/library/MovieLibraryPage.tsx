@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Movie, Pagination } from "@fairy/shared";
 import { MOODS, SCENES } from "@fairy/shared";
+import { localizedErrorMessage } from "../../lib/errorMessages";
 import { t } from "../../lib/i18n";
 import { borrowMovie, fetchMovies, searchMovies } from "../../lib/movieApi";
 import { listRentals } from "../../lib/rentalsApi";
@@ -77,7 +78,7 @@ export function MovieLibraryPage(): JSX.Element {
       })
       .catch((error: Error) => {
         if (cancelled) return;
-        setLoadError(error.message);
+        setLoadError(localizedErrorMessage(error, t, "library.error.load"));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -105,9 +106,7 @@ export function MovieLibraryPage(): JSX.Element {
               ? t("library.error.OUT_OF_STOCK")
               : code === "MOVIE_NOT_FOUND"
                 ? t("library.error.MOVIE_NOT_FOUND")
-                : error instanceof Error
-                  ? error.message
-                  : t("library.error.borrow");
+                : localizedErrorMessage(error, t, "library.error.borrow");
         setCards((prev) => ({ ...prev, [movieId]: { status: "error", errorMsg: message } }));
       }
       void refreshRentals();

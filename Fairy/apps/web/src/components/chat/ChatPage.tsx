@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import type { ChatMessageDto, Movie, SessionListItem, TripResult } from "@fairy/shared";
 import { postChat } from "../../lib/chatApi";
+import { chatErrorMessage } from "../../lib/errorMessages";
 import { t } from "../../lib/i18n";
 import { createSession, getSessionMessages, listSessions } from "../../lib/sessionApi";
 import { useChatStore } from "../../stores/chatStore";
@@ -232,7 +233,7 @@ export function ChatPage(): JSX.Element {
         }
         return current;
       });
-      setError(caught instanceof Error ? caught.message : t("chat.error"));
+      setError(chatErrorMessage(caught, t));
     } finally {
       setBusy(false);
       void refreshRentals();

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { MoodSceneCount, StoreInsightsOverview } from "@fairy/shared";
 import { fetchInsightsOverview } from "../../lib/insightApi";
+import { localizedErrorMessage } from "../../lib/errorMessages";
 import { t } from "../../lib/i18n";
 
 function barWidth(count: number, max: number): number {
@@ -69,7 +70,7 @@ export function InsightsAdminPage(): JSX.Element {
       const data = await fetchInsightsOverview();
       setOverview(data);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : t("insights.error.load"));
+      setError(localizedErrorMessage(loadError, t, "insights.error.load"));
       setOverview(null);
     } finally {
       setLoading(false);

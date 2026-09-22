@@ -25,6 +25,28 @@ function sseResponse(body: string, status = 200): Response {
   return new Response(stream, { status, headers: { "Content-Type": "text/event-stream" } });
 }
 
+// 一个永不产出、直到请求被中止才拒绝 read 的流：复刻真实 fetch 超时中止行为
+function hangingSseResponse(init?: RequestInit): Response {
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      init?.signal?.addEventListener("abort", () => {
+        controller.error(new Error("The operation was aborted."));
+      });
+    },
+  });
+  return new Response(stream, { status: 200, headers: { "Content-Type": "text/event-stream" } });
+}
+
+function erroringSseResponse(body: string): Response {
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(body));
+      controller.error(new Error("connection reset"));
+    },
+  });
+  return new Response(stream, { status: 200, headers: { "Content-Type": "text/event-stream" } });
+}
+
 const CHAT_BODY = 'event: text\ndata: {"text":"推荐《海盗》"}\n\nevent: done\ndata: {}\n\n';
 
 const assignMock = vi.fn();
@@ -151,7 +173,7 @@ describe("postChat", () => {
         { sessionId: "00000000-0000-4000-8000-000000000001", message: "推荐一部" },
         () => {},
       ),
-    ).rejects.toThrow("会话已失效，请重新登录");
+    ).rejects.toMatchObject({ name: "ApiRequestError", code: "SESSION_EXPIRED" });
     expect(fetchMock).toHaveBeenCalledTimes(2); // 原请求 + refresh，不重试
     expect(useAuthStore.getState().token).toBeNull();
     expect(useAuthStore.getState().refreshToken).toBeNull();
@@ -177,15 +199,19 @@ describe("postChat", () => {
         { sessionId: "00000000-0000-4000-8000-000000000001", message: "推荐一部" },
         () => {},
       ),
-    ).rejects.toThrow("会话已失效，请重新登录");
+    ).rejects.toMatchObject({ name: "ApiRequestError", code: "SESSION_EXPIRED" });
     expect(fetchMock).toHaveBeenCalledTimes(3); // 原请求 + refresh + 重试仍 401
     expect(useAuthStore.getState().token).toBeNull();
     expect(assignMock).toHaveBeenCalledWith("/login");
   });
 
-  it("passes non-401 failures through without refreshing", async () => {
+  it("carries the backend error code on non-401 failures without refreshing", async () => {
     const fetchMock = vi.fn(async () =>
-      jsonResponse(500, { code: "INTERNAL", data: null, msg: "" }),
+      jsonResponse(429, {
+        code: "TOO_MANY_REQUESTS",
+        data: null,
+        msg: "发送太频繁了，请稍后再试",
+      }),
     );
     vi.stubGlobal("fetch", fetchMock);
     useAuthStore.setState({ token: "t", refreshToken: "rt", user });
@@ -195,9 +221,82 @@ describe("postChat", () => {
         { sessionId: "00000000-0000-4000-8000-000000000001", message: "推荐一部" },
         () => {},
       ),
-    ).rejects.toThrow('{"code":"INTERNAL","data":null,"msg":""}');
+    ).rejects.toMatchObject({
+      name: "ApiRequestError",
+      code: "TOO_MANY_REQUESTS",
+      message: "发送太频繁了，请稍后再试",
+    });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(useAuthStore.getState().token).toBe("t");
     expect(assignMock).not.toHaveBeenCalled();
+  });
+
+  it("falls back to CHAT_FAILED when the error body is not a JSON envelope", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response("<html>502 Bad Gateway</html>", { status: 502 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    useAuthStore.setState({ token: "t", refreshToken: "rt", user });
+
+    await expect(
+      postChat(
+        { sessionId: "00000000-0000-4000-8000-000000000001", message: "推荐一部" },
+        () => {},
+      ),
+    ).rejects.toMatchObject({ name: "ApiRequestError", code: "CHAT_FAILED" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects with EMPTY_STREAM when the response has no body", async () => {
+    const fetchMock = vi.fn(async () => new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    useAuthStore.setState({ token: "t", refreshToken: "rt", user });
+
+    await expect(
+      postChat(
+        { sessionId: "00000000-0000-4000-8000-000000000001", message: "推荐一部" },
+        () => {},
+      ),
+    ).rejects.toMatchObject({ name: "ApiRequestError", code: "EMPTY_STREAM" });
+  });
+
+  it("rejects with STREAM when the stream breaks mid-flight", async () => {
+    const fetchMock = vi.fn(async () =>
+      erroringSseResponse('event: text\ndata: {"text":"嗨"}\n\n'),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    useAuthStore.setState({ token: "t", refreshToken: "rt", user });
+
+    await expect(
+      postChat(
+        { sessionId: "00000000-0000-4000-8000-000000000001", message: "推荐一部" },
+        () => {},
+      ),
+    ).rejects.toMatchObject({ name: "ApiRequestError", code: "STREAM" });
+  });
+
+  it("rejects with TIMEOUT when the abort fires before the stream completes", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) =>
+        hangingSseResponse(init),
+      );
+      vi.stubGlobal("fetch", fetchMock);
+      useAuthStore.setState({ token: "t", refreshToken: "rt", user });
+
+      const pending = postChat(
+        { sessionId: "00000000-0000-4000-8000-000000000001", message: "推荐一部" },
+        () => {},
+        { timeoutMs: 1_000 },
+      );
+      const assertion = expect(pending).rejects.toMatchObject({
+        name: "ApiRequestError",
+        code: "TIMEOUT",
+      });
+      await vi.advanceTimersByTimeAsync(1_000);
+      await assertion;
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
