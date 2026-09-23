@@ -83,3 +83,14 @@ shared 107 / api 360（并发用例默认跳过 ×1）/ web 126 全绿 + 三包 
   7. **高德 2.0 默认栅格瓦片是 `<img>`**：验证渲染要看 `.amap-marker` DOM 数与瓦片 img 数，canvas 层 0×0 不代表没渲染（曾据此误判一次）。
 - **密钥安全**（负责人明确要求）：三份 `.env` 均被 `Fairy/.gitignore:11` 命中、`git ls-files` 0 跟踪、提交前 diff 扫描 0 处 32-hex；所有探针脚本只在内存读 key、只回传 status/info/count；临时脚本（api 4 个 + web 1 个）全部删除，`git status` 仅剩 TripMap.tsx/TripMap.test.tsx 与本文档/PROJECT_STATUS。
 - **提交**：`web: convert trip map coordinates to LngLat instances`（P0 修复 + 严格 stub 回归）+ 文档（PROJECT_STATUS 五处 + 本 journal）。分支 `feature/travel-planning-phase-2` 未推送（领先 master 37 提交）。
+
+---
+
+## 同日再追加（三）：真实坐标全链路 + AC-4 真机验收闭环（Web服务 key 配置后）
+
+- **触发**：负责人按上次登记的路径在高德控制台为同一应用添加「Web服务」平台 key，填入 `apps/api/.env` 的 `AMAP_SERVER_KEY` 并重启 api。
+- **服务端恢复证据**：restapi probe 返回 `status:"1" info:"OK" pois:20`（此前 `USERKEY_PLAT_NOMATCH`/10009）；新建行程「帮我规划周末去杭州玩」落库后 DB 记录 16 步中 9 步 POI 带坐标（断桥残雪/白堤/浙江省博物馆等）、route 3 段非空。
+- **真机 AC-4（本批验收核心）**：`local.fairy.dev` 源 + 双 dev server 真实浏览器，聊天行程卡片内地图容器 662×192、`.amap-marker` DOM ×9（与 9 个有坐标 POI 精确一致）、折线 SVG overlay ×1、瓦片 `<img>` ×10、amap-maps/controls/logo/copyright 层齐全、`window.AMap` 2.0 就位、模块内 key 字面量已内联——marker+折线+瓦片全链路渲染，AC-4 闭环。FU-19 地图链路至此全项闭环，无剩余 owner 待办。
+- **踩坑复现（1 次，非新增）**：TaskStop 连带杀光同批 node 进程的坑第 3 次踩到（重启 api+web 即可，勿误判服务崩溃）。
+- **清理与安全**：临时探针 `apps/api/trip-check-tmp.ts` 删除，`git status` 干净；三份 `.env` 均被 `Fairy/.gitignore:11` 命中、0 跟踪、提交 diff 0 处 32-hex、全程无 key 回显。
+- **提交**：`docs: sync the spine after final amap map acceptance`（PROJECT_STATUS 五处 + 本 journal）。分支未推送（领先 master 43 提交）。
