@@ -2,9 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { InsightsAdminPage } from "../components/admin/InsightsAdminPage";
 import * as insightApi from "../lib/insightApi";
-import type { StoreInsightsOverview } from "@fairy/shared";
+import * as suggestionApi from "../lib/suggestionApi";
+import type { StoreInsightsOverview, Suggestion, SuggestionListFeed } from "@fairy/shared";
 
 vi.mock("../lib/insightApi");
+vi.mock("../lib/suggestionApi");
+
+function suggestionFeed(items: Suggestion[]): SuggestionListFeed {
+  return { items, pagination: { page: 1, limit: 20, total: items.length, totalPages: 1 } };
+}
 
 function overview(overrides: Partial<StoreInsightsOverview> = {}): StoreInsightsOverview {
   return {
@@ -45,6 +51,9 @@ function emptyOverview(): StoreInsightsOverview {
 describe("InsightsAdminPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // 建议流自包含：固定返回空流，隔离看板断言
+    vi.mocked(suggestionApi.listSuggestions).mockResolvedValue(suggestionFeed([]));
+    vi.mocked(suggestionApi.getUnreadCount).mockResolvedValue({ count: 0 });
   });
 
   afterEach(() => {
@@ -82,5 +91,54 @@ describe("InsightsAdminPage", () => {
     render(<InsightsAdminPage />);
 
     expect(await screen.findByText("API down")).toBeDefined();
+  });
+
+  it("renders the suggestion stream inline with its unread badge", async () => {
+    vi.mocked(insightApi.fetchInsightsOverview).mockResolvedValue(overview());
+    vi.mocked(suggestionApi.listSuggestions).mockResolvedValue(
+      suggestionFeed([
+        {
+          id: "s1",
+          kind: "LOW_STOCK",
+          summary: "《教父》库存告急",
+          body: "目前仅剩 0 盒在库，建议尽快补货。",
+          sourceData: { movieId: "m1", title: "教父", stock: 0, totalStock: 2 },
+          readAt: null,
+          createdAt: "2026-09-23T04:00:00.000Z",
+        },
+      ]),
+    );
+    vi.mocked(suggestionApi.getUnreadCount).mockResolvedValue({ count: 1 });
+
+    render(<InsightsAdminPage />);
+
+    // 看板与建议流同屏，互不影响
+    expect(await screen.findByText("《教父》库存告急")).toBeDefined();
+    expect(screen.getByTestId("suggestion-unread-badge").textContent).toBe("1 条未读");
+    expect(screen.getByText("运营看板")).toBeDefined();
+    expect(screen.getByText("《海蒂》")).toBeDefined();
+  });
+
+  it("keeps rendering the suggestion stream when the overview is empty", async () => {
+    vi.mocked(insightApi.fetchInsightsOverview).mockResolvedValue(emptyOverview());
+    vi.mocked(suggestionApi.listSuggestions).mockResolvedValue(
+      suggestionFeed([
+        {
+          id: "s2",
+          kind: "DAILY_REPORT",
+          summary: "经营日报 · 2026-09-23",
+          body: "今日经营速览",
+          sourceData: {},
+          readAt: null,
+          createdAt: "2026-09-23T04:00:00.000Z",
+        },
+      ]),
+    );
+    vi.mocked(suggestionApi.getUnreadCount).mockResolvedValue({ count: 1 });
+
+    render(<InsightsAdminPage />);
+
+    expect(await screen.findByText("经营日报 · 2026-09-23")).toBeDefined();
+    expect(screen.getByText(/暂无经营数据/)).toBeDefined();
   });
 });

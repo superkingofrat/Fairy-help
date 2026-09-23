@@ -36,6 +36,12 @@ const COMMON_ERROR_KEYS: Record<string, keyof Messages> = {
   REQUEST_FAILED: "error.requestFailed",
 };
 
+// 2026-09-23-proactive-ops-suggestions：运营建议契约码（API_CONTRACT suggestions 段）
+const SUGGESTION_ERROR_KEYS: Record<string, keyof Messages> = {
+  SUGGESTION_NOT_FOUND: "suggestions.error.SUGGESTION_NOT_FOUND",
+  FORBIDDEN: "suggestions.error.FORBIDDEN",
+};
+
 function errorCode(error: unknown): string | undefined {
   if (error instanceof ApiRequestError) {
     return error.code;
@@ -85,4 +91,13 @@ export function tripErrorMessage(error: unknown, translate: Translate): string {
     return translate(key);
   }
   return localizedErrorMessage(error, translate, "trips.error.default");
+}
+
+// 运营建议专用：先按 suggestions 契约码映射，再走通用规则，兜底 suggestions.error.default
+export function suggestionErrorMessage(error: unknown, translate: Translate): string {
+  const key = localizedKey(error, SUGGESTION_ERROR_KEYS);
+  if (key) {
+    return translate(key);
+  }
+  return localizedErrorMessage(error, translate, "suggestions.error.default");
 }
