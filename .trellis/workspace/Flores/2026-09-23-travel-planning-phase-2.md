@@ -114,3 +114,4 @@ shared 107 / api 360（并发用例默认跳过 ×1）/ web 126 全绿 + 三包 
   1. **`execSync` 经 cmd.exe 无 `printf`**：`git credential fill` 的 stdin 用 `{ input: 'protocol=https\nhost=github.com\n\n' }` 选项喂，不能 `printf ... | git credential fill`（cmd 会当Pipe空stdin 静默成功、拿到空 token）。
   2. **`^{tree}` 的脱字符被 shell 吃掉**：`git rev-parse 'HEAD^{tree}'` 报 ambiguous argument；改用 `git show -s --format=%T HEAD` 拿 tree SHA。
   3. **`cat-file -p` 对非 ASCII 路径转义**：仓库根有中文文件名（`初版项目设定.md`、`结构化需求分析…md`），core.quotePath 会把路径八进制转义，照抄重建 root tree 必 MISMATCH；**必须 `git ls-tree -z`**（raw UTF-8 + NUL 分隔）解析条目再 POST `/git/trees`。
+- **网络恢复**：上述 workaround 之后直连恢复（疑似梯子节点自行恢复），本 journal 提交 `e7e97d1` 直接 `git push` 成功、remote head 与本地字节一致——API 重建路径留作预案，不必默认启用。
