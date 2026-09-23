@@ -115,3 +115,23 @@ shared 107 / api 360（并发用例默认跳过 ×1）/ web 126 全绿 + 三包 
   2. **`^{tree}` 的脱字符被 shell 吃掉**：`git rev-parse 'HEAD^{tree}'` 报 ambiguous argument；改用 `git show -s --format=%T HEAD` 拿 tree SHA。
   3. **`cat-file -p` 对非 ASCII 路径转义**：仓库根有中文文件名（`初版项目设定.md`、`结构化需求分析…md`），core.quotePath 会把路径八进制转义，照抄重建 root tree 必 MISMATCH；**必须 `git ls-tree -z`**（raw UTF-8 + NUL 分隔）解析条目再 POST `/git/trees`。
 - **网络恢复**：上述 workaround 之后直连恢复（疑似梯子节点自行恢复），本 journal 提交 `e7e97d1` 直接 `git push` 成功、remote head 与本地字节一致——API 重建路径留作预案，不必默认启用。
+
+---
+
+## 同日再追加（六）：OpenSpec 提案创建（提案批准后 Apply）+ API 推送二连踩坑
+
+- **需求批准**：负责人「继续」= 批准需求。需求文档/README 索引 confirmed → approved，PROJECT_STATUS Next Steps 与 Last Updated 同步。
+- **提案**（`openspec new change` 建 scaffold，按 `openspec instructions` 逐产物写，`validate` 普通 + `--strict` 双通过）：[2026-09-23-proactive-ops-suggestions](openspec/changes/2026-09-23-proactive-ops-suggestions/)——proposal.md（Why/What Changes/Capabilities/Impact：新能力 `ops-suggestions`，store-insights 零修改）、specs/ops-suggestions/spec.md（7 条 requirement + scenario：阈值触发/去重/日报/LLM 降级/admin-only 已读态/看板建议流/无人值守调度）、design.md、tasks.md（7 组 30 项）。需求 5 项待决问题全部在 design 定稿：
+  1. **调度 = 进程内 `setInterval`**（零新依赖；阈值 15 分钟 + 启动即跑一次；日报查库判「今日已有」而非内存态，重启/换进程仍幂等；挂 server 入口不挂 `createApp()`——同限流器的测试隔离理由；拒绝 node-cron/外部 cron/pg_cron）
+  2. **阈值集合**：低库存 `stock ≤ 1`（复用 `LOW_STOCK_THRESHOLD` 与看板同源）+ `borrowedRatio ≥ 0.8` + 近 7 天借阅和 = 0；趋势骤降不做（宁少勿噪）
+  3. **`body` = 纯文本**（前端 `whitespace-pre-line`，不引 Markdown 库）
+  4. **不加阈值检测手动端点**：手动入口只有 `POST /generate-daily`；AC-1 真机靠「改库 + 重启 api（启动即检测）」+ 单测直推 service
+  5. **未读覆盖全部四类**建议，直到 PATCH read
+  - 关键 design 决策（提案阶段拍板，比需求文档更精确）：**去重 = `dedupeKey` 唯一索引 + 恢复即 delete + create 时 catch P2002**（`LOW_STOCK:<movieId>`/`BORROW_RATIO:store`/`DORMANT:store`/`DAILY_REPORT:<dateKey>`）——模型列与需求文档完全一致，无需 resolvedAt，也不需要 Prisma 未建模的部分唯一索引；「回补后再跌破」天然产生全新一条。LLM 走既有 `agent/llmClient.ts` 的 `tryChat`（无 key/失败返回 null，日志只记 code/provider 不打印负载——§5 免费满足），null 即 `renderTemplateSuggestion` 模板降级。
+- **提交**：`docs: propose proactive ops suggestions with finalized design decisions`（`6caccfd`，8 文件：提案 5 新 + 需求状态/README/PROJECT_STATUS 3 改）。
+- **推送二连踩坑（网络 + git-data API 细节）**：
+  1. **网络反复**：`575f4db` 还能直推，`6caccfd` 时 `remote end hung up` 随后 connect timeout——直连时通时断，API 重建路径要当常备预案而非一次性。
+  2. **`git diff-tree --name-only -z` 会把 commit SHA 打在输出第一行**（NUL 分隔也甩不掉），blob 步骤直接把 SHA 当路径 `git show HEAD:<sha>` 报 fatal——加 `--no-commit-id` 根治。
+  3. **重建嵌套目录每一层都要单独建 tree**：`specs/ops-suggestions/spec.md` 是 ops-suggestions tree → specs tree → change dir tree 三级，我曾把 specs 层拍平漏掉一级，change tree 直接 MISMATCH。
+  4. **API commit 日期要用 `%aI` 同款字符串**（墙钟 + 原始 offset，如 `2026-09-23T17:51:28+08:00`）：转成 `Z` 只差 offset 也改 SHA；offset 算错整体平移更错。**message 不要 trimEnd**——本地 commit object 尾部恰好一个 `\n`，GitHub 对有无尾随换行各存各的，两连试（f21fcd02 / 28759bfa）都是 dangling，最后三要素（tree 字节一致 + 日期字符串 + 尾随换行）全对才 6caccfd 字节一致。
+- **下一步门禁**：§15.1 OpenSpec 轨——提案批准（负责人审阅 openspec/changes/2026-09-23-proactive-ops-suggestions/）→ `/opsx:apply` → 实现 → 真机验收 AC-1~7。**批准前不写产品代码**。
