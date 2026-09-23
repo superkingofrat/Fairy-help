@@ -52,3 +52,14 @@ shared 107 / api 360（并发用例默认跳过 ×1）/ web 126 全绿 + 三包 
 - 验收产物已清理：临时脚本 `apps/api/acceptance-tmp.ts` 删除；验收注册的 `ac-probe@fairy.local` 用户连同 refresh token 删除。dev 库中留存的 ~20 条验收行程为普通开发数据。
 - 文档脊柱同步：API_CONTRACT §3.15/§4/§5（顺带移除已交付条目与过期 `GET /api/admin/insights` 记载）、ARCHITECTURE §3.1/§5.3/§8/§9、web `.env.example` + Dockerfile build ARG、`docs/deployment.md`、PROJECT_STATUS 五节、需求文档与 README 索引置 implemented。
 - **未推送**：分支领先 master 36 提交，按惯例推送需负责人明确指示。线上地图渲染需负责人配置 `VITE_AMAP_JS_KEY`（referrer 白名单的 Web 端安全密钥）并重新构建 web 镜像后验证（AC-4 已由单测覆盖）。
+
+---
+
+## 同日追加：FU-16 真实 embed 验收尝试（结论：维持 owner-blocked，阻塞点精确化）
+
+- **起因**：二期收尾后 `In Progress` 唯一剩余项。此前 Risks 只写「本环境无 OpenAI key」，本次精确核实：`Fairy/apps/api/.env` 中 `OPENAI_API_KEY=` 是**空占位行**，`EMBEDDING_API_KEY` 未配置 → `createEmbeddingProvider()` 返回 null（factory 在调用时读 env，`EMBEDDING_API_KEY` 缺省回退 `OPENAI_API_KEY`）。
+- **写入链路实测**（双 dev server 下 user@fairy.local 发「我最近特别迷科幻片，太空题材的百看不厌，帮我记着」）：SSE `done` 正常、LLM 抽取记忆「用户特别迷科幻片，尤其喜欢太空题材，百看不厌」正常落库，但该画像 4 条记忆 `embedding` 全 NULL——即 AC-3「落库带向量」缺的只是 key；`addMemory` 落库后的 `refreshEmbeddingQuietly` 静默跳过，日志无警告，符合「无 key → null 降级信号」的契约。
+- **降级证据**（AGENTS §0 用户体验保障）：直接调 `searchMemories`，两种查询均落到结构化路径（`findStructured`，时间倒序返回在库记忆）、无抛错、无用户可见错误；聊天主链路未受影响。
+- **结论**：AC-3 语义召回 / AC-8 admin 补录带向量 / AC-5 回填脚本幂等的**真实调用**验收，仍待负责人在 `apps/api/.env` 填 `EMBEDDING_API_KEY`（或有效 `OPENAI_API_KEY`）并重启 api 后补跑（脚本入口 `pnpm --filter=@fairy/database backfill:embeddings`）。PROJECT_STATUS 的 In Progress 与 Risks 条目阻塞描述已改为精确状态，并新增 Last Updated 条目。
+- **清理**：本次验收写入的测试记忆已删除（dev 库 user 画像恢复 3 条基线）；临时脚本 `apps/api/fu16-tmp.ts` 已删除。
+- **踩坑（2 条）**：① tsx 临时脚本放 `apps/api/` 时，`../src/...` 相对导入实际解析到 `apps/src/...`，应为 `./src/...`；② 直接 tsx 跑的独立进程**不加载 `.env`**（`dotenv/config` 只在 api 服务端入口生效），env 存在性要在 `.env` 文件层核实——核实脚本只打印存在性与长度，不回显密钥值（AGENTS §0/§14）。

@@ -76,7 +76,7 @@
 
 ## In Progress（进行中）
 
-- （待负责人，非开发项）FU-16 真实 embed 端到端验收：配置 `EMBEDDING_API_KEY` 后跑通真实 embed 落库 / 语义相似召回 / 回填幂等，见 Risks。
+- （待负责人，非开发项）FU-16 真实 embed 端到端验收：配置 `EMBEDDING_API_KEY` 后跑通真实 embed 落库 / 语义相似召回 / 回填幂等，见 Risks。2026-09-23 复跑确认：缺 key 时写入链路与检索降级行为符合设计（记忆照常落库、结构化兜底可用、无用户可见错误），精确阻塞点已登记 Risks。
 
 ---
 
@@ -94,7 +94,7 @@
 
 - **数据库依赖** — 须配置 `DATABASE_URL`（Neon 或本地 PostgreSQL）；`packages/database/.env` 与 `apps/api/.env` 必须同步（见 AGENTS §9）。
 - **Neon 冷启动** — Prisma 默认 `connect_timeout` 为 5s，计算休眠唤醒时会报 P1001「Can't reach database server」，管理页看起来像 CRUD 全坏。连接串需带 `connect_timeout=15&pool_timeout=15`，且须同时跑 api:3000 与 web:5173。
-- **FU-16 真实 embed 端到端验收待跑（本环境无 OpenAI key）** — 代码、单测（mock embed + raw 伪向量）、默认无 key 回归与真库向量 SQL 冒烟均已通过；但「配 `EMBEDDING_API_KEY` 后真实 embed 落库 / 语义相似召回 / 回填脚本幂等」需负责人配置 key 后在 dev 环境补跑（脚本入口：`pnpm --filter=@fairy/database backfill:embeddings`；无 key 时脚本打印提示退出，不会误调）。
+- **FU-16 真实 embed 端到端验收待跑（缺可用 key）** — 2026-09-23 精确核实：`apps/api/.env` 中 `OPENAI_API_KEY=` 为空占位、`EMBEDDING_API_KEY` 未配置 → `createEmbeddingProvider()` 返回 null；当日实测写入链路（对话「帮我记着」）：SSE done 正常、记忆正常落库、4 条记忆 embedding 全 NULL（`refreshEmbeddingQuietly` 静默跳过，符合「无 key → null 降级信号」设计），`searchMemories` 落到结构化路径（时间倒序）无报错无用户可见错误——降级行为确认无恙，缺的只是 key。「配 `EMBEDDING_API_KEY`（或回退 `OPENAI_API_KEY`）后真实 embed 落库 / 语义相似召回 / 回填脚本幂等」需负责人在 `apps/api/.env` 填入有效 key 并重启 api 后在 dev 环境补跑（脚本入口：`pnpm --filter=@fairy/database backfill:embeddings`；无 key 时脚本打印提示退出，不会误调）。
 - **新增影片校验** — 心情/场景必须点选标签；封面空串、年份字符串、总库存 < 可借库存会返回 `Invalid request body`。错误应显示在弹窗内。
 - **洞察窗口依赖服务器时区** — 运营洞察的趋势/活跃窗口按服务器本地日期分桶，起点为真本地午夜（`new Date(y, m, d)`）。部署必须显式设置 `TZ=Asia/Shanghai`（容器与 CI 同设）；若运行在 UTC 环境，窗口边界整体前移 8 小时、首日 00:00–08:00 数据缺失，且看板无任何报错提示。
 - **behavior_logs / rentals 无保留策略** — 行为日志每轮对话只增不减；洞察已按 30 天窗口控制查询成本（`recommendCount`/mood/scene），但表本身无清理或归档策略，长期仍会拖累写入与备份。须在落地前排定保留期（登记于整改批次，随 FU 排期）。
@@ -140,6 +140,8 @@
 ---
 
 ## Last Updated（最近更新）
+
+**2026-09-23** — FU-16 真实 embed 验收尝试（维持 owner-blocked，带精确证据）：核实 `apps/api/.env` 中 `OPENAI_API_KEY=` 为空占位、`EMBEDDING_API_KEY` 未配置 → `createEmbeddingProvider()` 返回 null。实测对话写入链路（user@fairy.local）：SSE done 正常、LLM 抽取记忆正常落库、4 条记忆 embedding 全 NULL（`addMemory` 的 `refreshEmbeddingQuietly` 静默跳过，符合「无 key → null 降级信号」设计）；`searchMemories` 落到结构化路径（时间倒序兜底）无报错、无用户可见错误——AGENTS §0 降级保障确认无恙，缺的只是 key。故 AC-3 语义召回 / AC-8 admin 补录带向量 / AC-5 回填幂等的真实调用验收仍待负责人在 `apps/api/.env` 填 `EMBEDDING_API_KEY`（或有效 `OPENAI_API_KEY`）并重启 api 后补跑（脚本 `pnpm --filter=@fairy/database backfill:embeddings`）。清理：本次验收写入的测试记忆删除、临时脚本 `fu16-tmp.ts` 删除；Trellis journal 同日追加记录。Risks 与 In Progress 条目的阻塞描述已改为精确状态。
 
 **2026-09-23** — 旅行规划二期（FU-19，OpenSpec 轨完整闭环，分支 `feature/travel-planning-phase-2`，基于 `chore/reliability-fixes`，未推送）：需求 grill-me 收敛（2026-09-22，5 项待决问题均按推荐默认获批）→ 用户批准 → OpenSpec 提案批准 → Apply（groups 1–5）→ 验证（shared 107 / api 360[1 skip] / web 126 全绿 + 三包 typecheck + `pnpm lint` + prettier + build + `openspec validate --all` 13/13；`pnpm ci` 在本机报 `ERR_PNPM_CI_NOT_IMPLEMENTED`，按 package.json 定义的 lint→typecheck→test→build 链手工等价执行）→ 真机验收 AC-1~AC-7 全过（双 dev server：agent REST 创建 201 落库+TRIP_PLANNED 日志、普通 user 403 且 DB 断言零 TRIP_* 足迹；列表倒序分页、admin `?userId=` 200/非 admin 403/非法 uuid 400/未知 404；详情本人 200、跨用户与未知 id 同体 404；无 `VITE_AMAP_JS_KEY` 地图静默缺失；浏览器 E2E agent 全链路 + 普通用户只读空态；验收产物已清理：临时脚本删除、probe 测试用户删除）→ Archive（`openspec archive 2026-09-22-travel-planning-phase-2 --yes`）→ 需求文档与 README 索引置 implemented → 脊柱同步（API_CONTRACT §3.15/§4/§5、ARCHITECTURE §3.1/§5.3/§8/§9、web Dockerfile build ARG、deployment.md，本文档五节）。验收期备注：Git Bash 下 curl 直传含中文 body 需 `--data-binary @file`（否则目的地字节变 U+FFFD，LLM 返回 destination null）——测试方法问题，产品零改动；登录限流器 15 分钟 10 次，反复验收登录需重启 dev server 重置。推送需负责人明确指示（分支领先 master）。
 **2026-09-22** — 部署落地批次（7 个提交，AGENTS §15.2 P1 豁免，路线图批次 7，分支 `chore/reliability-fixes`，未推送）：① `db: refuse to run the seed in production`——`prisma/seed.ts` 模块加载即检测 `NODE_ENV=production` 并退出（懒连接，拒绝先于任何 DB 连接），子进程测试双向断言（production 拒绝 / NODE_ENV 未置不误伤）；② `api: verify no oversell under concurrent borrows with a real database`——`rentalService.concurrency.test.ts` 以 `TEST_DATABASE_URL` 门控默认跳过，先改 `process.env.DATABASE_URL` 再动态 import `rentalService` 避开单例绑定开发库的陷阱，20 并发借库存 5 断言恰好 5 成功、其余 `OUT_OF_STOCK`、终态库存归零；③ `chore: add api and web Dockerfiles`——多阶段（corepack 固定 pnpm@9.0.0 + 分层 frozen install + prisma generate + turbo 拓扑构建），api runtime node:20-alpine（`NODE_ENV=production` + `TZ=Asia/Shanghai` + tzdata/openssl、非 root、`/health` HEALTHCHECK），web runtime nginx:alpine + SPA 配置（`/assets/` 强缓存、app shell no-cache、try_files），`.dockerignore` 排除 `.env*`；④ `db: add migrate deploy script` + ⑤ `docs: add deployment checklist`——`migrate:deploy` 脚本、`docs/deployment.md`（构建/迁移先行/运行参数/`TRUST_PROXY_HOPS` 反代表/环境变量总表/运维红线/发布后验证），`.env.example` 补登三个供应商 BASE_URL；⑥ `docs: document the agent prompts`——三个系统提示词逐字快照（脚本校验与源码逐字一致）+ 调用链/公共注入防御/降级/变更规则；⑦ `docs: document database setup in the readme`——README 补 env 复制 ×3/generate/migrate:dev/db:seed 与常见问题，新建 `packages/database/.env.example`。验证：`pnpm run ci` 5/5，api 344（并发用例默认跳过）/ web 103 / shared 99 / database 6 / ai-sdk 16 全绿 + prettier。镜像未在有 Docker 的环境实际构建（新登记风险）；脊柱同步（ARCHITECTURE §8 ×3 + §9 + §10，AGENTS §7，本文档五节）。可靠性整改路线图批次 5/6/7 全部完成，剩余路线外事项见 Next Steps / In Progress。
