@@ -103,3 +103,14 @@ shared 107 / api 360（并发用例默认跳过 ×1）/ web 126 全绿 + 三包 
 - **推送前安全扫描**（负责人要求「注意隐私别推上去」）：`master..HEAD` 全 diff 扫 sk-/ghp_/AIza/sk-ant-/私钥头/32-hex 均 0 命中；`git ls-files` 0 个真实 `.env`（3 个 `.env.example` 内容全占位：`your_*_here`/localhost）；无 >1MB 文件；diff 内唯一邮箱为负责人既有 git 作者邮箱且 origin/master 历史早已包含——无新增隐私暴露。
 - **FU-16 复核**（事项 3，仍 owner-blocked）：三个 `.env` 逐一核实 `EMBEDDING_API_KEY` 均未配置、`apps/api/.env` 的 `OPENAI_API_KEY` 空占位、无 `.env.local`；`ai-sdk/src/factory.ts:111` 只认 `EMBEDDING_API_KEY`→回退 `OPENAI_API_KEY`。在用的 `DEEPSEEK_API_KEY` 有效但 DeepSeek 无 embedding 接口，不能替代。真实 embed 落库/语义召回/回填幂等验收待负责人填 key 后补跑（restart api）。
 - **文档修正**：本文档第三节「未推送」记载已改；PROJECT_STATUS 新增 Last Updated 条记录推送与 FU-16 复核。
+
+---
+
+## 同日再追加（五）：新需求收敛（Fairy 主动生成运营建议）+ GitHub API 推送 workaround
+
+- **需求收敛**（负责人从「从未进入需求体系的初版设定功能」中选定该项，grill-me 4 个决策点全部按推荐默认确认）：① 触发方式 = 阈值触发 + 每日日报结合；② 生成 = LLM 生成 + 失败降级模板摘要；③ 呈现 = 运营洞察页内建议流（管理端）；④ 不做对话联动（仅管理端）。写入 `docs/requirements/2026-09-23-proactive-ops-suggestions.md`（§13.4 格式：确认背景 4 点、目标 6 项、范围 db+api+shared+web 与文档、非目标 7 项、AC-1~7、待决问题 5 项），README 索引 + PROJECT_STATUS Next Steps/Last Updated 登记，状态 **confirmed（待批准开发）**。属 §15.1 **OpenSpec 轨**（新 Prisma 模型 + 迁移 + 新公共端点 + ARCHITECTURE 变更），批准前不写产品代码——下一个门禁是负责人批准需求，之后 `/opsx:propose`。
+- **推送 workaround**（npm/direct git push 又被网络阻断）：`github.com:443` TCP 不通（connect failed/connection reset），`api.github.com` 返回 200——与 2026-09-20 journal 同一签名。负责人重连梯子后仍失败：系统代理 `127.0.0.1:10808` 仅在监听但上游坏（curl 直连/经该代理均 exit 35 SSL error，git 无代理配置且不读系统代理）。复用 2026-09-20 的 **GitHub git-data API 重建提交**路径：`/git/blobs`（base64）→ `/git/trees`（自底向上 requirements → docs → root）→ `/git/commits` → PATCH `/git/refs/heads/<branch>`（`force:false` 快进），每一步 SHA 与本地逐一比对一致后推进。结果：3 blob、3 tree、commit `85700c1e` 全 MATCH、ref 快进到 `85700c1`（与本地 HEAD 字节一致），PUSH_OK；本地 `update-ref` 同步 remote-tracking ref。**每推一个提交都要重建一次**——目前只对本 journal 提交有效，下一个提交仍需重跑脚本。
+- **踩坑（3 条，Windows + git-data API）**：
+  1. **`execSync` 经 cmd.exe 无 `printf`**：`git credential fill` 的 stdin 用 `{ input: 'protocol=https\nhost=github.com\n\n' }` 选项喂，不能 `printf ... | git credential fill`（cmd 会当Pipe空stdin 静默成功、拿到空 token）。
+  2. **`^{tree}` 的脱字符被 shell 吃掉**：`git rev-parse 'HEAD^{tree}'` 报 ambiguous argument；改用 `git show -s --format=%T HEAD` 拿 tree SHA。
+  3. **`cat-file -p` 对非 ASCII 路径转义**：仓库根有中文文件名（`初版项目设定.md`、`结构化需求分析…md`），core.quotePath 会把路径八进制转义，照抄重建 root tree 必 MISMATCH；**必须 `git ls-tree -z`**（raw UTF-8 + NUL 分隔）解析条目再 POST `/git/trees`。
