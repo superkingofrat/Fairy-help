@@ -103,7 +103,9 @@ Fairy 是一个由 LLM 驱动的智能体，通过一个闭环操作真实的业
 | `FairyAvatar` | CSS 动画角色头像，带表情状态。 |
 | `MessageStream` | 逐字渲染经 SSE 到达的流式 token。 |
 | `RecommendationCard` | 展示影片推荐，并支持一键借阅。 |
-| `TripTimeline` | 展示生成的行程，叠加地图路线。 |
+| `TripTimeline` | 展示生成的行程（按天 POI 时间轴 + 路线摘要），持有地图叠加槽位。 |
+| `TripMap` | 行程地图叠加层：浏览器端 Amap JS API（v=2.0）渲染 POI Marker 与路线折线；未配置 `VITE_AMAP_JS_KEY`、无坐标 POI 或脚本加载失败时静默不渲染（FU-19 二期）。 |
+| `TripsPage` | `/trips` 历史行程面：分页列表 + 详情（复用 `TripTimeline`，地图行为一致）+ 创建表单（仅 admin/agent 可见，FU-19 二期）。 |
 | `AdminDashboard` | 租赁统计与运营洞察。 |
 
 规则：
@@ -343,19 +345,19 @@ ResponseSynthesizer 流式输出最终回复
 ### 5.3 旅行规划流程
 
 ```
-[Frontend] "想去玩"  或  admin: "想和 XXX 去玩"
-    │
-    ▼ SSE
-[POST /api/chat]
-    │
-    ▼
-[Agent Orchestrator 智能体编排器]
-    │
-    ├── IntentClassifier ──► plan_trip
-    ├── ContextBuilder   ──► 加载目标 profile
-    ├── Planner          ──► planTripTool(city, profile)
-    │
-    ▼
+[Frontend] "想去玩"  或  admin: "想和 XXX 去玩"     [POST /api/trips]（FU-19 二期 REST 入口）
+    │                                                  │
+    ▼ SSE                                              ▼
+[POST /api/chat]                                [tripController 角色门禁]
+    │                                       admin/agent 才放行；否则 403 TRIP_FORBIDDEN，
+    ▼                                       不调 LLM、不落库、不写日志
+[Agent Orchestrator 智能体编排器]                       │
+    │                                                  ▼
+    ├── IntentClassifier ──► plan_trip            [tripService.createTrip]
+    ├── ContextBuilder   ──► 加载目标 profile    body 合成 message 后调用
+    ├── Planner          ──► planTripTool(city, profile)  │
+    │                                                  ▼
+    ▼                                   （汇入下方同一条 planTripTool 链路，无第二实现）
 [planTripTool]
     │
     ├── AiProviderClient ──► LLM 生成候选 POI
@@ -373,6 +375,8 @@ ResponseSynthesizer 流式输出最终回复
     ▼ SSE
 [Frontend] 渲染 TripTimeline + Amap JS 路线叠加
 ```
+
+读取端点（FU-19 二期，只读旁路，不经编排器）：`GET /api/trips` 列表（`createdAt` 倒序 + 分页，admin 可 `?userId=` 代查）与 `GET /api/trips/:id` 详情（他人行程与不存在同返 404 `TRIP_NOT_FOUND`，防枚举）；`/trips` 页面经 `tripApi` 消费，详情复用 `TripTimeline`，地图叠加与对话内事件同一组件、行为一致。
 
 ### 5.4 记忆 / 画像流程（FU-14 记忆中心一期 + FU-15 记忆管理面 + FU-16 pgvector 向量检索 + FU-17 自查面板 + FU-18 画像反向回写）
 
@@ -634,7 +638,9 @@ interface AgentState {
 | insight 工具返回完整 overview，切片在 synthesizer | 工具零参数、零聚合逻辑，复用 FU-11 单端点「一次返回全部」决策；topic 只决定 synthesizer 构造哪些【事实】，回复聚焦且省 token（FU-12）。 |
 | 运营问数规则优先级：mood/scene 枚举 > insight 关键词；借/还分支内嵌 insight 判定 | 「心情不好想看治愈的」是 recommend 而非 mood_scene 洞察；「最近借阅情况」含「借」字但属 trend，借分支无唯一片名时先试 insight 再判 borrow_unresolved（FU-12）；2026-09-22 起借分支在 insight 判定后内嵌心情/场景词检查——「想借个治愈的片子」无唯一片名但带心情词，回落 recommend 而非悬空的借阅追问（FU-12 语境修正）。 |
 | insight 关键词先于 LLM 判定运营问数 | 真机验收发现 deepseek 模型对严格 JSON 输出不可靠（偶发输出 177~200 token 的自创 schema 长文本），「最近什么片最火」等会被误判 chitchat，规则兜底轮不到；改为 `classifyIntent` 先跑规则，命中 store_insight 即返回（LLM 不调用），其余意图仍 LLM 优先、规则兜底——保证 AC-5 口语问数确定性（FU-12）。 |
-| plan_trip 规则先于 LLM；Amap 校验可选降级 | 「帮我规划周末去杭州玩」等由规则关键词（旅行/旅游/出游/行程/想去/去哪玩/周末去哪/去…玩）先于 LLM 确定性判定（同 FU-12 store_insight 模式；刻意不含「规划」单字——「规划一下库存」属运营语境交 insight/LLM）；2026-09-22 起消息含影片名词（片子/影片/电影/短片/纪录片/碟片/录像带）时规则不命中也交 LLM——「有没有旅行为主题的片子」问的是片不是行程，不再误进行程婉拒；`planTripTool` 以 LLM 草稿 + 高德服务端 POI/路线校验防幻觉，`AMAP_SERVER_KEY` 缺失/失败时降级为未校验草稿（POI 标 `validated=false`、`route=null`，不暴露密钥/堆栈）；行程落库 `Trip` + `TRIP_PLANNED` 日志；前端地图叠加路线为二期非目标（FU-13）。 |
+| plan_trip 规则先于 LLM；Amap 校验可选降级 | 「帮我规划周末去杭州玩」等由规则关键词（旅行/旅游/出游/行程/想去/去哪玩/周末去哪/去…玩）先于 LLM 确定性判定（同 FU-12 store_insight 模式；刻意不含「规划」单字——「规划一下库存」属运营语境交 insight/LLM）；2026-09-22 起消息含影片名词（片子/影片/电影/短片/纪录片/碟片/录像带）时规则不命中也交 LLM——「有没有旅行为主题的片子」问的是片不是行程，不再误进行程婉拒；`planTripTool` 以 LLM 草稿 + 高德服务端 POI/路线校验防幻觉，`AMAP_SERVER_KEY` 缺失/失败时降级为未校验草稿（POI 标 `validated=false`、`route=null`，不暴露密钥/堆栈）；行程落库 `Trip` + `TRIP_PLANNED` 日志；前端地图叠加路线原为二期非目标（FU-13），已由 FU-19 二期交付（见下两行）。 |
+| 行程 REST 复用 `planTripTool`，角色门禁先于 LLM（FU-19 二期） | `POST /api/trips` 不复制生成逻辑：controller 按 `role ∈ {admin, agent}` 门禁（与 chat trip 分支一致，越权直接 403 `TRIP_FORBIDDEN`，不调 LLM、不落库、不写日志）后，由 body 合成自然语言 message 调同一 `planTripTool`——链路唯一（同 FU-6 借阅两个传输口先例），LLM prompt 无双份漂移。tool 的失败分支映射为 REST 语义：`unresolved`→400 `TRIP_UNRESOLVED`、草稿失败→502 `TRIP_DRAFT_FAILED`。读端点：`GET /api/trips` 列表分页（`{ items, pagination }`，admin 可 `?userId=` 代查，对齐 rentals/memories 惯例）+ `GET /api/trips/:id` 详情（他人行程与不存在同返 404 `TRIP_NOT_FOUND`，防枚举）。 |
+| 行程地图零依赖动态注入 + 三重静默降级（FU-19 二期） | `TripMap` 不引入 `@amap/amap-jsapi-loader` 类单一用途 npm 依赖：动态注入 `https://webapi.amap.com/maps?v=2.0` script，`window.AMap` Promise 单例去重（失败同样缓存，防重试风暴）；密钥为 build-time 内联的 referrer 受限浏览器安全密钥 `VITE_AMAP_JS_KEY`，服务端 `AMAP_SERVER_KEY` 不出现在任何前端产物。未配置 key / 无坐标 POI / 脚本加载失败三种情况地图区域整体不渲染（无空白容器、无错误上屏），文字行程与核实徽标不变；Marker 仅标注有坐标 POI，折线仅在 `route` 非空时按 itinerary 有坐标 POI 顺序绘制（route leg 只有名称，坐标须回 itinerary 推导，缺段自然断）。槽位挂在 `TripTimeline`，对话内事件与 `/trips` 历史详情同一组件自动一致。 |
 | 行程规划按角色（admin/agent）而非画像名门禁 | Fairy 对 agent（种子 `user@fairy.local` 为 agent）是全能管家，对绳匠（admin）是服务主人的管家——两者都直接执行行程规划并呈现；其余普通用户（新注册默认 `user`）仅影片服务。`dispatch` 在 trip 分支按 `role ∈ {admin, agent}` 门禁，不调用 `planTripTool`、不落库、不发 `trip` 事件，回复婉拒并引导推荐影片（FU-13 行为修正，2026-09-22 身份化）。此前按画像名「铃」硬编码判定——改画像名即门禁失效，且 seed 改名会让 agent 账号静默失去行程能力；role 是 JWT 既有 claim，免迁移、与 insight 门禁同模式。 |
 | 记忆抽取每轮旁路 + 结构化检索，不依赖 embed | 每轮对话 SSE 完成后 LLM 抽取（`tryChat("agent.memory")`，低 temperature，失败静默返回空数组）→ 落库 `Memory`；下一轮注入前 `searchMemories(profileId)` 按 kind/时间/关键词限量 5 条。一期不用 pgvector/embed（DeepSeek 供应商不支持 embed，避免绑定 OpenAI key 环境），结构化检索够用；管理 UI、REST 端点、画像回写为二期（FU-14）。 |
 | 记忆管理面 admin-only（REST + 管理页） | 记忆承载用户画像敏感信息，审计/纠错/补录只对绳匠（admin）开放；列表分页筛选沿用 FU-1 `/api/profiles`、FU-3 behavior-logs 的 `requireRole("admin")` + `{code,data,msg}` + shared Zod 校验约定，UI 沿用 FU-11 `/admin/*` 管理页与 i18n 模式，无新抽象（FU-15）。 |
@@ -660,13 +666,15 @@ interface AgentState {
 ```
 apps/web/src/
   components/
-    chat/              # ChatPage（含会话侧栏）, MessageStream, RecommendationCard, TripTimeline, MemorySelfPanel（FU-17 自查面板，ChatPage 内开关）
+    chat/              # ChatPage（含会话侧栏）, MessageStream, RecommendationCard, TripTimeline, TripMap（FU-19 二期：行程地图叠加，TripTimeline 槽位）, MemorySelfPanel（FU-17 自查面板，ChatPage 内开关）
     fairy/             # FairyAvatar, expressions
+    trips/             # TripsPage（FU-19 二期：/trips 历史行程面——分页列表 + 详情 + 创建表单）
     admin/             # MoviesAdminPage, ProfilesAdminPage, BehaviorPage, InsightsAdminPage（FU-11 运营看板）, MemoryAdminPage（FU-15 记忆管理）
   lib/
     sessionApi.ts      # FU-7：/api/sessions 客户端
     insightApi.ts      # FU-11：/api/insights 客户端
     memoryApi.ts       # FU-15：/api/memories 客户端（列表/新增/编辑/删除）；FU-17：listMyMemories（/api/memories/me 自查）
+    tripApi.ts         # FU-19 二期：/api/trips 客户端（createTrip/listTrips/getTrip）
   stores/
     chatStore.ts
 
@@ -679,6 +687,7 @@ apps/api/src/
     rentals.ts
     profiles.ts
     memories.ts        # /api/memories（FU-15：GET/POST + PATCH/DELETE /:id，全部 requireRole("admin")；FU-17：GET /me 自查路由，任意已登录角色，置于 admin 路由前）
+    trips.ts           # /api/trips（FU-19 二期：POST 创建 admin/agent；GET 列表 + GET /:id 详情，本人或 admin）
   agent/
     stateLoop.ts         # FU-12：runChatTurn 透传 role → dispatch；FU-14：查询记忆注入；FU-16：传 query（用户消息）驱动混合检索
     intentClassifier.ts  # FU-12：store_insight 意图 + topic（LLM 枚举 + 规则兜底）
@@ -698,6 +707,7 @@ apps/api/src/
   services/
     movieService.ts
     rentalService.ts
+    tripService.ts     # FU-19 二期：createTrip（复用 planTripTool，unresolved/draft 失败映射）/ listTrips（分页）/ getTripDetail（越权判定数据，controller 统一 404）
     profileService.ts    # FU-1：画像 CRUD（create/update/list，P2002/P2025 处理）；FU-18：mergeLikeGenres（事务内并集去重并入 likeGenres）+ loadGenreWhitelist（Movie.genres distinct + 脏值过滤 + TTL 5min 缓存）
     behaviorLogService.ts
     sessionService.ts  # FU-7：会话 CRUD + appendTurn 事务
@@ -707,6 +717,7 @@ apps/api/src/
     sessionsController.ts  # FU-7
     insightController.ts   # FU-11
     memoryController.ts    # FU-15：记忆管理 REST handlers（薄，校验在 shared schema / validate 中间件）；FU-17：listMyMemoriesHandler（读 res.locals.userId）
+    tripController.ts      # FU-19 二期：行程 REST handlers——createTripHandler 角色门禁先于 LLM；listTripsHandler（admin ?userId= 代查）；getTripHandler（越权与不存在同返 404）
   middleware/
     auth.ts
     validateBody.ts

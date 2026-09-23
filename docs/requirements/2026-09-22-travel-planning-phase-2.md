@@ -1,6 +1,6 @@
 # 需求：旅行规划二期 —— REST 行程端点 + 历史行程回放 + 高德地图叠加
 
-> 状态：**draft**（2026-09-22，grill-me 收敛，待用户批准）· 日期：2026-09-22 · 负责人：Flores
+> 状态：**implemented**（2026-09-22 收敛，2026-09-23 用户批准；OpenSpec 提案 `openspec/changes/2026-09-22-travel-planning-phase-2/` 已交付归档，真机验收 AC-1~7 通过）· 日期：2026-09-22 · 负责人：Flores
 > 轨道：OpenSpec（大变更：跨 api + shared + web + db 分层、新增公共 API 端点、落地 `ARCHITECTURE.md` §3.1 地图蓝图；**本期不改 chat SSE `trip` 契约形状**）
 > 前置：FU-13 旅行规划一期（chat 内对话行程生成）已交付归档；本期承接一期 `design.md` 明示推迟的三项二期待办——REST `POST /api/trips`、Trip 读取契约、前端 Amap JS 地图叠加。
 

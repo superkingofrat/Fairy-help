@@ -14,8 +14,11 @@ cd Fairy
 docker build -f apps/api/Dockerfile -t fairy-api:latest .
 
 # VITE_API_URL 在构建期内联进静态产物，必须在 build 时给定；留空 = 同源相对路径
+# VITE_AMAP_JS_KEY（高德浏览器端安全密钥，referrer 防盗链）同为 build-time 内联；
+# 不传则前端行程地图静默不渲染，不影响其余功能
 docker build -f apps/web/Dockerfile \
   --build-arg VITE_API_URL=https://api.example.com \
+  --build-arg VITE_AMAP_JS_KEY=your_amap_js_key_here \
   -t fairy-web:latest .
 ```
 
@@ -24,6 +27,10 @@ docker build -f apps/web/Dockerfile \
 - `VITE_API_URL` 是 **build-time** 变量（Vite 内联 `import.meta.env`）。换域名必须重新 build
   web 镜像，运行时改环境变量无效。取值形如 `https://api.example.com`（不带尾斜杠、不带
   `/api` 路径——路径由前端自行拼接）。
+- `VITE_AMAP_JS_KEY` 同为 **build-time** 变量：行程地图经浏览器端高德 JS API 渲染，
+  key 必须是高德控制台的「Web端(JS API)」安全密钥并配置 referrer 防盗链白名单；
+  服务端 `AMAP_SERVER_KEY` 严禁出现在任何前端产物（AGENTS §14）。不传该 build arg 时
+  地图区域整体不渲染（静默降级），文字行程与核实徽标不受影响。
 - `.dockerignore` 已把 `node_modules`、`dist`、`.env*`、`.git` 排除出上下文：镜像内重新
   `pnpm install --frozen-lockfile` 与 build，本地依赖与本地密钥不会被打进镜像。
 - api 镜像内已 `ENV NODE_ENV=production`、`ENV TZ=Asia/Shanghai`，以非 root 用户 `node`
@@ -123,6 +130,7 @@ app.example.com {
 | `EMBEDDING_BASE_URL` | 否                        | 回落 `OPENAI_BASE_URL` |                                             |
 | `AMAP_SERVER_KEY`    | 否                        | —                      | 行程规划；缺失/超时降级返回说明，不抛错     |
 | `VITE_API_URL`       | 仅 web 镜像 build arg     | 空（同源）             | 见 §1                                       |
+| `VITE_AMAP_JS_KEY`   | 仅 web 镜像 build arg     | 空（地图不渲染）       | 行程地图浏览器端密钥（防盗链），见 §1       |
 
 ## 7. 运维红线
 
@@ -143,3 +151,6 @@ app.example.com {
 3. 发送一条对话，确认流式返回（SSE）与降级文案（docs/prompts.md 的回复约束）。
 4. 检查容器时区：`docker exec fairy-api date` 应显示 CST（+0800），验证 `TZ` 生效。
 5. 连续请求确认限流按 IP 生效（同 IP 超限返回 429，不同 IP 互不影响）。
+6. 规划一条行程（对话或 `/trips` 页），确认行程卡片底部地图区块可见：有 POI Marker、
+   有坐标的相邻 POI 间有路线折线；若部署域名未加进高德 referrer 白名单，地图会静默
+   不显示而文字行程正常——此时按控制台提示补白名单即可（密钥配置见 §1）。

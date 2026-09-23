@@ -947,6 +947,126 @@ admin 硬删一条记忆（`Memory` 无外键引用，物理删除即可）。�
 
 ---
 
+### 3.15 旅行规划 `/api/trips`（FU-19 二期）
+
+行程 REST 面。创建与对话内规划走**同一条生成落库链路**（`planTripTool`：画像 travelStyle → LLM 起草 → 高德 POI/路线校验，缺 `AMAP_SERVER_KEY` 时静默降级 → 事务落库 `Trip`），无第二套实现；列表/详情为只读。三个端点均需认证（401 `UNAUTHORIZED`）。
+
+#### 3.15.1 创建
+
+**POST** `/api/trips`
+
+仅 `admin` / `agent` 角色可创建（与对话内 trip 工具门禁一致）。请求体：
+
+```ts
+{
+  destination: string;  // 1–100 字，行程目的地
+  days?: number;        // 可选，整数 1–14；缺省由模型自行决定天数
+}
+```
+
+#### 成功响应 — 201 Created
+
+`data` 为行程结果（`TripResult`；`tripId` 即落库 `Trip.id`）：
+
+```json
+{
+  "code": "OK",
+  "data": {
+    "tripId": "550e8400-e29b-41d4-a716-446655440000",
+    "destination": "杭州",
+    "days": 2,
+    "itinerary": [
+      {
+        "day": 1,
+        "title": "西湖经典",
+        "steps": [
+          {
+            "time": "09:00",
+            "name": "西湖",
+            "category": "景点",
+            "note": null,
+            "location": { "lng": 120.15, "lat": 30.25 },
+            "validated": true
+          }
+        ]
+      }
+    ],
+    "route": [
+      { "from": "西湖", "to": "灵隐寺", "distanceMeters": 8000, "durationSeconds": 1200 }
+    ],
+    "validated": true
+  },
+  "msg": "行程已创建"
+}
+```
+
+`location` 为 `{ lng, lat }` 或 `null`（无高德 key 或 POI 未命中时为 `null`）；`route` 无已校验 POI 对时为 `null`；`validated` 表示是否存在经高德核实的 POI。
+
+#### 错误响应
+
+| 状态 | Code | 场景 |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | 请求体不合法（缺 `destination`、超长、`days` 非 1–14 整数）。 |
+| 400 | `TRIP_UNRESOLVED` | 链路无法确定目的地（LLM 侧异常；body 已强校验，正常不会触发）。 |
+| 403 | `TRIP_FORBIDDEN` | 非 `admin`/`agent` 角色；门禁先于任何 LLM 调用，不落库、不写行为日志。 |
+| 502 | `TRIP_DRAFT_FAILED` | 行程生成失败（LLM 重试后仍败）。 |
+
+#### 3.15.2 列表
+
+**GET** `/api/trips`
+
+返回**调用者本人**的行程，按 `createdAt` 倒序。`admin` 可传 `userId`（合法 UUID 且用户存在）代查他人行程；非 admin 传 `userId` 一律 403。
+
+查询参数：`page`（默认 1）、`limit`（默认 20，最大 100）、`userId?`（仅 admin）。
+
+#### 成功响应 — 200 OK
+
+```json
+{
+  "code": "OK",
+  "data": {
+    "items": [
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440000",
+        "destination": "杭州",
+        "days": 2,
+        "validated": true,
+        "createdAt": "2026-09-20T10:00:00.000Z"
+      }
+    ],
+    "pagination": { "page": 1, "limit": 20, "total": 1, "totalPages": 1 }
+  },
+  "msg": "查询成功"
+}
+```
+
+列表项**不含** itinerary/route 与属主邮箱等用户数据；`validated` 由 itinerary 内 POI 核实情况派生。
+
+#### 错误响应
+
+| 状态 | Code | 场景 |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | 查询参数不合法。 |
+| 400 | `INVALID_USER_ID` | `userId` 非 UUID（仅 admin 可传）。 |
+| 403 | `FORBIDDEN` | 非 admin 传 `userId` 代查。 |
+| 404 | `USER_NOT_FOUND` | `userId` 对应的用户不存在。 |
+
+#### 3.15.3 详情
+
+**GET** `/api/trips/:id`
+
+`data` 为行程详情（`TripResult` + `createdAt`）。仅属主或 `admin` 可读；**他人行程与不存在的 id 同返 404**，不泄漏存在性。
+
+#### 错误响应
+
+| 状态 | Code | 场景 |
+|---|---|---|
+| 404 | `TRIP_NOT_FOUND` | 行程不存在，或不属于调用者且调用者非 admin。 |
+
+地图叠加：前端行程卡片（对话内与 `/trips` 历史页同一组件）用浏览器端高德 JS API 渲染 Marker/折线，密钥为 build-time 注入的 referrer 受限浏览器安全密钥 `VITE_AMAP_JS_KEY`；服务端 `AMAP_SERVER_KEY` 不得出现在任何前端产物。未配置 key、无坐标 POI 或脚本加载失败时地图区域整体不渲染（静默降级）。
+
+---
+
 ## 4. 错误码参考
 
 | Code | HTTP 状态 | 含义 |
@@ -967,6 +1087,10 @@ admin 硬删一条记忆（`Memory` 无外键引用，物理删除即可）。�
 | `SESSION_NOT_FOUND` | 404 | 会话不存在（FU-7 起）。 |
 | `SESSION_FORBIDDEN` | 403 | 会话属于其他用户（FU-7 起）。 |
 | `MEMORY_NOT_FOUND` | 404 | 记忆不存在（FU-15 管理面起）。 |
+| `TRIP_FORBIDDEN` | 403 | 非 `admin`/`agent` 角色创建行程（FU-19 二期起）。 |
+| `TRIP_NOT_FOUND` | 404 | 行程不存在或不属于调用者（FU-19 二期起；防枚举统一文案）。 |
+| `TRIP_UNRESOLVED` | 400 | 行程链路无法确定目的地（FU-19 二期起）。 |
+| `TRIP_DRAFT_FAILED` | 502 | 行程生成失败，LLM 重试后仍败（FU-19 二期起）。 |
 | `EMAIL_ALREADY_EXISTS` | 409 | 注册邮箱已存在（FU-10 起）。 |
 | `INVALID_REFRESH_TOKEN` | 401 | refresh token 无效/过期/已吊销（FU-10 起）。 |
 | `TOO_MANY_REQUESTS` | 429 | 登录、注册或对话频率超限（FU-10 起；`POST /chat` 自 2026-09-20 起 30 次/分钟）。 |
@@ -978,5 +1102,8 @@ admin 硬删一条记忆（`Memory` 无外键引用，物理删除即可）。�
 
 以下端点为后续版本规划，暂不属于本契约：
 
-- `POST /api/trips` — 旅行规划。
-- `GET /api/admin/insights` — 运营看板数据。
+（当前无登记的未交付端点。）
+
+> **2026-09-23 顺带修正（与本次 FU-19 二期变更无关的文档清理，单列备查）：**
+> - 移除 `POST /api/trips`——已随 FU-19 二期交付，见 §3.15。
+> - 移除 `GET /api/admin/insights`——过期条目；运营看板自 FU-11 起以 `GET /api/insights/overview` 交付，见 §3.13。
