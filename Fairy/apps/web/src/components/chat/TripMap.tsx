@@ -27,6 +27,9 @@ interface AmapPolylineInstance {
 
 // 只声明本组件真正消费的高德 JS API 2.0 表面，避免 any
 interface AmapNamespace {
+  // 高德 2.0 的坐标只认 LngLat 实例：裸 {lng,lat} 对象会被静默归一成 NaN，
+  // 直到覆盖物构造时才以 Pixel(NaN,NaN) 抛出，被本组件的静默降级吞掉——地图整块消失
+  LngLat: new (lng: number, lat: number) => AmapLngLat;
   Map: new (
     container: HTMLElement,
     options: { zoom: number; center: AmapLngLat },
@@ -109,11 +112,16 @@ function createOverlay(
   trip: TripResult,
   points: LocatedPoi[],
 ): CreatedOverlay {
-  const map = new namespace.Map(container, { zoom: 11, center: points[0].location });
+  const toLngLat = (location: AmapLngLat): AmapLngLat =>
+    new namespace.LngLat(location.lng, location.lat);
+  const map = new namespace.Map(container, {
+    zoom: 11,
+    center: toLngLat(points[0].location),
+  });
   const markers = points.map(
     (point) =>
       new namespace.Marker({
-        position: point.location,
+        position: toLngLat(point.location),
         title: point.poi.name,
         map,
       }),
@@ -121,7 +129,7 @@ function createOverlay(
   // route 非空才画折线（无校验路线的行程 route 为 null）
   const polyline =
     trip.route && trip.route.length > 0
-      ? new namespace.Polyline({ path: points.map((point) => point.location), map })
+      ? new namespace.Polyline({ path: points.map((point) => toLngLat(point.location)), map })
       : null;
   map.setFitView();
 

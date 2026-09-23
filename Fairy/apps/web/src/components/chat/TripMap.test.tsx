@@ -3,7 +3,8 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import type { TripPoi, TripResult } from "@fairy/shared";
 
 // FU-19 二期：TripMap 降级与叠加行为。不加载真实高德脚本——预置 window.AMap 或派发 script
-// load/error 事件，断言构造参数与静默撤容器。
+// load/error 事件，断言构造参数与静默撤容器。假命名空间刻意复刻真实高德 2.0 的坐标类型约束
+// （只认 LngLat 实例，裸对象归一成 NaN），否则组件传错坐标类型测试也会放行。
 
 type LngLat = NonNullable<TripPoi["location"]>;
 
@@ -78,6 +79,21 @@ let markerCalls: MarkerCall[] = [];
 let polylineCalls: Array<{ path: LngLat[] }> = [];
 let destroyedMaps = 0;
 
+// 真实高德 2.0 只认 LngLat 实例：裸 {lng,lat} 对象会被归一成 NaN，覆盖物构造时才抛
+// Pixel(NaN,NaN)——假命名空间必须同样严格，否则组件传错坐标类型也测不出来
+class FakeLngLat {
+  constructor(
+    public readonly lng: number,
+    public readonly lat: number,
+  ) {}
+}
+
+function assertLngLat(value: unknown): void {
+  if (!(value instanceof FakeLngLat)) {
+    throw new Error(`Invalid Object: LngLat(NaN, NaN) (got ${typeof value})`);
+  }
+}
+
 function installAmapGlobal(): void {
   class FakeMap {
     setFitView = vi.fn();
@@ -86,6 +102,7 @@ function installAmapGlobal(): void {
     });
 
     constructor(container: HTMLElement, options: { zoom: number; center: LngLat }) {
+      assertLngLat(options.center);
       mapCalls.push({ container, options });
     }
   }
@@ -93,6 +110,7 @@ function installAmapGlobal(): void {
     setMap = vi.fn();
 
     constructor(options: MarkerCall & { map: FakeMap }) {
+      assertLngLat(options.position);
       markerCalls.push({ position: options.position, title: options.title });
     }
   }
@@ -100,10 +118,16 @@ function installAmapGlobal(): void {
     setMap = vi.fn();
 
     constructor(options: { path: LngLat[]; map: FakeMap }) {
+      options.path.forEach(assertLngLat);
       polylineCalls.push({ path: options.path });
     }
   }
-  vi.stubGlobal("AMap", { Map: FakeMap, Marker: FakeMarker, Polyline: FakePolyline });
+  vi.stubGlobal("AMap", {
+    LngLat: FakeLngLat,
+    Map: FakeMap,
+    Marker: FakeMarker,
+    Polyline: FakePolyline,
+  });
 }
 
 async function renderTripMap(trip: TripResult): Promise<void> {
@@ -151,17 +175,28 @@ describe("TripMap", () => {
     await renderTripMap(tripWithRoute);
 
     await waitFor(() => expect(mapCalls).toHaveLength(1));
-    // 首个有坐标 POI 作为中心点
-    expect(mapCalls[0].options.center).toEqual(locatedFirst);
+    // 首个有坐标 POI 作为中心点——必须是 LngLat 实例（真实高德对裸对象抛 NaN）
+    expect(mapCalls[0].options.center).toBeInstanceOf(FakeLngLat);
+    expect(mapCalls[0].options.center.lng).toBe(locatedFirst.lng);
+    expect(mapCalls[0].options.center.lat).toBe(locatedFirst.lat);
     expect(mapCalls[0].options.zoom).toBe(11);
     expect(screen.getByTestId("trip-map")).toBeDefined();
     // 仅两个有坐标 POI 生成 Marker，无坐标的河坊街被跳过
     expect(markerCalls).toEqual([
-      { position: locatedFirst, title: "西湖" },
-      { position: locatedSecond, title: "灵隐寺" },
+      { position: expect.any(FakeLngLat), title: "西湖" },
+      { position: expect.any(FakeLngLat), title: "灵隐寺" },
     ]);
+    expect(markerCalls[0].position.lng).toBe(locatedFirst.lng);
+    expect(markerCalls[0].position.lat).toBe(locatedFirst.lat);
+    expect(markerCalls[1].position.lng).toBe(locatedSecond.lng);
+    expect(markerCalls[1].position.lat).toBe(locatedSecond.lat);
     // 折线点按行程顺序取有坐标 POI，route 非空才绘制
-    expect(polylineCalls).toEqual([{ path: [locatedFirst, locatedSecond] }]);
+    expect(polylineCalls).toHaveLength(1);
+    expect(polylineCalls[0].path).toEqual([expect.any(FakeLngLat), expect.any(FakeLngLat)]);
+    expect(polylineCalls[0].path.map((point) => point.lng)).toEqual([
+      locatedFirst.lng,
+      locatedSecond.lng,
+    ]);
   });
 
   it("omits the polyline when route legs are null", async () => {
