@@ -93,4 +93,13 @@ shared 107 / api 360（并发用例默认跳过 ×1）/ web 126 全绿 + 三包 
 - **真机 AC-4（本批验收核心）**：`local.fairy.dev` 源 + 双 dev server 真实浏览器，聊天行程卡片内地图容器 662×192、`.amap-marker` DOM ×9（与 9 个有坐标 POI 精确一致）、折线 SVG overlay ×1、瓦片 `<img>` ×10、amap-maps/controls/logo/copyright 层齐全、`window.AMap` 2.0 就位、模块内 key 字面量已内联——marker+折线+瓦片全链路渲染，AC-4 闭环。FU-19 地图链路至此全项闭环，无剩余 owner 待办。
 - **踩坑复现（1 次，非新增）**：TaskStop 连带杀光同批 node 进程的坑第 3 次踩到（重启 api+web 即可，勿误判服务崩溃）。
 - **清理与安全**：临时探针 `apps/api/trip-check-tmp.ts` 删除，`git status` 干净；三份 `.env` 均被 `Fairy/.gitignore:11` 命中、0 跟踪、提交 diff 0 处 32-hex、全程无 key 回显。
-- **提交**：`docs: sync the spine after final amap map acceptance`（PROJECT_STATUS 五处 + 本 journal）。分支未推送（领先 master 43 提交）。
+- **提交**：`docs: sync the spine after final amap map acceptance`（PROJECT_STATUS 五处 + 本 journal）。（本提交后分支已推送 origin，见下节。）
+
+---
+
+## 同日再追加（四）：分支推送 origin（推送前隐私/密钥扫描）+ FU-16 key 复核（仍 owner-blocked）
+
+- **推送**（负责人指示事项 1）：`git push -u origin feature/travel-planning-phase-2` 成功——44 提交（FU-19 9 + `chore/reliability-fixes` 基座 35；origin/master 未含可靠性整改与 FU-19 工作，合并走 PR）。2026-09-20 那次 GitHub git 端口被 DNS 阻断需走 API 重建提交，本次直连正常、未复现。
+- **推送前安全扫描**（负责人要求「注意隐私别推上去」）：`master..HEAD` 全 diff 扫 sk-/ghp_/AIza/sk-ant-/私钥头/32-hex 均 0 命中；`git ls-files` 0 个真实 `.env`（3 个 `.env.example` 内容全占位：`your_*_here`/localhost）；无 >1MB 文件；diff 内唯一邮箱为负责人既有 git 作者邮箱且 origin/master 历史早已包含——无新增隐私暴露。
+- **FU-16 复核**（事项 3，仍 owner-blocked）：三个 `.env` 逐一核实 `EMBEDDING_API_KEY` 均未配置、`apps/api/.env` 的 `OPENAI_API_KEY` 空占位、无 `.env.local`；`ai-sdk/src/factory.ts:111` 只认 `EMBEDDING_API_KEY`→回退 `OPENAI_API_KEY`。在用的 `DEEPSEEK_API_KEY` 有效但 DeepSeek 无 embedding 接口，不能替代。真实 embed 落库/语义召回/回填幂等验收待负责人填 key 后补跑（restart api）。
+- **文档修正**：本文档第三节「未推送」记载已改；PROJECT_STATUS 新增 Last Updated 条记录推送与 FU-16 复核。
