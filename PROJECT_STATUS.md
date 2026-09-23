@@ -81,6 +81,7 @@
 
 ## Next Steps（下一步）
 
+- **（draft，待批准）旅行规划二期**：REST `POST /api/trips`（复用 planTripTool 链路，role∈{admin,agent} 门禁）+ 历史行程回放（`GET /api/trips` / `GET /api/trips/:id` + `/trips` 页）+ Amap JS 地图叠加（TripTimeline 地图槽位、`VITE_AMAP_JS_KEY` referrer 受限前端 key、无 key/无坐标静默降级）。需求文档已登记：[2026-09-22-travel-planning-phase-2.md](docs/requirements/2026-09-22-travel-planning-phase-2.md)（2026-09-22，grill-me 收敛，含 5 项待决问题）。OpenSpec 轨：批准需求 → `/opsx:propose` → 批准提案 → Apply → Archive。基线分支另需负责人确认（`chore/reliability-fixes` 领先 master 35 个提交未推送，见 Decisions 历史惯例）。
 - **可靠性整改后续路线图（已整体批准，逐批执行前再与负责人确认）**：**批次 5（安全）已完成**（2026-09-22，3 个提交，见 Completed Modules）；**批次 6（产品）已完成**（2026-09-22，3 个提交，见 Completed Modules：行程门禁身份化 `role ∈ {admin, agent}` 免迁移 + seed 存量账号迁移、意图规则语境修正「旅行为主题的片子」交 LLM + 「想借个治愈的片子」回落推荐、错误信息归一化 code→i18n）；**批次 7（落地件）已完成**（2026-09-22，7 个提交，见 Completed Modules：api+web Dockerfile（多阶段、显式 `TZ=Asia/Shanghai`、非 root）+ 部署清单 `docs/deployment.md`、seed `NODE_ENV=production` 防护、真实库并发集成测试（`TEST_DATABASE_URL` 门控默认跳过，20 并发 borrow 断言不超卖）、`docs/prompts.md` 逐字快照、README 补全 prisma generate/migrate/.env 步骤）。
 - **（待负责人）FU-16 剩余验收**：配置 `EMBEDDING_API_KEY`（回退 `OPENAI_API_KEY`）后跑通真实 embed 落库 / 语义相似召回 / `backfill:embeddings` 幂等回填（代码与 mock 覆盖已就绪，见 Risks）。
 - （二期候选）旅行规划二期：REST `POST /api/trips` + 历史行程回放 + Amap JS 地图叠加路线（本期非目标）。
