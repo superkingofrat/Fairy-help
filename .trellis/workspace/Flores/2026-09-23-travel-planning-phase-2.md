@@ -63,3 +63,23 @@ shared 107 / api 360（并发用例默认跳过 ×1）/ web 126 全绿 + 三包 
 - **结论**：AC-3 语义召回 / AC-8 admin 补录带向量 / AC-5 回填脚本幂等的**真实调用**验收，仍待负责人在 `apps/api/.env` 填 `EMBEDDING_API_KEY`（或有效 `OPENAI_API_KEY`）并重启 api 后补跑（脚本入口 `pnpm --filter=@fairy/database backfill:embeddings`）。PROJECT_STATUS 的 In Progress 与 Risks 条目阻塞描述已改为精确状态，并新增 Last Updated 条目。
 - **清理**：本次验收写入的测试记忆已删除（dev 库 user 画像恢复 3 条基线）；临时脚本 `apps/api/fu16-tmp.ts` 已删除。
 - **踩坑（2 条）**：① tsx 临时脚本放 `apps/api/` 时，`../src/...` 相对导入实际解析到 `apps/src/...`，应为 `./src/...`；② 直接 tsx 跑的独立进程**不加载 `.env`**（`dotenv/config` 只在 api 服务端入口生效），env 存在性要在 `.env` 文件层核实——核实脚本只打印存在性与长度，不回显密钥值（AGENTS §0/§14）。
+
+---
+
+## 同日再追加：高德地图真机复验 + LngLat P0 缺陷修复（结论：前端链路已通，剩 owner 配「Web服务」key）
+
+- **背景**：负责人按前期指引配好两把 key（`apps/web/.env` 的 `VITE_AMAP_JS_KEY` = Web端(JS) key、referrer 白名单 `local.fairy.dev` + hosts 映射；`apps/api/.env` 的 `AMAP_SERVER_KEY`）并要求「key 别推上去」。目标：真机验收 AC-4 地图 marker/折线。
+- **三大发现**：
+  1. **前端 key 链路全通**（dev server 从 `local.fairy.dev` 访问）：页面内按组件同款方式注入 `webapi.amap.com/maps?v=2.0&key=...` 脚本成功、`window.AMap` 2.0 就位、`AMap.Map/Marker/Polyline` 可用、防盗链白名单通过。
+  2. **P0 缺陷：地图从不渲染的真因**（§15.2 P0 豁免修复，阻塞已批准功能验收）。`TripMap.createOverlay` 给高德传裸 `{lng,lat}` 对象，高德 JS API **2.0 坐标只认 `LngLat` 实例**——裸对象被静默归一成 `LngLat(NaN,NaN)`，直到 `new Marker/Polyline` 构造时才以 `Pixel(NaN,NaN)` 抛出，正好落进组件「script 失败 → setFailed → 静默撤容器」的降级路径，表现为地图整块消失且零报错。stub 单测的假 AMap 来者不拒，从未暴露。修复只动与高德的边界：统一 `new namespace.LngLat(lng,lat)` 后传入 Map/Marker/Polyline，`AmapNamespace` 补 `LngLat` 构造器声明；测试假命名空间改**严格** stub（复刻真实约束：非 LngLat 实例即抛），TripMap 7 例全绿、全量 web 126 全绿、typecheck、eslint 通过。真机复验修复有效：真实页面渲染修复后组件（fixture 2 个有坐标 POI + route，接已加载真实 AMap 2.0）——容器渲染、2 个 `.amap-marker` DOM、3 张瓦片 `<img>`、`setFitView` 正常。
+  3. **剩余阻塞（owner 项）**：`AMAP_SERVER_KEY` 平台不匹配——直连 `restapi.amap.com/v3/place/text` 返回 `status:"0" info:"USERKEY_PLAT_NOMATCH" infocode:"10009"`（Web服务 API 只收「Web服务」平台 key，现放的是 JS 平台那把）→ `searchPoi` 全降级 null → 库内 0 条行程带坐标 → 地图按设计静默不渲染。修复路径纯配置：控制台为同一应用添加「Web服务」平台 key（本地 IP 白名单留空）→ 替换 `AMAP_SERVER_KEY` → 重启 api → 新建行程复验全链路。
+- **踩坑（7 条）**：
+  1. **`/@vite/env` 的 `defines={}` 是红鲱鱼**：那里只承载 `config.define` 自定义项；`import.meta.env.*` 走 define 插件**逐模块内联**（转换后模块里直接出现 `import.meta.env = {...}` 整个对象）。判断 env 是否注入要拉取转换后模块（`/src/...tsx`）看替换结果，别看 `/@vite/env`——本次为此多绕了一圈。
+  2. **TaskStop 一个后台任务会连带杀掉同批启动的所有后台 node 进程**：api（tsx watch）+ web（程序化 createServer）同时消失（netstat 无 listener、tasklist 无 node.exe），curl 变 000。重启两个即可，但别误判为「服务崩溃」。
+  3. **IAB WebView 没有 `window.HTMLInput`**：React 受控输入的 native setter 要从**元素自身原型链**取（`Object.getOwnPropertyDescriptor(Object.getPrototypeOf(input), "value")`），不能假设 HTMLInput/HTMLTextAreaElement 全局存在。
+  4. **`TripMap` 只挂 `TripTimeline`（对话页行程卡片）**：`/trips` 行程详情页从不渲染地图；聊天历史里的 trip 卡片由 `dtoToMessage` 从 SSE trip 事件还原，所以要在对话页等卡片，不要去详情页找。
+  5. **高德双 key 平台不能互换**：`webapi.amap.com`（JS）只认 Web端 key + referrer 白名单；`restapi.amap.com`（Web服务）只认 Web服务 key，放错报 `USERKEY_PLAT_NOMATCH`(10009) 且**不影响前端任何表现**（后端 POI 坐标静默全空）。
+  6. **Playwright `page.evaluate` 里不能用动态 `import()`**（报 `importModule is not defined`）：改用 `type="module"` script 标签注入，结果写 `window.__acceptResult` 再读。
+  7. **高德 2.0 默认栅格瓦片是 `<img>`**：验证渲染要看 `.amap-marker` DOM 数与瓦片 img 数，canvas 层 0×0 不代表没渲染（曾据此误判一次）。
+- **密钥安全**（负责人明确要求）：三份 `.env` 均被 `Fairy/.gitignore:11` 命中、`git ls-files` 0 跟踪、提交前 diff 扫描 0 处 32-hex；所有探针脚本只在内存读 key、只回传 status/info/count；临时脚本（api 4 个 + web 1 个）全部删除，`git status` 仅剩 TripMap.tsx/TripMap.test.tsx 与本文档/PROJECT_STATUS。
+- **提交**：`web: convert trip map coordinates to LngLat instances`（P0 修复 + 严格 stub 回归）+ 文档（PROJECT_STATUS 五处 + 本 journal）。分支 `feature/travel-planning-phase-2` 未推送（领先 master 37 提交）。
