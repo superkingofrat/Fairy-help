@@ -1,6 +1,6 @@
 # 2026-09-23 主动运营建议交付与归档会话记录
 
-分支 `feature/travel-planning-phase-2`（基于 `chore/reliability-fixes`），**未推送**。本会话 2 个代码提交：`4fc6ad1`（feat db+shared+api）、`11ceef1`（feat web），随后 1 个文档提交（docs spine + openspec archive + 本文档）。本特性早前提交：`85700c1`（需求登记）、`6caccfd`（OpenSpec 提案）、`cbd2f60`（提案轮 journal）。OpenSpec 轨完整闭环：grill-me 收敛 → 需求 approved → 提案 approved → Apply → 真机验收 AC-1~7 → Archive。
+分支 `feature/travel-planning-phase-2`（基于 `chore/reliability-fixes`），**已推送 origin**（cbd2f60..6aa39e7，负责人「继续」指示后执行）。本会话 2 个代码提交：`4fc6ad1`（feat db+shared+api）、`11ceef1`（feat web），随后 1 个文档提交（docs spine + openspec archive + 本文档）。本特性早前提交：`85700c1`（需求登记）、`6caccfd`（OpenSpec 提案）、`cbd2f60`（提案轮 journal）。OpenSpec 轨完整闭环：grill-me 收敛 → 需求 approved → 提案 approved → Apply → 真机验收 AC-1~7 → Archive。
 
 ## 流程与门禁
 
@@ -69,4 +69,4 @@ shared 116 / api 400（真实库并发用例门控跳过 ×1）/ web 135 全绿 
 - 文档脊柱：`API_CONTRACT.md` §3.16（4 端点 + JSON 示例 + 错误码表）+ §4 补 `SUGGESTION_NOT_FOUND`；`ARCHITECTURE.md` §8 决策行（进程内调度+单实例假设+唯一索引兜底 / LLM 降级 / 恢复即清理 / reasoning 预算）×3 + §9 模块映射；`docs/deployment.md` 三节；`PROJECT_STATUS.md` 五节（Completed Modules 顶部 + Next Steps 置已交付 + Last Updated 交付条）；需求文档与 README 索引置 **implemented**；tasks.md 7 组全 `[x]`（6.4/7.2/7.3 收尾条含验收记录与归档结果）。
 - 清理：临时探针 `Fairy/scripts/accept-probe.cjs` 已删除；dev 库《海蒂》stock 恢复 seeds 基线 1、4 条建议全部已读。工作树中唯一未跟踪文件 `专区黄S级角色配色.xlsx` 与本特性无关，**未纳入提交**。
 - 安全：三份 `.env` 均被 `.gitignore` 命中、0 跟踪；提交 diff 0 处疑似密钥（存在性只以「已配置/未配置」表述，不回显值）。
-- **未推送**：分支领先 master（reliability 整改 + FU-19 + 本特性），推送需负责人明确指示。
+- **已推送**：负责人「继续」指示后推送 origin（`cbd2f60..6aa39e7`，直接 push 无需 API 绕行）。推送前对 push 范围做隐私/密钥扫描：密钥样式（sk-/ghp_/AIza/sk-ant-/私钥头/postgres 连接串）0 命中、`git ls-files` 0 个真实 `.env`、无 >500KB 文件、diff 新增行 0 个邮箱样式串。分支领先 master 53 提交（reliability 整改 + FU-19 + 本特性），合并走 PR；origin/master 尚未包含这些提交。
