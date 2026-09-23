@@ -1,6 +1,6 @@
 # 需求：Fairy 主动生成运营建议（主动式运营洞察）
 
-> 状态：**approved**（2026-09-23 负责人批准；OpenSpec 提案 `openspec/changes/2026-09-23-proactive-ops-suggestions/` 已创建，5 项待决问题已在提案定稿，待提案批准后 Apply）· 日期：2026-09-23 · 负责人：Flores · grill-me 收敛：四项决策均按推荐默认获批（阈值+日报触发 / LLM 生成+失败降级 / 运营洞察页内建议流 / 不做对话联动）
+> 状态：**implemented**（2026-09-23 已交付并归档；OpenSpec 提案 `openspec/changes/archive/2026-09-23-proactive-ops-suggestions/`）· 日期：2026-09-23 · 负责人：Flores · grill-me 收敛：四项决策均按推荐默认获批（阈值+日报触发 / LLM 生成+失败降级 / 运营洞察页内建议流 / 不做对话联动）
 > 轨道：OpenSpec（大变更：新增 Prisma 模型与迁移、新增公共 API 端点、跨 db+api+shared+web 四包，`ARCHITECTURE.md` 需补决策行）
 > 前置：FU-11 Store Insights 运营看板（`GET /api/insights/overview` 只读聚合）、FU-12 storeInsightTool 对话问数均已交付归档；本需求承接初版项目设定「运营仪表盘：统计借阅数据，Fairy 可主动生成运营建议」中一直未落地的「主动」半边。
 

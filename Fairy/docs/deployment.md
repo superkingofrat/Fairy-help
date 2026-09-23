@@ -110,27 +110,40 @@ app.example.com {
 
 `.env.example` 是同一张表的本地副本，二者必须保持一致（AGENTS §12）。
 
-| 变量                 | 必填                      | 默认值                 | 说明                                        |
-| -------------------- | ------------------------- | ---------------------- | ------------------------------------------- |
-| `PORT`               | 否                        | `3000`                 | 镜像内已设置                                |
-| `TRUST_PROXY_HOPS`   | 否                        | `1`                    | 反代跳数，见 §5                             |
-| `DATABASE_URL`       | **是**                    | —                      | Postgres 连接串；托管库用 pooled + 超时参数 |
-| `JWT_SECRET`         | **是**                    | —                      | 启动强校验；`openssl rand -base64 48` 生成  |
-| `AI_PROVIDER`        | 否                        | `deepseek`             | `deepseek` / `openai` / `claude`            |
-| `AI_MODEL`           | 否                        | 供应商默认             | 覆盖默认模型                                |
-| `AI_TIMEOUT_MS`      | 否                        | `20000`                | 单次 AI 请求超时                            |
-| `DEEPSEEK_API_KEY`   | `AI_PROVIDER=deepseek` 时 | —                      |                                             |
-| `DEEPSEEK_BASE_URL`  | 否                        | 供应商默认             | 自建网关/代理时覆盖                         |
-| `OPENAI_API_KEY`     | `AI_PROVIDER=openai` 时   | —                      | embedding 未单配时也回落读它                |
-| `OPENAI_BASE_URL`    | 否                        | 供应商默认             |                                             |
-| `ANTHROPIC_API_KEY`  | `AI_PROVIDER=claude` 时   | —                      |                                             |
-| `ANTHROPIC_BASE_URL` | 否                        | 供应商默认             |                                             |
-| `EMBEDDING_API_KEY`  | 否                        | 回落 `OPENAI_API_KEY`  | 记忆向量召回；不配则检索走结构化路径        |
-| `EMBEDDING_MODEL`    | 否                        | 内置默认               |                                             |
-| `EMBEDDING_BASE_URL` | 否                        | 回落 `OPENAI_BASE_URL` |                                             |
-| `AMAP_SERVER_KEY`    | 否                        | —                      | 行程规划；缺失/超时降级返回说明，不抛错     |
-| `VITE_API_URL`       | 仅 web 镜像 build arg     | 空（同源）             | 见 §1                                       |
-| `VITE_AMAP_JS_KEY`   | 仅 web 镜像 build arg     | 空（地图不渲染）       | 行程地图浏览器端密钥（防盗链），见 §1       |
+| 变量                 | 必填                      | 默认值                   | 说明                                        |
+| -------------------- | ------------------------- | ------------------------ | ------------------------------------------- |
+| `PORT`               | 否                        | `3000`                   | 镜像内已设置                                |
+| `TRUST_PROXY_HOPS`   | 否                        | `1`                      | 反代跳数，见 §5                             |
+| `TZ`                 | 否（**强烈建议**）        | 容器内已 `Asia/Shanghai` | 见下方 §6.1 时区说明                        |
+| `DATABASE_URL`       | **是**                    | —                        | Postgres 连接串；托管库用 pooled + 超时参数 |
+| `JWT_SECRET`         | **是**                    | —                        | 启动强校验；`openssl rand -base64 48` 生成  |
+| `AI_PROVIDER`        | 否                        | `deepseek`               | `deepseek` / `openai` / `claude`            |
+| `AI_MODEL`           | 否                        | 供应商默认               | 覆盖默认模型                                |
+| `AI_TIMEOUT_MS`      | 否                        | `20000`                  | 单次 AI 请求超时                            |
+| `DEEPSEEK_API_KEY`   | `AI_PROVIDER=deepseek` 时 | —                        |                                             |
+| `DEEPSEEK_BASE_URL`  | 否                        | 供应商默认               | 自建网关/代理时覆盖                         |
+| `OPENAI_API_KEY`     | `AI_PROVIDER=openai` 时   | —                        | embedding 未单配时也回落读它                |
+| `OPENAI_BASE_URL`    | 否                        | 供应商默认               |                                             |
+| `ANTHROPIC_API_KEY`  | `AI_PROVIDER=claude` 时   | —                        |                                             |
+| `ANTHROPIC_BASE_URL` | 否                        | 供应商默认               |                                             |
+| `EMBEDDING_API_KEY`  | 否                        | 回落 `OPENAI_API_KEY`    | 记忆向量召回；不配则检索走结构化路径        |
+| `EMBEDDING_MODEL`    | 否                        | 内置默认                 |                                             |
+| `EMBEDDING_BASE_URL` | 否                        | 回落 `OPENAI_BASE_URL`   |                                             |
+| `AMAP_SERVER_KEY`    | 否                        | —                        | 行程规划；缺失/超时降级返回说明，不抛错     |
+| `VITE_API_URL`       | 仅 web 镜像 build arg     | 空（同源）               | 见 §1                                       |
+| `VITE_AMAP_JS_KEY`   | 仅 web 镜像 build arg     | 空（地图不渲染）         | 行程地图浏览器端密钥（防盗链），见 §1       |
+
+### 6.1 时区：运营建议调度与洞察窗口的共同依赖
+
+运营建议（`/api/suggestions`）的每日 08:00 日报、近 7 天零借阅判定、以及运营洞察的趋势/活跃窗口，**全部按服务器本地日期分桶**：
+
+- api 镜像已内置 `ENV TZ=Asia/Shanghai`（且安装 `tzdata`——`TZ` 只是环境变量，缺 zoneinfo 文件时 `Date` 仍按 UTC 走）。自研部署/裸机运行时必须显式设置 `TZ=Asia/Shanghai`，否则日报的「本地日」整体前移 8 小时（UTC 下 08:00 变成本地凌晨，日报在门店无感时段生成），洞察窗口首日 00:00–08:00 数据静默缺失。
+- `process.env.TZ` 缺失时，API 启动只 `warn` 一次（`TZ_NOT_SET`），不阻断服务。
+- 发布后验证：`docker exec fairy-api date` 应显示 CST（+0800）。
+
+### 6.2 多实例部署下的建议调度
+
+调度是**进程内** `setInterval`（无外部 cron/queue）：每个 API 副本都会跑阈值周期（15 分钟）与 08:00 日报判定，启动即跑一次。重复执行不会产生重复建议——`ops_suggestions.dedupeKey` 唯一索引是去重唯一事实来源，后到的一方按 P2002 冲突跳过；同一本地日的日报最多一条。**漏触发可接受（下个周期/次日补上），重复建议不可接受（由唯一索引保证）**。SIGTERM 时调度先于 http server 停止，不会在容器关闭途中再起一轮生成。横向扩到多副本没有额外配置，代价只是每个副本各跑一次轻量聚合查询。
 
 ## 7. 运维红线
 
@@ -154,3 +167,6 @@ app.example.com {
 6. 规划一条行程（对话或 `/trips` 页），确认行程卡片底部地图区块可见：有 POI Marker、
    有坐标的相邻 POI 间有路线折线；若部署域名未加进高德 referrer 白名单，地图会静默
    不显示而文字行程正常——此时按控制台提示补白名单即可（密钥配置见 §1）。
+7. 运营建议调度冒烟：API 日志应出现 `{"source":"suggestionScheduler","event":"threshold_cycle",...}`
+   （启动即一次）；admin 打开运营看板可见「运营建议」卡片（空态也渲染）；点「立即生成日报」
+   当日再点不新增第二条。

@@ -1067,6 +1067,69 @@ admin 硬删一条记忆（`Memory` 无外键引用，物理删除即可）。�
 
 ---
 
+### 3.16 运营建议 `/api/suggestions`（2026-09-23-proactive-ops-suggestions）
+
+Fairy **主动**生成的经营建议面（仅 `admin`）。建议由 API 进程内调度器产生，无需外部 cron/queue：阈值异常（任一影片库存 ≤ 1 → `LOW_STOCK`；借出率 ≥ 0.8 → `BORROW_RATIO`；近 7 天零借阅 → `DORMANT`）+ 每本地日 08:00 的经营日报（`DAILY_REPORT`）。同一异常在恢复前只生成一条（`dedupeKey` 唯一索引，并发/多实例下后到一方冲突即跳过）；恢复后重现会作为全新建议再次出现。AI 供应商可用时正文由统一 AI SDK `chat()` 基于真实聚合数据起草，不可用或失败时降级为模板数据摘要——任何路径都不返回 500、不向管理端暴露供应商错误负载。四个端点均需认证（401 `UNAUTHORIZED`），非 admin 一律 403 `FORBIDDEN`。
+
+#### 3.16.1 列表
+
+**GET** `/api/suggestions`　查询参数：`page`（默认 1）、`limit`（默认 20，最大 100）。
+
+```json
+{
+  "code": "OK",
+  "data": {
+    "items": [
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440000",
+        "kind": "LOW_STOCK",
+        "summary": "《教父》库存告急",
+        "body": "目前仅剩 0 盒在库，建议尽快补货。",
+        "sourceData": { "movieId": "m1", "title": "教父", "stock": 0, "totalStock": 2 },
+        "readAt": null,
+        "createdAt": "2026-09-23T04:00:00.000Z"
+      }
+    ],
+    "pagination": { "page": 1, "limit": 20, "total": 1, "totalPages": 1 }
+  },
+  "msg": "查询成功"
+}
+```
+
+`kind` ∈ `LOW_STOCK` / `BORROW_RATIO` / `DORMANT` / `DAILY_REPORT`；`sourceData` 为触发时的真实聚合快照（只含影片名、库存与聚合数字，**无任何用户身份/画像/行为字段**）；`readAt` 为 `null` 即未读；`createdAt` 倒序。
+
+#### 3.16.2 未读数
+
+**GET** `/api/suggestions/unread-count`
+
+```json
+{ "code": "OK", "data": { "count": 3 }, "msg": "查询成功" }
+```
+
+四类建议的未读合计（标记已读前全部计入）。
+
+#### 3.16.3 标记已读
+
+**PATCH** `/api/suggestions/:id/read`
+
+`data` 为标记后的建议（`readAt` 已填）。幂等：对同一条重复调用均返回 200，已写入的 `readAt` 时间戳不变。
+
+#### 3.16.4 手动生成当日日报
+
+**POST** `/api/suggestions/generate-daily`
+
+`data` 为当日的 `DAILY_REPORT`。与调度器同一入口、同样以本地日为键去重：当日已有产物时直接返回既有那条（幂等），只在当日首条缺失时生成。
+
+#### 错误响应
+
+| 状态 | Code | 场景 |
+|---|---|---|
+| 401 | `UNAUTHORIZED` | 缺少或无效的认证信息。 |
+| 403 | `FORBIDDEN` | 非 `admin` 角色访问任一建议端点。 |
+| 404 | `SUGGESTION_NOT_FOUND` | `:id` 对应的建议不存在（或被恢复清理删除）。 |
+
+---
+
 ## 4. 错误码参考
 
 | Code | HTTP 状态 | 含义 |
@@ -1091,6 +1154,7 @@ admin 硬删一条记忆（`Memory` 无外键引用，物理删除即可）。�
 | `TRIP_NOT_FOUND` | 404 | 行程不存在或不属于调用者（FU-19 二期起；防枚举统一文案）。 |
 | `TRIP_UNRESOLVED` | 400 | 行程链路无法确定目的地（FU-19 二期起）。 |
 | `TRIP_DRAFT_FAILED` | 502 | 行程生成失败，LLM 重试后仍败（FU-19 二期起）。 |
+| `SUGGESTION_NOT_FOUND` | 404 | 运营建议不存在（2026-09-23-proactive-ops-suggestions 起）。 |
 | `EMAIL_ALREADY_EXISTS` | 409 | 注册邮箱已存在（FU-10 起）。 |
 | `INVALID_REFRESH_TOKEN` | 401 | refresh token 无效/过期/已吊销（FU-10 起）。 |
 | `TOO_MANY_REQUESTS` | 429 | 登录、注册或对话频率超限（FU-10 起；`POST /chat` 自 2026-09-20 起 30 次/分钟）。 |

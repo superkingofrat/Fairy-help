@@ -658,6 +658,9 @@ interface AgentState {
 | api/web 各一个多阶段 Dockerfile，构建上下文为 monorepo 根 | `apps/api/Dockerfile` 与 `apps/web/Dockerfile` 均以 `Fairy/` 为构建上下文（`docker build -f apps/api/Dockerfile .`）：builder 用 corepack 固定 `pnpm@9.0.0`（对齐根 `packageManager`）→ 仅拷 manifest 的分层 install（`--frozen-lockfile`）→ `prisma generate` → turbo 拓扑构建（`--filter "@fairy/api..."` / `"@fairy/web..."`）；runtime 分别 `node:20-alpine` 与 `nginx:alpine`。api 镜像 `ENV NODE_ENV=production TZ=Asia/Shanghai` 并装 `tzdata`/`openssl`——`TZ` 只是环境变量，没有 zoneinfo 文件时 `Date` 仍按 UTC 走，prisma 查询引擎在 alpine 上动态链接 openssl；`USER node` 非 root，HEALTHCHECK 探 `/health`；整棵 `node_modules`（含 `.pnpm` 内部相对符号链接）与各 workspace 的 `dist` 一并拷贝，`@fairy/*` 工作区依赖与已生成的 client 才可解析。`.dockerignore` 排除 `node_modules`/`dist`/`.env*`/`.git`，密钥只经运行时注入（AGENTS §14）。web 产物是静态 dist + 内置 SPA nginx 配置（`/assets/` 一年强缓存、app shell `no-cache`、`try_files` 兜底）；`VITE_API_URL` 为 build-time 内联（换域名必须重新 build），留空即同源相对路径。操作清单见 `docs/deployment.md`（2026-09-22）。 |
 | seed 在 `NODE_ENV=production` 下拒绝执行 | 种子账号口令（`user@fairy.local` / `admin@fairy.local`）是公开 demo 凭证，生产环境执行 seed 等于留下两个已知口令的后门账号：`prisma/seed.ts` 在模块加载即检测 `NODE_ENV=production` 并 `exit(1)`——PrismaClient 构造是懒连接，拒绝发生在任何 DB 连接之前；生产账号一律走注册流程。`seedGuard.test.ts` 以子进程双向断言：production 拒绝退出、`NODE_ENV` 未置（本地开发惯例）不被误伤。 |
 | 并发正确性用真实库测试验证，`TEST_DATABASE_URL` 门控默认跳过 | borrow 的 `FOR UPDATE` 行锁 + 条件更新「不超卖」是事务语义，mock 单测无法证明：`rentalService.concurrency.test.ts` 仅当 `TEST_DATABASE_URL` 指向独立测试库（`fairy_test` 或 Neon branch）时运行——先改 `process.env.DATABASE_URL` 再动态 import `rentalService`（顶层静态 import 会在环境变量就绪前用开发库 URL 构造 prisma 单例），20 个用户并发借库存 5 的影片，断言恰好 5 笔成功、其余 `OUT_OF_STOCK`、终态库存归零且活跃租约数吻合。CI 不配置该变量即整体跳过（AGENTS §7：禁止对开发库跑测试）。 |
+| 主动运营建议调度 = 进程内 setInterval，无外部 cron/queue（2026-09-23-proactive-ops-suggestions） | 触发与生成都在 API 进程内：`startScheduler()` 只挂在 `src/index.ts` server 入口（测试经 `createApp()` 不启动调度），1 分钟 tick 上跑两个判定——阈值周期（默认 15 分钟，启动即跑一次，冷启动不靠等整周期）与本地 08:00 日报（`getHours() >= 8` 且本进程今日未跑过）。不引 node-cron、不依赖系统 cron、不用 pg_cron：门店规模下一个定时轮询的成本远低于新增基础设施的运维面；SIGTERM/SIGINT 链上先 `stop()` 调度再 `server.close()`。**多实例下周期可能重复执行，但 `dedupeKey` 唯一索引保证不产生重复建议**（后到一方 P2002 按已存在跳过）——漏触发可接受，重复不可接受。 |
+| 建议去重以 `dedupeKey` 唯一索引为唯一事实来源，恢复即清理 | `OpsSuggestion.dedupeKey`（`LOW_STOCK:<movieId>` / `BORROW_RATIO:store` / `DORMANT:store` / `DAILY_REPORT:<本地日期>`）带唯一索引：同一异常在恢复前重复检测到只 create 一次（P2002 视为已存在）。阈值回落的建议由当轮周期 `deleteMany` 清理（活跃键集合之外的存量阈值键），异常重现即作为**全新建议**重新落库（新 `createdAt`、未读态）——「补货后再缺货」必须再次提醒，而不是被永久去重吞掉。日报按本地日去重，调度器与手动端点同一入口，天然同日幂等。 |
+| 建议正文 LLM 起草 + 失败降级模板摘要（延续 §0 降级哲学） | `generateSuggestion` 经统一 AI SDK `tryChat("agent.suggestion", …)`（maxTokens 3000 / temperature 0.4）起草，prompt 只含聚合快照 JSON 与影片名；供应商缺失/超时/报错/空输出一律回落到草稿自带的模板摘要正文（`buildThresholdDrafts`/`buildDailyDraft` 生成的 `summary`+`body`），建议照常落库、管理端无感知，任何路径不返回 500、不把 provider 响应负载写进日志（§5）。单行 `summary` 始终取模板措辞，作为去重语义的人工可读标签。**max_tokens 必须容纳 reasoning 消耗**：默认供应商 `deepseek-v4-flash` 是 reasoning 模型，思考与答案共用同一个 completion 预算，800/2000 都会把答案拦腰截断（`finish_reason=length`，content 为空或半句），实调 3000 可稳定收尾；此预算属实现细节而非契约，换非 reasoning 供应商只会更宽松。 |
 
 ---
 
@@ -669,12 +672,13 @@ apps/web/src/
     chat/              # ChatPage（含会话侧栏）, MessageStream, RecommendationCard, TripTimeline, TripMap（FU-19 二期：行程地图叠加，TripTimeline 槽位）, MemorySelfPanel（FU-17 自查面板，ChatPage 内开关）
     fairy/             # FairyAvatar, expressions
     trips/             # TripsPage（FU-19 二期：/trips 历史行程面——分页列表 + 详情 + 创建表单）
-    admin/             # MoviesAdminPage, ProfilesAdminPage, BehaviorPage, InsightsAdminPage（FU-11 运营看板）, MemoryAdminPage（FU-15 记忆管理）
+    admin/             # MoviesAdminPage, ProfilesAdminPage, BehaviorPage, InsightsAdminPage（FU-11 运营看板；内联 SuggestionFeed 运营建议流）, MemoryAdminPage（FU-15 记忆管理）
   lib/
     sessionApi.ts      # FU-7：/api/sessions 客户端
     insightApi.ts      # FU-11：/api/insights 客户端
     memoryApi.ts       # FU-15：/api/memories 客户端（列表/新增/编辑/删除）；FU-17：listMyMemories（/api/memories/me 自查）
     tripApi.ts         # FU-19 二期：/api/trips 客户端（createTrip/listTrips/getTrip）
+    suggestionApi.ts   # 2026-09-23-proactive-ops-suggestions：/api/suggestions 客户端（列表/未读数/标记已读/手动生成日报，全部 admin-only）
   stores/
     chatStore.ts
 
@@ -688,6 +692,7 @@ apps/api/src/
     profiles.ts
     memories.ts        # /api/memories（FU-15：GET/POST + PATCH/DELETE /:id，全部 requireRole("admin")；FU-17：GET /me 自查路由，任意已登录角色，置于 admin 路由前）
     trips.ts           # /api/trips（FU-19 二期：POST 创建 admin/agent；GET 列表 + GET /:id 详情，本人或 admin）
+    suggestions.ts     # /api/suggestions（GET 列表 / GET /unread-count / PATCH /:id/read / POST /generate-daily，全部 requireRole("admin")）
   agent/
     stateLoop.ts         # FU-12：runChatTurn 透传 role → dispatch；FU-14：查询记忆注入；FU-16：传 query（用户消息）驱动混合检索
     intentClassifier.ts  # FU-12：store_insight 意图 + topic（LLM 枚举 + 规则兜底）
@@ -712,18 +717,21 @@ apps/api/src/
     behaviorLogService.ts
     sessionService.ts  # FU-7：会话 CRUD + appendTurn 事务
     insightService.ts  # FU-11：运营看板聚合（只读）
+    suggestionService.ts  # 2026-09-23-proactive-ops-suggestions：阈值检测/日报/LLM 起草+模板降级/去重(dedupeKey 唯一索引)/恢复清理/读取面
+    suggestionScheduler.ts  # 2026-09-23-proactive-ops-suggestions：进程内调度（纯判定函数 + startScheduler/stop，SIGTERM 链上清理）
     amapClient.ts
   controllers/
     sessionsController.ts  # FU-7
     insightController.ts   # FU-11
     memoryController.ts    # FU-15：记忆管理 REST handlers（薄，校验在 shared schema / validate 中间件）；FU-17：listMyMemoriesHandler（读 res.locals.userId）
     tripController.ts      # FU-19 二期：行程 REST handlers——createTripHandler 角色门禁先于 LLM；listTripsHandler（admin ?userId= 代查）；getTripHandler（越权与不存在同返 404）
+    suggestionController.ts # 2026-09-23-proactive-ops-suggestions：建议 REST handlers（薄；404 SUGGESTION_NOT_FOUND 映射）
   middleware/
     auth.ts
     validateBody.ts
 
 packages/shared/
-  schemas/             # 前端与后端使用的 Zod schema（含 sessionSchemas，FU-7；insightSchemas，FU-11；insightTopicSchema，FU-12；memorySchemas，FU-14/15/17/18）
+  schemas/             # 前端与后端使用的 Zod schema（含 sessionSchemas，FU-7；insightSchemas，FU-11；insightTopicSchema，FU-12；memorySchemas，FU-14/15/17/18；suggestionSchemas，2026-09-23-proactive-ops-suggestions）
   types/               # 共享 TypeScript 类型（含 sessionTypes，FU-7）
 
 packages/ai-sdk/
@@ -733,7 +741,7 @@ packages/ai-sdk/
 
 packages/database/
   prisma/schema.prisma # Memory.embedding `Unsupported("vector(1536)")?`（FU-16：raw SQL 读写，永不下发 DTO）
-  prisma/migrations/   # add_memory_embedding（CREATE EXTENSION vector + 列 + HNSW cosine 索引）
+  prisma/migrations/   # add_memory_embedding（CREATE EXTENSION vector + 列 + HNSW cosine 索引）；add_ops_suggestion（SuggestionKind 枚举 + ops_suggestions 表，dedupeKey 唯一索引 + createdAt 索引）
   src/backfillProgress.ts  # FU-16：回填选取纯函数 selectFreshRows（剔除本进程已尝试的 id，防止无法 embed 的行让主循环永不终止）
 
 scripts/
