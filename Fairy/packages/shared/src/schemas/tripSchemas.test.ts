@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  tripCreateRequestSchema,
+  tripListFeedSchema,
+  tripListItemSchema,
+  tripListQuerySchema,
+  tripDetailSchema,
   tripPoiSchema,
   itineraryDaySchema,
   routeLegSchema,
@@ -170,5 +175,72 @@ describe("trip event in chatEventSchema", () => {
 
   it("still rejects unknown event types", () => {
     expect(chatEventSchema.safeParse({ type: "weather" }).success).toBe(false);
+  });
+});
+
+describe("tripCreateRequestSchema (FU-19 phase 2)", () => {
+  it("accepts destination with optional days", () => {
+    expect(tripCreateRequestSchema.safeParse({ destination: "杭州", days: 2 }).success).toBe(true);
+    expect(tripCreateRequestSchema.safeParse({ destination: "杭州" }).success).toBe(true);
+  });
+
+  it("rejects missing/oversized destination and out-of-range days", () => {
+    expect(tripCreateRequestSchema.safeParse({}).success).toBe(false);
+    expect(tripCreateRequestSchema.safeParse({ destination: "" }).success).toBe(false);
+    expect(tripCreateRequestSchema.safeParse({ destination: "x".repeat(101) }).success).toBe(false);
+    expect(tripCreateRequestSchema.safeParse({ destination: "杭州", days: 0 }).success).toBe(false);
+    expect(tripCreateRequestSchema.safeParse({ destination: "杭州", days: 15 }).success).toBe(
+      false,
+    );
+    expect(tripCreateRequestSchema.safeParse({ destination: "杭州", days: 2.5 }).success).toBe(
+      false,
+    );
+  });
+
+  it("strips unknown keys", () => {
+    const parsed = tripCreateRequestSchema.safeParse({ destination: "杭州", role: "admin" });
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data).toEqual({ destination: "杭州" });
+  });
+});
+
+describe("trip list schemas (FU-19 phase 2)", () => {
+  const listItemFixture = {
+    id: "550e8400-e29b-41d4-a716-446655440000",
+    destination: "杭州",
+    days: 2,
+    validated: false,
+    createdAt: "2026-09-22T10:00:00.000Z",
+  };
+
+  it("accepts a list item and feed with pagination", () => {
+    expect(tripListItemSchema.safeParse(listItemFixture).success).toBe(true);
+    const feed = {
+      items: [listItemFixture],
+      pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
+    };
+    expect(tripListFeedSchema.safeParse(feed).success).toBe(true);
+  });
+
+  it("tripListQuerySchema defaults page/limit and coerces strings", () => {
+    const parsed = tripListQuerySchema.safeParse({ page: "2", limit: "5", userId: "abc" });
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data).toEqual({ page: 2, limit: 5, userId: "abc" });
+  });
+
+  it("tripListQuerySchema rejects out-of-range pagination", () => {
+    expect(tripListQuerySchema.safeParse({ page: 0 }).success).toBe(false);
+    expect(tripListQuerySchema.safeParse({ limit: 101 }).success).toBe(false);
+  });
+});
+
+describe("tripDetailSchema (FU-19 phase 2)", () => {
+  it("extends the trip result with createdAt", () => {
+    const detail = { ...tripResultFixture, createdAt: "2026-09-22T10:00:00.000Z" };
+    expect(tripDetailSchema.safeParse(detail).success).toBe(true);
+  });
+
+  it("rejects a result missing createdAt", () => {
+    expect(tripDetailSchema.safeParse(tripResultFixture).success).toBe(false);
   });
 });

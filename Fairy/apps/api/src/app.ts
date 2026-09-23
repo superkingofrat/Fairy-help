@@ -6,6 +6,7 @@ import { authMiddleware } from "./middleware/auth";
 import { authRouter } from "./routes/auth";
 import { borrowRouter } from "./routes/borrow";
 import { rentalsRouter } from "./routes/rentals";
+import { tripsRouter } from "./routes/trips";
 import { moviesRouter } from "./routes/movies";
 import { profilesRouter } from "./routes/profiles";
 import { behaviorLogsRouter } from "./routes/behaviorLogs";
@@ -83,6 +84,7 @@ export function createApp(): express.Application {
   app.use("/api/sessions", authMiddleware, sessionsRouter);
   app.use("/api/insights", authMiddleware, insightsRouter);
   app.use("/api/memories", authMiddleware, memoriesRouter);
+  app.use("/api/trips", authMiddleware, tripsRouter);
 
   app.use(
     (err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
