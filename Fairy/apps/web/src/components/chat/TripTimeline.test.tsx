@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { TripTimeline } from "./TripTimeline";
 import type { TripResult } from "@fairy/shared";
@@ -38,6 +38,7 @@ const tripResult: TripResult = {
 describe("TripTimeline", () => {
   afterEach(() => {
     cleanup();
+    vi.unstubAllEnvs();
   });
 
   it("renders destination, days, steps and a route summary", () => {
@@ -80,5 +81,24 @@ describe("TripTimeline", () => {
     expect(screen.getByText("未验证")).toBeDefined();
     expect(screen.getAllByText("未核实")).toHaveLength(1);
     expect(screen.queryByText(/驾车路线/)).toBeNull();
+  });
+
+  // FU-19 二期：地图槽位随卡片渲染；TripMap 内部按 key/坐标/加载失败静默降级
+  it("renders the map area when a browser key and coordinates are present", () => {
+    vi.stubEnv("VITE_AMAP_JS_KEY", "browser-key");
+
+    render(<TripTimeline trip={tripResult} />);
+
+    expect(screen.getByTestId("trip-map")).toBeDefined();
+    expect(screen.getByText(/共 1 天/)).toBeDefined();
+  });
+
+  it("renders no map area without a browser key while keeping the itinerary", () => {
+    vi.stubEnv("VITE_AMAP_JS_KEY", "");
+
+    render(<TripTimeline trip={tripResult} />);
+
+    expect(screen.queryByTestId("trip-map")).toBeNull();
+    expect(screen.getByText(/全程约 2.1 公里，车程约 8 分钟/)).toBeDefined();
   });
 });

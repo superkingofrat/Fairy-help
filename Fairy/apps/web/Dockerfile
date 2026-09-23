@@ -22,6 +22,10 @@ RUN pnpm --filter @fairy/database generate
 # 不能指望运行时配置。默认空串 = 同源相对路径（配合反代 /api 时使用）
 ARG VITE_API_URL=""
 ENV VITE_API_URL=$VITE_API_URL
+# VITE_AMAP_JS_KEY（高德浏览器端安全密钥）同样 build-time 内联；不传则行程地图
+# 静默不渲染（TripMap 三种降级之一），不影响其余功能
+ARG VITE_AMAP_JS_KEY=""
+ENV VITE_AMAP_JS_KEY=$VITE_AMAP_JS_KEY
 RUN pnpm --filter "@fairy/web..." run build
 
 FROM nginx:alpine AS runtime

@@ -18,6 +18,15 @@ const CHAT_ERROR_KEYS: Record<string, keyof Messages> = {
   SESSION_EXPIRED: "chat.error.SESSION_EXPIRED",
 };
 
+// FU-19 二期：行程 REST 契约码（API_CONTRACT  trips 段）。TRIP_NOT_FOUND 对不存在与他人所有
+// 同文案，不泄漏行程存在性
+const TRIP_ERROR_KEYS: Record<string, keyof Messages> = {
+  TRIP_FORBIDDEN: "trips.error.TRIP_FORBIDDEN",
+  TRIP_UNRESOLVED: "trips.error.TRIP_UNRESOLVED",
+  TRIP_DRAFT_FAILED: "trips.error.TRIP_DRAFT_FAILED",
+  TRIP_NOT_FOUND: "trips.error.TRIP_NOT_FOUND",
+};
+
 // 传输层合成码（http.ts）与 401 的通用文案：断网、非 JSON、空体、未分类失败
 const COMMON_ERROR_KEYS: Record<string, keyof Messages> = {
   UNAUTHORIZED: "error.unauthorized",
@@ -67,4 +76,13 @@ export function chatErrorMessage(error: unknown, translate: Translate): string {
     return translate(key);
   }
   return localizedErrorMessage(error, translate, "chat.error");
+}
+
+// 行程页专用：先按 trips 契约码映射，再走通用规则，兜底 trips.error.default
+export function tripErrorMessage(error: unknown, translate: Translate): string {
+  const key = localizedKey(error, TRIP_ERROR_KEYS);
+  if (key) {
+    return translate(key);
+  }
+  return localizedErrorMessage(error, translate, "trips.error.default");
 }

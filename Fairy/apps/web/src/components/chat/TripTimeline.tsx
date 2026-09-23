@@ -1,11 +1,13 @@
 import type { TripResult } from "@fairy/shared";
 import { t } from "../../lib/i18n";
+import { TripMap } from "./TripMap";
 
 interface TripTimelineProps {
   trip: TripResult;
 }
 
 // FU-13：行程卡片——按天渲染 POI 时间轴 + 驾车路线摘要；validated=false 的 POI 标注未核实。
+// FU-19 二期：卡片底部挂地图叠加层（TripMap 自行判断 key/坐标/加载失败的静默降级）。
 export function TripTimeline({ trip }: TripTimelineProps): JSX.Element {
   const route = trip.route ?? [];
   const totalKm = route.reduce((sum, leg) => sum + (leg.distanceMeters ?? 0), 0) / 1000;
@@ -66,6 +68,7 @@ export function TripTimeline({ trip }: TripTimelineProps): JSX.Element {
             .replace("{min}", String(totalMinutes))}
         </p>
       ) : null}
+      <TripMap trip={trip} />
     </div>
   );
 }
