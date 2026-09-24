@@ -59,7 +59,7 @@ describe("amapClient.searchPoi", () => {
       vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({ status: "1", pois: [] }),
-      })
+      }),
     );
 
     expect(await searchPoi("不存在的地方", "杭州")).toBeNull();
@@ -71,7 +71,7 @@ describe("amapClient.searchPoi", () => {
       vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({ status: "0", info: "INVALID_USER_KEY" }),
-      })
+      }),
     );
 
     expect(await searchPoi("西湖", "杭州")).toBeNull();
@@ -81,10 +81,7 @@ describe("amapClient.searchPoi", () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
     expect(await searchPoi("西湖", "杭州")).toBeNull();
 
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({ ok: false, status: 500 })
-    );
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500 }));
     expect(await searchPoi("西湖", "杭州")).toBeNull();
   });
 
@@ -97,7 +94,7 @@ describe("amapClient.searchPoi", () => {
           status: "1",
           pois: [{ name: "西湖", location: "not-a-coordinate", adcode: "330106", type: "x" }],
         }),
-      })
+      }),
     );
 
     expect(await searchPoi("西湖", "杭州")).toBeNull();
@@ -127,7 +124,7 @@ describe("amapClient.planRoute", () => {
           status: "1",
           route: { paths: [{ distance: "6500", duration: "1200" }] },
         }),
-      })
+      }),
     );
 
     const metrics = await planRoute({ lng: 120.15, lat: 30.25 }, { lng: 120.1, lat: 30.24 });
@@ -138,7 +135,7 @@ describe("amapClient.planRoute", () => {
   it("returns null when no path is available", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: "1", route: {} }) })
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: "1", route: {} }) }),
     );
 
     expect(await planRoute({ lng: 120.15, lat: 30.25 }, { lng: 120.1, lat: 30.24 })).toBeNull();

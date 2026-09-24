@@ -7,6 +7,15 @@ const prisma = new PrismaClient();
 const DEV_USER_PASSWORD = "user123456";
 const DEV_ADMIN_PASSWORD = "admin123456";
 
+// 种子账号密码是公开的 demo 凭证：生产环境跑 seed 等于留两个已知密码的后门账号，一律拒绝
+if (process.env.NODE_ENV === "production") {
+  console.error(
+    "refusing to seed: demo-only credentials must never be created in production. " +
+      "Use the registration flow to create real accounts.",
+  );
+  process.exit(1);
+}
+
 const seedMovies = [
   {
     title: "星际穿越",
@@ -97,11 +106,11 @@ async function main(): Promise<void> {
 
   await prisma.user.upsert({
     where: { id: DEV_USER_ID },
-    update: { email: "user@fairy.local", role: "user", passwordHash: userPasswordHash },
+    update: { email: "user@fairy.local", role: "agent", passwordHash: userPasswordHash },
     create: {
       id: DEV_USER_ID,
       email: "user@fairy.local",
-      role: "user",
+      role: "agent",
       passwordHash: userPasswordHash,
     },
   });

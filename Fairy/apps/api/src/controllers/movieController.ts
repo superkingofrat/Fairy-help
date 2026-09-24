@@ -14,7 +14,7 @@ function getValidatedQuery<T>(res: Response): T {
 export async function listMoviesHandler(
   _req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
     const query = getValidatedQuery<ListMoviesQuery>(res);
@@ -28,7 +28,7 @@ export async function listMoviesHandler(
 export async function searchMoviesHandler(
   _req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
     const query = getValidatedQuery<SearchMoviesQuery>(res);
@@ -42,7 +42,7 @@ export async function searchMoviesHandler(
 export async function getMovieHandler(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
     const movie = await movieService.getMovieById(req.params.id);
@@ -65,7 +65,7 @@ export async function getMovieHandler(
 export async function createMovieHandler(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
     const movie = await movieService.createMovie(req.body as CreateMovieInput);
@@ -78,13 +78,10 @@ export async function createMovieHandler(
 export async function updateMovieHandler(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
-    const movie = await movieService.updateMovie(
-      req.params.id,
-      req.body as UpdateMovieInput
-    );
+    const movie = await movieService.updateMovie(req.params.id, req.body as UpdateMovieInput);
 
     if (!movie) {
       res.status(404).json({
@@ -104,7 +101,7 @@ export async function updateMovieHandler(
 export async function deleteMovieHandler(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
     const deleted = await movieService.deleteMovie(req.params.id);

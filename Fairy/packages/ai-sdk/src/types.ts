@@ -26,8 +26,7 @@ export interface ChatResult {
 }
 
 export type StreamChunk =
-  | { type: "text"; text: string }
-  | { type: "done"; usage: UsageMetadata; model: string };
+  { type: "text"; text: string } | { type: "done"; usage: UsageMetadata; model: string };
 
 export interface EmbedRequest {
   input: string | string[];

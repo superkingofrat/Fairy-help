@@ -4,6 +4,8 @@ Structured requirement docs produced by grill-me sessions. Each doc feeds OpenSp
 
 | Date | Feature | Status | Doc |
 |---|---|---|---|
+| 2026-09-23 | Fairy 主动生成运营建议（主动式运营洞察） | implemented | [2026-09-23-proactive-ops-suggestions.md](./2026-09-23-proactive-ops-suggestions.md) |
+| 2026-09-22 | 旅行规划二期：REST 行程端点 + 历史行程回放 + 高德地图叠加 | implemented | [2026-09-22-travel-planning-phase-2.md](./2026-09-22-travel-planning-phase-2.md) |
 | 2026-09-20 | 注册即建空白画像（新用户画像闭环） | implemented | [2026-09-20-register-create-blank-profile.md](./2026-09-20-register-create-blank-profile.md) |
 | 2026-09-20 | chat 端点限流（防刷 LLM 账单） | implemented | [2026-09-20-chat-rate-limit.md](./2026-09-20-chat-rate-limit.md) |
 | 2026-09-20 | prompt token 预算与上下文窗口裁剪 | implemented | [2026-09-20-prompt-token-budget.md](./2026-09-20-prompt-token-budget.md) |

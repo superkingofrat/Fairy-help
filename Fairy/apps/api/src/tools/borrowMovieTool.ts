@@ -2,10 +2,7 @@ import * as rentalService from "../services/rentalService";
 import * as behaviorLogService from "../services/behaviorLogService";
 import type { BorrowErrorCode } from "@fairy/shared";
 
-export async function borrowMovieTool(input: {
-  userId: string;
-  movieId: string;
-}): Promise<{
+export async function borrowMovieTool(input: { userId: string; movieId: string }): Promise<{
   success: boolean;
   data?: { remainingStock: number; rentalId: string };
   error?: BorrowErrorCode;
@@ -14,7 +11,7 @@ export async function borrowMovieTool(input: {
 
   if (!result.ok) {
     if (result.code === "OUT_OF_STOCK") {
-      await behaviorLogService.append({
+      await behaviorLogService.appendQuietly({
         userId: input.userId,
         action: "BORROW_OUT_OF_STOCK",
         movieId: input.movieId,
@@ -23,7 +20,7 @@ export async function borrowMovieTool(input: {
     return { success: false, error: result.code };
   }
 
-  await behaviorLogService.append({
+  await behaviorLogService.appendQuietly({
     userId: input.userId,
     action: "BORROW_SUCCESS",
     movieId: input.movieId,

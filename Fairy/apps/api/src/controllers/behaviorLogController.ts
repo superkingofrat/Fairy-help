@@ -6,7 +6,7 @@ import * as behaviorLogService from "../services/behaviorLogService";
 export async function listBehaviorLogsHandler(
   _req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
     const query = res.locals.validatedQuery as BehaviorLogQuery;

@@ -23,9 +23,7 @@ const overviewFixture = {
   inventory: {
     activeRentals: 2,
     borrowedRatio: 0.4,
-    lowStockMovies: [
-      { movieId: "m2", title: "楚门的世界", stock: 0, totalStock: 2 },
-    ],
+    lowStockMovies: [{ movieId: "m2", title: "楚门的世界", stock: 0, totalStock: 2 }],
   },
   moods: [{ value: "治愈", count: 3 }],
   scenes: [{ value: "雨天", count: 2 }],
@@ -37,9 +35,7 @@ describe("GET /api/insights/overview", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(getStoreInsightsOverview).mockResolvedValue(
-      overviewFixture as never
-    );
+    vi.mocked(getStoreInsightsOverview).mockResolvedValue(overviewFixture as never);
   });
 
   it("returns the overview for an admin", async () => {

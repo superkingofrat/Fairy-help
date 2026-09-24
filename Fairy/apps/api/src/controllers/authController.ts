@@ -1,11 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import * as authService from "../services/authService";
 
-export async function loginHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function loginHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const user = await authService.authenticate(req.body.email, req.body.password);
     if (!user) {
@@ -24,7 +20,7 @@ export async function loginHandler(
 export async function registerHandler(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
     const result = await authService.registerUser(req.body.email, req.body.password);
@@ -48,12 +44,14 @@ export async function registerHandler(
 export async function refreshHandler(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
     const result = await authService.rotateRefreshToken(req.body.refreshToken);
     if (!result.ok) {
-      res.status(401).json({ code: "INVALID_REFRESH_TOKEN", data: null, msg: "登录状态已过期，请重新登录" });
+      res
+        .status(401)
+        .json({ code: "INVALID_REFRESH_TOKEN", data: null, msg: "登录状态已过期，请重新登录" });
       return;
     }
 
@@ -66,7 +64,7 @@ export async function refreshHandler(
 export async function logoutHandler(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
     await authService.revokeRefreshToken(req.body.refreshToken);
@@ -76,11 +74,7 @@ export async function logoutHandler(
   }
 }
 
-export async function meHandler(
-  _req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function meHandler(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const userId = res.locals.userId as string;
     const user = await authService.getUserById(userId);

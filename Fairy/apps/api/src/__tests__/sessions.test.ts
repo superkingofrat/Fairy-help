@@ -45,7 +45,7 @@ describe("/api/sessions", () => {
       msg: "会话已创建",
     });
     expect(sessionService.createSession).toHaveBeenCalledWith(
-      expect.stringMatching(/^[0-9a-f-]{36}$/)
+      expect.stringMatching(/^[0-9a-f-]{36}$/),
     );
   });
 

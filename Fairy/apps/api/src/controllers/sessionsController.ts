@@ -10,7 +10,7 @@ const ERROR_HTTP: Record<sessionService.SessionErrorCode, { status: number; msg:
 export async function createSessionHandler(
   _req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
     const userId = res.locals.userId as string;
@@ -24,7 +24,7 @@ export async function createSessionHandler(
 export async function listSessionsHandler(
   _req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
     const userId = res.locals.userId as string;
@@ -38,7 +38,7 @@ export async function listSessionsHandler(
 export async function getSessionMessagesHandler(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
     const userId = res.locals.userId as string;

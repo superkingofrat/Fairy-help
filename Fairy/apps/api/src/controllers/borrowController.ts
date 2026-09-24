@@ -16,7 +16,7 @@ const MSG_BY_CODE: Record<string, string> = {
 export async function borrowHandler(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
     const userId = res.locals.userId as string;

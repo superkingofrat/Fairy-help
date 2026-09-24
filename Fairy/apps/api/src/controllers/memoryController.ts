@@ -12,7 +12,7 @@ import * as memoryService from "../memory/memoryService";
 export async function listMemoriesHandler(
   _req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
     const query = res.locals.validatedQuery as MemoryQuery;
@@ -38,7 +38,7 @@ export async function listMemoriesHandler(
 export async function listMyMemoriesHandler(
   _req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
     const profileId = res.locals.userId as string;
@@ -63,7 +63,7 @@ export async function listMyMemoriesHandler(
 export async function createMemoryHandler(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
     const body = req.body as MemoryCreateInput;
@@ -87,7 +87,7 @@ export async function createMemoryHandler(
 export async function updateMemoryHandler(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
     const body = req.body as MemoryUpdateInput;
@@ -111,7 +111,7 @@ export async function updateMemoryHandler(
 export async function deleteMemoryHandler(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
     const deleted = await memoryService.deleteMemory(req.params.id);

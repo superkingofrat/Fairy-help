@@ -28,9 +28,7 @@ const overviewFixture = {
   inventory: {
     activeRentals: 2,
     borrowedRatio: 0.4,
-    lowStockMovies: [
-      { movieId: "m-2", title: "楚门的世界", stock: 0, totalStock: 2 },
-    ],
+    lowStockMovies: [{ movieId: "m-2", title: "楚门的世界", stock: 0, totalStock: 2 }],
   },
   moods: [
     { value: "治愈", count: 2 },
@@ -137,9 +135,7 @@ describe("row schemas", () => {
   });
 
   it("moodSceneCountSchema requires a value and count", () => {
-    expect(
-      moodSceneCountSchema.safeParse({ value: "治愈", count: 2 }).success,
-    ).toBe(true);
+    expect(moodSceneCountSchema.safeParse({ value: "治愈", count: 2 }).success).toBe(true);
     expect(moodSceneCountSchema.safeParse({ count: 2 }).success).toBe(false);
   });
 

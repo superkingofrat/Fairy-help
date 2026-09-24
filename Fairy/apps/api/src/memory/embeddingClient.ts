@@ -1,8 +1,4 @@
-import {
-  createEmbeddingProvider,
-  EMBEDDING_DIMENSIONS,
-  type AiProvider,
-} from "@fairy/ai-sdk";
+import { createEmbeddingProvider, EMBEDDING_DIMENSIONS, type AiProvider } from "@fairy/ai-sdk";
 
 // FU-16：向量召回 embed 客户端——可选能力，与对话主模型解耦（独立 EMBEDDING_API_KEY/EMBEDDING_MODEL）。
 // 未配置 key 时 createEmbeddingProvider() 返回 null（降级信号）：调用方走结构化检索，行为与 FU-14 完全一致。

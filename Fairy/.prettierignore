@@ -1,0 +1,25 @@
+# 构建产物与依赖
+node_modules/
+dist/
+build/
+coverage/
+.turbo/
+
+# 锁文件由 pnpm 独占管理
+pnpm-lock.yaml
+
+# Prisma schema 与迁移 SQL 无 prettier 解析器
+packages/database/prisma/schema.prisma
+packages/database/prisma/migrations/
+packages/database/prisma/*.js
+packages/database/prisma/*.js.map
+packages/database/prisma/*.d.ts
+packages/database/prisma/*.d.ts.map
+
+# 本地环境文件
+.env
+.env.*
+!.env.example
+
+# 计划与工作流草稿
+.zcode/

@@ -1,7 +1,0 @@
-{
-  "name": "openspec",
-  "version": "0.1.0",
-  "description": "OpenSpec spec-driven workflow for ZCode: /opsx:propose, /opsx:apply, /opsx:archive, /opsx:explore, /opsx:sync, /opsx:update slash commands driving the OpenSpec CLI (1.8+).",
-  "author": { "name": "Fairy" },
-  "commands": "commands"
-}

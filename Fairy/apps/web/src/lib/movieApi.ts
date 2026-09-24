@@ -1,10 +1,5 @@
 import { request } from "./http";
-import type {
-  CreateMovieInput,
-  Movie,
-  PaginatedMovies,
-  UpdateMovieInput,
-} from "@fairy/shared";
+import type { CreateMovieInput, Movie, PaginatedMovies, UpdateMovieInput } from "@fairy/shared";
 
 export { ApiRequestError } from "./http";
 

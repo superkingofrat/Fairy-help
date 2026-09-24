@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+# 同一分支的新推送取消尚未完成的旧运行，省 runner 分钟
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        # pnpm workspace 根在 Fairy/，仓库根没有 package.json
+        working-directory: Fairy
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          # defaults.run.working-directory 不作用于 action；缓存的锁文件哈希需显式指向 Fairy/ 子目录
+          cache-dependency-path: Fairy/pnpm-lock.yaml
+
+      # 测试全部 mock 外部依赖，无需数据库与 AI 密钥
+      - run: pnpm install --frozen-lockfile
+      # turbo 图的 build 只是 tsc 编译；Prisma client 的模型类型须显式生成，
+      # 否则 typecheck 拿到未生成的 @prisma/client 桩类型（Memory/Movie/Prisma.Sql 全缺）
+      - run: pnpm --filter=@fairy/database generate
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test

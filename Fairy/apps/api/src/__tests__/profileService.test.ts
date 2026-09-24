@@ -29,9 +29,8 @@ vi.mock("@fairy/database", () => {
       profile,
       movie: { findMany: vi.fn() },
       // 交互式事务：把 tx 接回同一个 profile mock，便于断言事务内的 findUnique/update。
-      $transaction: vi.fn(
-        async (callback: (tx: { profile: typeof profile }) => Promise<unknown>) =>
-          callback({ profile }),
+      $transaction: vi.fn(async (callback: (tx: { profile: typeof profile }) => Promise<unknown>) =>
+        callback({ profile }),
       ),
     },
     Prisma: {
@@ -116,9 +115,7 @@ describe("profileService.mergeLikeGenres (FU-18)", () => {
   });
 
   it("merges recognized candidates into existing tags without removing any", async () => {
-    vi.mocked(prisma.profile.findUnique).mockResolvedValue(
-      likeGenresRow(["科幻", "爱情"]),
-    );
+    vi.mocked(prisma.profile.findUnique).mockResolvedValue(likeGenresRow(["科幻", "爱情"]));
 
     await mergeLikeGenres(PROFILE_ID, ["科幻", "动作"]);
 
@@ -133,9 +130,7 @@ describe("profileService.mergeLikeGenres (FU-18)", () => {
   });
 
   it("dedupes candidates within one call and against existing tags", async () => {
-    vi.mocked(prisma.profile.findUnique).mockResolvedValue(
-      likeGenresRow(["科幻"]),
-    );
+    vi.mocked(prisma.profile.findUnique).mockResolvedValue(likeGenresRow(["科幻"]));
 
     await mergeLikeGenres(PROFILE_ID, ["动作", "动作", "科幻"]);
 
@@ -146,9 +141,7 @@ describe("profileService.mergeLikeGenres (FU-18)", () => {
   });
 
   it("is idempotent: no update when the union is unchanged (replay)", async () => {
-    vi.mocked(prisma.profile.findUnique).mockResolvedValue(
-      likeGenresRow(["科幻", "动作"]),
-    );
+    vi.mocked(prisma.profile.findUnique).mockResolvedValue(likeGenresRow(["科幻", "动作"]));
 
     await mergeLikeGenres(PROFILE_ID, ["动作", "科幻"]);
     await mergeLikeGenres(PROFILE_ID, ["动作", "科幻"]);
@@ -158,9 +151,7 @@ describe("profileService.mergeLikeGenres (FU-18)", () => {
   });
 
   it("skips the transaction entirely when no candidate matches the whitelist", async () => {
-    vi.mocked(prisma.profile.findUnique).mockResolvedValue(
-      likeGenresRow(["科幻"]),
-    );
+    vi.mocked(prisma.profile.findUnique).mockResolvedValue(likeGenresRow(["科幻"]));
 
     await mergeLikeGenres(PROFILE_ID, ["武侠", "1233", ""]);
 

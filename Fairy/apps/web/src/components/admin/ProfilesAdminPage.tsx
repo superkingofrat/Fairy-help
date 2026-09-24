@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Profile, ProfileListItem } from "@fairy/shared";
-import {
-  createProfile,
-  fetchProfiles,
-  updateProfile,
-} from "../../lib/profileApi";
+import { createProfile, fetchProfiles, updateProfile } from "../../lib/profileApi";
+import { localizedErrorMessage } from "../../lib/errorMessages";
 import { t } from "../../lib/i18n";
 
 interface ProfileFormState {
@@ -136,7 +133,7 @@ export function ProfilesAdminPage(): JSX.Element {
       const data = await fetchProfiles();
       setUsers(data);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : t("profiles.error.load"));
+      setError(localizedErrorMessage(loadError, t, "profiles.error.load"));
       setUsers([]);
     } finally {
       setLoading(false);
@@ -197,7 +194,7 @@ export function ProfilesAdminPage(): JSX.Element {
       closeModal();
       await loadUsers();
     } catch (submitError) {
-      setFormError(submitError instanceof Error ? submitError.message : t("profiles.error.save"));
+      setFormError(localizedErrorMessage(submitError, t, "profiles.error.save"));
     }
   }
 
@@ -266,9 +263,7 @@ export function ProfilesAdminPage(): JSX.Element {
       {modalOpen && editingUser ? (
         <ProfileFormModal
           title={
-            editingUser.profile
-              ? t("profiles.modal.editTitle")
-              : t("profiles.modal.createTitle")
+            editingUser.profile ? t("profiles.modal.editTitle") : t("profiles.modal.createTitle")
           }
           form={form}
           formError={formError}

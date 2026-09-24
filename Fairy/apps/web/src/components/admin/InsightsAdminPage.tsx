@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { MoodSceneCount, StoreInsightsOverview } from "@fairy/shared";
 import { fetchInsightsOverview } from "../../lib/insightApi";
+import { localizedErrorMessage } from "../../lib/errorMessages";
 import { t } from "../../lib/i18n";
+import { SuggestionFeed } from "./SuggestionFeed";
 
 function barWidth(count: number, max: number): number {
   return max > 0 ? Math.round((count / max) * 100) : 0;
@@ -69,7 +71,7 @@ export function InsightsAdminPage(): JSX.Element {
       const data = await fetchInsightsOverview();
       setOverview(data);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : t("insights.error.load"));
+      setError(localizedErrorMessage(loadError, t, "insights.error.load"));
       setOverview(null);
     } finally {
       setLoading(false);
@@ -111,6 +113,12 @@ export function InsightsAdminPage(): JSX.Element {
       </div>
 
       {error ? <p className="mb-4 text-sm text-red-600">{error}</p> : null}
+
+      {/* 主动运营建议流（2026-09-23-proactive-ops-suggestions）：
+          自包含卡片，无论看板是否有数据都渲染，自身三态不影响既有看板 */}
+      <div className="mb-6">
+        <SuggestionFeed />
+      </div>
 
       {loading ? (
         <p className="text-slate-600">{t("insights.loading")}</p>
@@ -157,7 +165,9 @@ export function InsightsAdminPage(): JSX.Element {
                       <th className="pb-2 pr-2 text-right font-medium">
                         {t("insights.table.recommendCount")}
                       </th>
-                      <th className="pb-2 text-right font-medium">{t("insights.table.availability")}</th>
+                      <th className="pb-2 text-right font-medium">
+                        {t("insights.table.availability")}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -166,7 +176,9 @@ export function InsightsAdminPage(): JSX.Element {
                         <td className="py-2 pr-2 text-slate-500">{index + 1}</td>
                         <td className="py-2 pr-2 text-slate-800">《{movie.title}》</td>
                         <td className="py-2 pr-2 text-right text-slate-700">{movie.borrowCount}</td>
-                        <td className="py-2 pr-2 text-right text-slate-700">{movie.recommendCount}</td>
+                        <td className="py-2 pr-2 text-right text-slate-700">
+                          {movie.recommendCount}
+                        </td>
                         <td className="py-2 text-right">
                           {movie.inStock ? (
                             <span className="text-emerald-600">{t("insights.available")}</span>
@@ -189,8 +201,12 @@ export function InsightsAdminPage(): JSX.Element {
                   <thead className="text-slate-500">
                     <tr>
                       <th className="pb-2 pr-2 font-medium">{t("insights.table.title")}</th>
-                      <th className="pb-2 pr-2 text-right font-medium">{t("insights.inventory.stock")}</th>
-                      <th className="pb-2 text-right font-medium">{t("insights.inventory.totalStock")}</th>
+                      <th className="pb-2 pr-2 text-right font-medium">
+                        {t("insights.inventory.stock")}
+                      </th>
+                      <th className="pb-2 text-right font-medium">
+                        {t("insights.inventory.totalStock")}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>

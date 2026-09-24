@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { register } from "../lib/authApi";
 import { useAuthStore } from "../stores/authStore";
+import { localizedErrorMessage } from "../lib/errorMessages";
 import { t } from "../lib/i18n";
 
 export function RegisterPage(): JSX.Element {
@@ -32,7 +33,7 @@ export function RegisterPage(): JSX.Element {
       setSession(token, user, refreshToken);
       navigate(user.role === "admin" ? "/admin/movies" : "/chat");
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : t("register.error"));
+      setError(localizedErrorMessage(submitError, t, "register.error"));
     } finally {
       setSubmitting(false);
     }

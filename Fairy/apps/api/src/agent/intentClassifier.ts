@@ -9,6 +9,7 @@ import {
 } from "@fairy/shared";
 import * as movieService from "../services/movieService";
 import { sanitizeUserInput, tryChat } from "./llmClient";
+import { wrapUntrustedSpan } from "./contextBuilder";
 
 export type ChatIntent =
   | { type: "borrow"; movieId: string }
@@ -21,8 +22,7 @@ export type ChatIntent =
   | { type: "chitchat" }
   | { type: "unmatched" };
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const INTENT_SYSTEM_PROMPT = `你是录像带门店助理 Fairy 的意图理解模块。只输出一个 JSON 对象，不要输出任何解释或代码块标记。
 JSON 格式：{"intent":"borrow|return|recommend|store_insight|plan_trip|chitchat","movieTitle":string|null,"moods":string[],"scenes":string[],"topic":"popular|trend|inventory|mood_scene|activity|overview"}
@@ -31,21 +31,14 @@ JSON 格式：{"intent":"borrow|return|recommend|store_insight|plan_trip|chitcha
 - 用户明确要归还某部影片 → intent=return，movieTitle 填影片名（没有片名则填 null）。注意「还」有 hái/huán 两个意思，仅在用户明确表达归还影片时输出 return，不要把「还可以」「还是」当成归还
 - 用户想看电影推荐、或表达了心情/场景 → intent=recommend，moods/scenes 只从下面的枚举中选
 - 用户询问店内运营数据（什么片最火、借阅趋势、库存情况、心情/场景分布、活跃用户等）→ intent=store_insight，topic 从 popular|trend|inventory|mood_scene|activity|overview 中选：最火/热门/畅销→popular；趋势/走势/最近借阅→trend；库存/缺货/断货→inventory；心情/场景/分布→mood_scene；活跃/注册/用户数→activity；店况/运营/数据/看板/总览→overview；拿不准填 overview。示例：「最近什么片最火」→popular；「店里库存怎么样」→inventory；「店况怎么样」→overview；「最近借阅情况」→trend
-- 用户要规划旅行/行程（去某地玩、旅行、旅游、出游、想去哪里、安排行程等）→ intent=plan_trip，示例：「帮我规划周末去杭州玩」→plan_trip
+- 用户要规划旅行/行程（去某地玩、旅行、旅游、出游、想去哪里、安排行程等）→ intent=plan_trip，示例：「帮我规划周末去杭州玩」→plan_trip。注意用户问的是旅行题材的影片或影片推荐（如「有没有旅行为主题的片子」）时应判 recommend，不要判成 plan_trip
 - 纯问候、与电影无关的闲聊 → intent=chitchat，movieTitle 填 null，moods/scenes 填空数组
 心情枚举：${MOODS.join("、")}
 场景枚举：${SCENES.join("、")}
 口语映射参考：emo/想哭/难过→致郁；睡不着/失眠→失眠夜；治愈/温暖→治愈；放松→轻松；约会/浪漫→浪漫；一个人在家→独自在家；通勤/路上→通勤路上。拿不准就选最接近的枚举，宁缺毋滥。`;
 
 const llmIntentSchema = z.object({
-  intent: z.enum([
-    "borrow",
-    "return",
-    "recommend",
-    "store_insight",
-    "plan_trip",
-    "chitchat",
-  ]),
+  intent: z.enum(["borrow", "return", "recommend", "store_insight", "plan_trip", "chitchat"]),
   movieTitle: z.string().nullish(),
   moods: z.array(z.string()).nullish(),
   scenes: z.array(z.string()).nullish(),
@@ -72,7 +65,7 @@ function extractJson(text: string): unknown {
 
 function toValidatedEnums(
   values: string[] | null | undefined,
-  allowed: readonly string[]
+  allowed: readonly string[],
 ): string[] {
   if (!values) {
     return [];
@@ -92,21 +85,21 @@ async function resolveTitleToId(title: string): Promise<string | null> {
 
 async function classifyIntentWithLlm(
   message: string,
-  history?: string
+  history?: string,
 ): Promise<ChatIntent | null> {
   const text = sanitizeUserInput(message);
   if (!text) {
     return null;
   }
 
-  const historyLine = history ? `对话历史：\n${history}\n\n` : "";
+  const historySpan = history ? `${wrapUntrustedSpan("对话历史", history)}\n` : "";
   const result = await tryChat(
     "agent.intent",
     [
       { role: "system", content: INTENT_SYSTEM_PROMPT },
-      { role: "user", content: `${historyLine}用户说：「${text}」` },
+      { role: "user", content: `${historySpan}${wrapUntrustedSpan("用户消息", text)}` },
     ],
-    { maxTokens: 200, temperature: 0 }
+    { maxTokens: 200, temperature: 0 },
   );
   if (!result) {
     return null;
@@ -168,7 +161,8 @@ export function parseMoodsAndScenes(message: string): { moods: Mood[]; scenes: S
 
 // FU-12：运营问数规则兜底——关键词命中即归 store_insight（topic 按最具体优先）。
 // 注意：mood/scene 枚举词（如「治愈」）优先于 insight 关键词（「心情不好想看治愈的」是 recommend）；
-// 借/还分支内嵌 insight 判定，避免「最近借阅怎么样」这类含「借」字的运营问数被误判 borrow_unresolved。
+// 借/还分支内嵌 insight 判定，避免「最近借阅怎么样」这类含「借」字的运营问数被误判 borrow_unresolved；
+// 借分支内还内嵌 mood 判定（insight 之后、borrow_unresolved 之前），「想借个治愈的片子」回落 recommend。
 const INSIGHT_KEYWORD_RULES: Array<{ topic: InsightTopic; pattern: RegExp }> = [
   { topic: "popular", pattern: /最火|热门|畅销/ },
   { topic: "inventory", pattern: /库存|缺货|断货|在库/ },
@@ -188,11 +182,17 @@ export function classifyStoreInsightByRules(message: string): InsightTopic | nul
 }
 
 // FU-13：旅行规划关键词——命中即 plan_trip。刻意不含「规划」单字（「规划一下库存」属运营语境，交由 LLM/insight 判定）。
+// 影片名词在句时旅行词只是题材修饰（「有没有旅行为主题的片子」问的是片不是行程），规则不命中、交 LLM 判定
 const TRAVEL_KEYWORD_RULES: Array<{ pattern: RegExp }> = [
   { pattern: /旅行|旅游|出游|行程|想去|去哪玩|周末去哪|去.*(玩|旅游)/ },
 ];
 
+const MOVIE_NOUN_PATTERN = /片子|影片|电影|短片|纪录片|碟片|录像带/;
+
 export function isPlanTripByRules(message: string): boolean {
+  if (MOVIE_NOUN_PATTERN.test(message)) {
+    return false;
+  }
   return TRAVEL_KEYWORD_RULES.some((rule) => rule.pattern.test(message));
 }
 
@@ -204,10 +204,15 @@ export async function classifyIntentByRules(message: string): Promise<ChatIntent
     if (matches.length === 1) {
       return { type: "borrow", movieId: matches[0].id };
     }
-    // 含「借」但无唯一片名：先试运营问数（如「最近借阅情况」「库存借出最多」），再判 borrow_unresolved
+    // 含「借」但无唯一片名：先试运营问数（如「最近借阅情况」「库存借出最多」），
+    // 再试心情/场景（「想借个治愈的片子」要的是推荐，不是借某一部），最后才判 borrow_unresolved
     const insightTopic = classifyStoreInsightByRules(message);
     if (insightTopic) {
       return { type: "store_insight", topic: insightTopic };
+    }
+    const { moods, scenes } = parseMoodsAndScenes(message);
+    if (moods.length > 0 || scenes.length > 0) {
+      return { type: "recommend", moods, scenes };
     }
     return { type: "borrow_unresolved" };
   }

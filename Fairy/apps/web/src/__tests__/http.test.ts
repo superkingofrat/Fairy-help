@@ -3,7 +3,11 @@ import { ensureSessionOnBoot } from "../lib/authApi";
 import { ApiRequestError, request } from "../lib/http";
 import { useAuthStore } from "../stores/authStore";
 
-const user = { id: "00000000-0000-4000-8000-000000000001", email: "user@fairy.local", role: "user" };
+const user = {
+  id: "00000000-0000-4000-8000-000000000001",
+  email: "user@fairy.local",
+  role: "user",
+};
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -30,7 +34,7 @@ beforeEach(() => {
 describe("http request client", () => {
   it("sends the bearer token and returns the unwrapped data", async () => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
-      jsonResponse(200, { code: "OK", data: { items: [] }, msg: "ok" })
+      jsonResponse(200, { code: "OK", data: { items: [] }, msg: "ok" }),
     );
     vi.stubGlobal("fetch", fetchMock);
     useAuthStore.setState({ token: "t", refreshToken: "rt", user });
@@ -105,7 +109,11 @@ describe("http request client", () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
       if (path.includes("/api/auth/refresh")) {
-        return jsonResponse(401, { code: "INVALID_REFRESH_TOKEN", data: null, msg: "登录状态已过期" });
+        return jsonResponse(401, {
+          code: "INVALID_REFRESH_TOKEN",
+          data: null,
+          msg: "登录状态已过期",
+        });
       }
       moviesCalls += 1;
       return jsonResponse(401, { code: "UNAUTHORIZED", data: null, msg: "会话已失效" });
@@ -114,7 +122,7 @@ describe("http request client", () => {
     useAuthStore.setState({ token: "old-token", refreshToken: "rt", user });
 
     await expect(request<{ items: unknown[] }>("/api/movies")).rejects.toBeInstanceOf(
-      ApiRequestError
+      ApiRequestError,
     );
     expect(useAuthStore.getState().token).toBeNull();
     expect(useAuthStore.getState().refreshToken).toBeNull();
@@ -124,13 +132,13 @@ describe("http request client", () => {
 
   it("clears the session when 401 fires without a refresh token", async () => {
     const fetchMock = vi.fn(async () =>
-      jsonResponse(401, { code: "UNAUTHORIZED", data: null, msg: "会话已失效" })
+      jsonResponse(401, { code: "UNAUTHORIZED", data: null, msg: "会话已失效" }),
     );
     vi.stubGlobal("fetch", fetchMock);
     useAuthStore.setState({ token: "t", refreshToken: null, user });
 
     await expect(request<{ items: unknown[] }>("/api/movies")).rejects.toBeInstanceOf(
-      ApiRequestError
+      ApiRequestError,
     );
     expect(useAuthStore.getState().token).toBeNull();
     expect(assignMock).toHaveBeenCalledWith("/login");
@@ -138,7 +146,7 @@ describe("http request client", () => {
 
   it("passes through non-401 API errors with the backend message", async () => {
     const fetchMock = vi.fn(async () =>
-      jsonResponse(409, { code: "EMAIL_ALREADY_EXISTS", data: null, msg: "该邮箱已注册" })
+      jsonResponse(409, { code: "EMAIL_ALREADY_EXISTS", data: null, msg: "该邮箱已注册" }),
     );
     vi.stubGlobal("fetch", fetchMock);
     useAuthStore.setState({ token: "t", refreshToken: "rt", user });
@@ -200,7 +208,11 @@ describe("boot session check (ensureSessionOnBoot)", () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
       if (path.includes("/api/auth/refresh")) {
-        return jsonResponse(401, { code: "INVALID_REFRESH_TOKEN", data: null, msg: "登录状态已过期" });
+        return jsonResponse(401, {
+          code: "INVALID_REFRESH_TOKEN",
+          data: null,
+          msg: "登录状态已过期",
+        });
       }
       return jsonResponse(401, { code: "UNAUTHORIZED", data: null, msg: "会话已失效" });
     });
@@ -214,7 +226,7 @@ describe("boot session check (ensureSessionOnBoot)", () => {
 
   it("clears the stored session on 401 when no refresh token exists", async () => {
     const fetchMock = vi.fn(async () =>
-      jsonResponse(401, { code: "UNAUTHORIZED", data: null, msg: "会话已失效" })
+      jsonResponse(401, { code: "UNAUTHORIZED", data: null, msg: "会话已失效" }),
     );
     vi.stubGlobal("fetch", fetchMock);
     useAuthStore.setState({ token: "t", refreshToken: null, user });

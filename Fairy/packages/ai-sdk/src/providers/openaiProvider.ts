@@ -48,7 +48,7 @@ async function postJson(
   config: OpenAiCompatibleConfig,
   path: string,
   body: Record<string, unknown>,
-  signal: AbortSignal
+  signal: AbortSignal,
 ): Promise<unknown> {
   const fetchImpl = config.fetchImpl ?? fetch;
   let response: Response;
@@ -72,7 +72,7 @@ async function postJson(
     throw new AiProviderError(
       "PARSE",
       config.name,
-      "Provider request failed before a response arrived"
+      "Provider request failed before a response arrived",
     );
   }
 
@@ -93,17 +93,13 @@ async function postJson(
   }
 }
 
-export function createOpenAiCompatibleProvider(
-  config: OpenAiCompatibleConfig
-): AiProvider {
+export function createOpenAiCompatibleProvider(config: OpenAiCompatibleConfig): AiProvider {
   const buildSignal = (): { signal: AbortSignal; cleanup: () => void } => {
     const controller = new AbortController();
     const timer = setTimeout(
       () =>
-        controller.abort(
-          new AiProviderError("TIMEOUT", config.name, "Provider request timed out")
-        ),
-      config.timeoutMs
+        controller.abort(new AiProviderError("TIMEOUT", config.name, "Provider request timed out")),
+      config.timeoutMs,
     );
     return { signal: controller.signal, cleanup: () => clearTimeout(timer) };
   };
@@ -125,7 +121,7 @@ export function createOpenAiCompatibleProvider(
             ...(request.maxTokens !== undefined ? { max_tokens: request.maxTokens } : {}),
             ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
           },
-          signal
+          signal,
         )) as Record<string, unknown>;
 
         const choices = payload.choices;
@@ -136,7 +132,7 @@ export function createOpenAiCompatibleProvider(
           throw new AiProviderError(
             "PARSE",
             config.name,
-            "Provider response has no message content"
+            "Provider response has no message content",
           );
         }
 
@@ -179,7 +175,7 @@ export function createOpenAiCompatibleProvider(
           throw new AiProviderError(
             "PARSE",
             config.name,
-            "Provider request failed before a response arrived"
+            "Provider request failed before a response arrived",
           );
         }
 
@@ -191,7 +187,7 @@ export function createOpenAiCompatibleProvider(
                 ? "HTTP_5XX"
                 : "PARSE",
             config.name,
-            "Provider stream request failed"
+            "Provider stream request failed",
           );
         }
 
@@ -207,7 +203,7 @@ export function createOpenAiCompatibleProvider(
             throw new AiProviderError(
               "PARSE",
               config.name,
-              "Provider stream returned malformed JSON"
+              "Provider stream returned malformed JSON",
             );
           }
           const chunkUsage = parseUsage(chunk.usage);
@@ -215,8 +211,7 @@ export function createOpenAiCompatibleProvider(
             usage = chunkUsage;
           }
           const delta = (Array.isArray(chunk.choices) ? chunk.choices[0] : undefined) as
-            | Record<string, unknown>
-            | undefined;
+            Record<string, unknown> | undefined;
           const deltaContent = (delta?.delta as Record<string, unknown> | undefined)?.content;
           if (typeof deltaContent === "string" && deltaContent.length > 0) {
             yield { type: "text", text: deltaContent };
@@ -234,7 +229,7 @@ export function createOpenAiCompatibleProvider(
         throw new AiProviderError(
           "EMBED_UNSUPPORTED",
           config.name,
-          "This provider has no embeddings API"
+          "This provider has no embeddings API",
         );
       }
 
@@ -245,18 +240,26 @@ export function createOpenAiCompatibleProvider(
           config,
           "/embeddings",
           { model, input: request.input },
-          signal
+          signal,
         )) as Record<string, unknown>;
 
         const data = payload.data;
         if (!Array.isArray(data)) {
-          throw new AiProviderError("PARSE", config.name, "Provider embeddings response has no data");
+          throw new AiProviderError(
+            "PARSE",
+            config.name,
+            "Provider embeddings response has no data",
+          );
         }
 
         const vectors = data.map((item) => {
           const embedding = (item as Record<string, unknown> | undefined)?.embedding;
           if (!Array.isArray(embedding)) {
-            throw new AiProviderError("PARSE", config.name, "Provider embeddings response malformed");
+            throw new AiProviderError(
+              "PARSE",
+              config.name,
+              "Provider embeddings response malformed",
+            );
           }
           return embedding as number[];
         });

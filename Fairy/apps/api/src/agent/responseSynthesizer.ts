@@ -13,7 +13,7 @@ import type {
   RouteLeg,
 } from "@fairy/shared";
 import { sanitizeUserInput, tryChat } from "./llmClient";
-import { buildMemoryBlock } from "./contextBuilder";
+import { buildMemoryBlock, wrapUntrustedSpan } from "./contextBuilder";
 import type { ToolObservation } from "./toolDispatcher";
 
 export interface SynthesizedResponse {
@@ -46,7 +46,7 @@ function profileLine(profile: Profile | null): string {
 }
 
 function templateForNone(
-  reason: "unmatched" | "borrow_unresolved" | "return_unresolved" | "chitchat"
+  reason: "unmatched" | "borrow_unresolved" | "return_unresolved" | "chitchat",
 ): string {
   if (reason === "borrow_unresolved") {
     return "没能确定要借哪一部。可以说完整片名，或点推荐卡片上的借阅按钮。";
@@ -57,7 +57,7 @@ function templateForNone(
 // FU-12：运营问数——按 topic 从 overview 构造【事实】与兜底模板。
 function buildInsightFacts(
   topic: InsightTopic,
-  overview: StoreInsightsOverview
+  overview: StoreInsightsOverview,
 ): { facts: string; template: string } {
   if (topic === "popular") {
     if (overview.popularMovies.length === 0) {
@@ -70,7 +70,7 @@ function buildInsightFacts(
     const lines = overview.popularMovies
       .map(
         (movie) =>
-          `${movie.title}（借出 ${movie.borrowCount} 次${movie.inStock ? "，可借" : "，已借完"}）`
+          `${movie.title}（借出 ${movie.borrowCount} 次${movie.inStock ? "，可借" : "，已借完"}）`,
       )
       .join("、");
     return {
@@ -175,29 +175,33 @@ function routeSummary(route: RouteLeg[] | null): string {
   if (!route || route.length === 0) {
     return "";
   }
-  const distanceKm = route.reduce(
-    (sum, leg) => sum + (leg.distanceMeters ?? 0),
-    0
-  ) / 1000;
-  const durationMinutes = route.reduce(
-    (sum, leg) => sum + (leg.durationSeconds ?? 0),
-    0
-  ) / 60;
+  const distanceKm = route.reduce((sum, leg) => sum + (leg.distanceMeters ?? 0), 0) / 1000;
+  const durationMinutes = route.reduce((sum, leg) => sum + (leg.durationSeconds ?? 0), 0) / 60;
   return ` 全程约 ${distanceKm.toFixed(1)} 公里、车程约 ${Math.round(durationMinutes)} 分钟。`;
 }
 
 async function generateReply(
   context: SynthesisContext,
   facts: string,
-  onDelta?: (delta: string) => void
+  onDelta?: (delta: string) => void,
 ): Promise<string | null> {
   const message = sanitizeUserInput(context.message);
-  const historyLine = context.history ? `对话历史：\n${context.history}\n` : "";
-  const memoryLine =
+  // 三个不可信跨度（对话历史/当前消息/记忆）显式包裹，模型只把跨度内内容当数据；
+  // 【事实】来自工具执行结果、是可信数据，永远放在跨度之外的末尾
+  const historySpan = context.history ? wrapUntrustedSpan("对话历史", context.history) : "";
+  const memorySpan =
     context.memories && context.memories.length > 0
-      ? `\n${buildMemoryBlock(context.memories)}\n`
+      ? wrapUntrustedSpan("记忆", buildMemoryBlock(context.memories))
       : "";
-  const userContent = `${historyLine}用户说：「${message}」\n${profileLine(context.profile)}${memoryLine}\n【事实】${facts}`;
+  const userContent = [
+    historySpan,
+    wrapUntrustedSpan("用户消息", message),
+    profileLine(context.profile),
+    memorySpan,
+    `【事实】${facts}`,
+  ]
+    .filter((part) => part.length > 0)
+    .join("\n");
 
   const options = { maxTokens: 300, temperature: 0.5 };
   const result = onDelta
@@ -208,7 +212,7 @@ async function generateReply(
           { role: "user", content: userContent },
         ],
         options,
-        onDelta
+        onDelta,
       )
     : await tryChat(
         "agent.reply",
@@ -216,7 +220,7 @@ async function generateReply(
           { role: "system", content: REPLY_SYSTEM_PROMPT },
           { role: "user", content: userContent },
         ],
-        options
+        options,
       );
 
   const text = result?.text.trim();
@@ -226,7 +230,7 @@ async function generateReply(
 export async function synthesize(
   observation: ToolObservation,
   context: SynthesisContext,
-  onDelta?: (delta: string) => void
+  onDelta?: (delta: string) => void,
 ): Promise<SynthesizedResponse> {
   // 统一出口：带 onDelta 时走 provider.stream() 增量输出，否则保持一次性 chat()
   const reply = (facts: string): Promise<string | null> =>
@@ -278,7 +282,7 @@ export async function synthesize(
   }
 
   if (observation.kind === "trip") {
-    // 非代理人（绳匠/其他用户）请求行程规划：仅影片服务，婉拒并引导推荐
+    // 非 agent/admin 角色请求行程规划：仅影片服务，婉拒并引导推荐
     if (observation.code === "TRIP_FORBIDDEN") {
       const template =
         "行程规划可不是我的专长哦，不过如果你想找旅行或目的地相关的片子，我可以帮你推荐几部。";
@@ -314,7 +318,10 @@ export async function synthesize(
     const names = observation.movies.map(movieLine).join("、");
     const template = `为你找到这些可借的片子：${names}。点卡片就能借阅。`;
     const facts = `推荐了以下有库存的影片：${observation.movies
-      .map((movie) => `${movie.title}（类型：${movie.genres.join("、") || "未标注"}，可借 ${movie.stock}）`)
+      .map(
+        (movie) =>
+          `${movie.title}（类型：${movie.genres.join("、") || "未标注"}，可借 ${movie.stock}）`,
+      )
       .join("；")}。`;
     const text = (await reply(facts)) ?? template;
     return {

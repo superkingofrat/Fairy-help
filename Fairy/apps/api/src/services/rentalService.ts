@@ -1,13 +1,8 @@
 import { prisma } from "@fairy/database";
-import type {
-  BorrowErrorCode,
-  RentalListItem,
-  ReturnErrorCode,
-} from "@fairy/shared";
+import type { BorrowErrorCode, RentalListItem, ReturnErrorCode } from "@fairy/shared";
 
 export type BorrowResult =
-  | { ok: true; rentalId: string; remainingStock: number }
-  | { ok: false; code: BorrowErrorCode };
+  { ok: true; rentalId: string; remainingStock: number } | { ok: false; code: BorrowErrorCode };
 
 export type ReturnResult =
   | { ok: true; rentalId: string | null; remainingStock: number }
@@ -108,7 +103,7 @@ export interface RentalListOptions {
 
 export async function listRentals(
   userId: string,
-  opts: RentalListOptions = {}
+  opts: RentalListOptions = {},
 ): Promise<RentalListItem[]> {
   const rentals = await prisma.rental.findMany({
     where: { userId, ...(opts.status ? { status: opts.status } : {}) },

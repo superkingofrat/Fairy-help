@@ -51,7 +51,7 @@ describe("BehaviorPage", () => {
           rentalId: null,
           recommendCount: 3,
         }),
-      ])
+      ]),
     );
 
     render(<BehaviorPage />);
@@ -73,7 +73,7 @@ describe("BehaviorPage", () => {
     });
 
     expect(behaviorApi.fetchBehaviorLogs).toHaveBeenCalledWith(
-      expect.objectContaining({ action: "RECOMMEND", page: 1 })
+      expect.objectContaining({ action: "RECOMMEND", page: 1 }),
     );
   });
 

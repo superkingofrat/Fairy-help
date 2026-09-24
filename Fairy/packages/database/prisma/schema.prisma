@@ -218,3 +218,30 @@ model Memory {
   @@index([profileId, createdAt])
   @@map("memories")
 }
+
+// 主动运营建议（OpenSpec 2026-09-23-proactive-ops-suggestions）：Fairy 定时生成的经营建议。
+//   sourceData 为触发时的真实聚合快照（只含影片/库存/聚合数字，无用户隐私字段）；
+//   body 为 LLM 生成或失败降级的模板摘要，summary 为单行标题。
+//   dedupeKey 唯一索引是去重语义的唯一事实来源：同一异常（如某影片低库存）在恢复前不重复生成；
+//   服务检测到恢复时删除该键建议，异常重现时作为全新建议重新落库（新 createdAt、未读态），
+//   并发下唯一索引使后到的一方冲突（P2002），按「已存在」跳过。
+enum SuggestionKind {
+  LOW_STOCK
+  BORROW_RATIO
+  DORMANT
+  DAILY_REPORT
+}
+
+model OpsSuggestion {
+  id         String         @id @default(uuid())
+  kind       SuggestionKind
+  dedupeKey  String         @unique
+  summary    String
+  body       String
+  sourceData Json
+  readAt     DateTime?
+  createdAt  DateTime       @default(now())
+
+  @@index([createdAt])
+  @@map("ops_suggestions")
+}

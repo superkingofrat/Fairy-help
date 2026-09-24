@@ -157,7 +157,7 @@ describe("profiles routes", () => {
     expect(response.status).toBe(201);
     expect(response.body.code).toBe("OK");
     expect(profileService.createForExistingUser).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: DEV_ADMIN_ID, name: "管理员" })
+      expect.objectContaining({ userId: DEV_ADMIN_ID, name: "管理员" }),
     );
   });
 

@@ -2,10 +2,7 @@ import * as rentalService from "../services/rentalService";
 import * as behaviorLogService from "../services/behaviorLogService";
 import type { ReturnErrorCode } from "@fairy/shared";
 
-export async function returnMovieTool(input: {
-  userId: string;
-  movieId: string;
-}): Promise<{
+export async function returnMovieTool(input: { userId: string; movieId: string }): Promise<{
   success: boolean;
   data?: { remainingStock: number; rentalId: string | null };
   error?: ReturnErrorCode;
@@ -16,7 +13,7 @@ export async function returnMovieTool(input: {
     return { success: false, error: result.code };
   }
 
-  await behaviorLogService.append({
+  await behaviorLogService.appendQuietly({
     userId: input.userId,
     action: "RETURN_SUCCESS",
     movieId: input.movieId,

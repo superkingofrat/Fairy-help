@@ -7,7 +7,7 @@ import * as profileService from "../services/profileService";
 export async function listProfilesHandler(
   _req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
     const data = await profileService.listUsersWithProfiles();
@@ -20,7 +20,7 @@ export async function listProfilesHandler(
 export async function getProfileHandler(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
     const params = userIdParamsSchema.safeParse(req.params);
@@ -53,7 +53,7 @@ export async function getProfileHandler(
 export async function createProfileHandler(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
     const input = req.body as CreateProfileInput;
@@ -75,7 +75,7 @@ export async function createProfileHandler(
 export async function updateProfileHandler(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
     const params = userIdParamsSchema.safeParse(req.params);

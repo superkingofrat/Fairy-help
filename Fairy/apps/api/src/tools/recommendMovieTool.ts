@@ -31,7 +31,7 @@ export async function recommendMovieTool(input: {
   const items = ranked.slice(0, MAX_RESULTS);
 
   if (items.length > 0) {
-    await behaviorLogService.append({
+    await behaviorLogService.appendQuietly({
       userId: input.userId,
       action: "RECOMMEND",
       payload: { movieIds: items.map((movie) => movie.id) },

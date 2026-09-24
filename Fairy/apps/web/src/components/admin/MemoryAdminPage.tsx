@@ -1,12 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import type { MemoryKind, MemoryListItem, ProfileListItem } from "@fairy/shared";
 import { fetchProfiles } from "../../lib/profileApi";
-import {
-  createMemory,
-  deleteMemory,
-  fetchMemories,
-  updateMemory,
-} from "../../lib/memoryApi";
+import { createMemory, deleteMemory, fetchMemories, updateMemory } from "../../lib/memoryApi";
+import { localizedErrorMessage } from "../../lib/errorMessages";
 import { t } from "../../lib/i18n";
 
 const MEMORY_KINDS: MemoryKind[] = ["preference", "fact", "intent"];
@@ -37,30 +33,27 @@ export function MemoryAdminPage(): JSX.Element {
 
   const [deleteTarget, setDeleteTarget] = useState<MemoryListItem | null>(null);
 
-  const loadMemories = useCallback(
-    async (currentPage: number, kind: string, keyword: string) => {
-      setLoading(true);
-      setError(null);
+  const loadMemories = useCallback(async (currentPage: number, kind: string, keyword: string) => {
+    setLoading(true);
+    setError(null);
 
-      try {
-        const feed = await fetchMemories({
-          page: currentPage,
-          limit: 20,
-          ...(kind ? { kind: kind as MemoryKind } : {}),
-          ...(keyword.trim() ? { keyword: keyword.trim() } : {}),
-        });
-        setMemories(feed.items);
-        setTotalPages(feed.pagination.totalPages);
-      } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : t("memory.error.load"));
-        setMemories([]);
-        setTotalPages(0);
-      } finally {
-        setLoading(false);
-      }
-    },
-    []
-  );
+    try {
+      const feed = await fetchMemories({
+        page: currentPage,
+        limit: 20,
+        ...(kind ? { kind: kind as MemoryKind } : {}),
+        ...(keyword.trim() ? { keyword: keyword.trim() } : {}),
+      });
+      setMemories(feed.items);
+      setTotalPages(feed.pagination.totalPages);
+    } catch (loadError) {
+      setError(localizedErrorMessage(loadError, t, "memory.error.load"));
+      setMemories([]);
+      setTotalPages(0);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     void loadMemories(page, kindFilter, appliedKeyword);
@@ -83,7 +76,7 @@ export function MemoryAdminPage(): JSX.Element {
     try {
       setUsers(await fetchProfiles());
     } catch (loadError) {
-      setUsersError(loadError instanceof Error ? loadError.message : t("memory.error.users"));
+      setUsersError(localizedErrorMessage(loadError, t, "memory.error.users"));
       setUsers([]);
     } finally {
       setUsersLoading(false);
@@ -142,7 +135,7 @@ export function MemoryAdminPage(): JSX.Element {
       setPage(1);
       await loadMemories(1, kindFilter, appliedKeyword);
     } catch (submitError) {
-      setFormError(submitError instanceof Error ? submitError.message : t("memory.error.save"));
+      setFormError(localizedErrorMessage(submitError, t, "memory.error.save"));
     }
   }
 
@@ -159,7 +152,7 @@ export function MemoryAdminPage(): JSX.Element {
       setPage(1);
       await loadMemories(1, kindFilter, appliedKeyword);
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : t("memory.error.delete"));
+      setError(localizedErrorMessage(deleteError, t, "memory.error.delete"));
     }
   }
 

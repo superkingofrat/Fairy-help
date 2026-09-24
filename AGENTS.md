@@ -155,6 +155,7 @@ Fairy/
 - 前端：将测试放在源文件旁边，命名为 `*.test.tsx`。
 - 后端：将测试放在 `apps/api/src/__tests__/` 下，镜像上层源码结构。
 - 数据库：使用独立测试库，或在多次测试之间通过 Prisma 事务回滚。
+- 真实库并发集成测试（如 20 路并发借阅断言不超卖，无法用回滚隔离）以 `TEST_DATABASE_URL` 门控：未配置时整体跳过，配置时必须指向独立测试库（`fairy_test` 或 Neon branch），禁止指向开发库。注意 `@fairy/database` 的 prisma 单例在模块加载时读取 `DATABASE_URL`，此类测试须先改环境变量再动态 import 被测模块，否则单例会绑定开发库。
 - 在单元测试中 mock 外部 AI 供应商。禁止在 CI 中调用真实的 OpenAI 或 Claude API。
 - 优先使用确定性的断言。除非必要，避免断言精确的日志文本或时间戳。
 - 测试数据库配置应放在环境变量中。测试运行使用 `DATABASE_URL=postgresql://.../fairy_test`，并确保与开发库 URL 明确区分。

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { login } from "../lib/authApi";
 import { useAuthStore } from "../stores/authStore";
+import { localizedErrorMessage } from "../lib/errorMessages";
 import { t } from "../lib/i18n";
 
 export function LoginPage(): JSX.Element {
@@ -22,7 +23,7 @@ export function LoginPage(): JSX.Element {
       setSession(token, user, refreshToken);
       navigate(user.role === "admin" ? "/admin/movies" : "/chat");
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : t("login.error"));
+      setError(localizedErrorMessage(submitError, t, "login.error"));
     } finally {
       setSubmitting(false);
     }

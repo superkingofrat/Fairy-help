@@ -1,22 +1,13 @@
 import { prisma, type Prisma } from "@fairy/database";
-import type {
-  ChatEvent,
-  ChatMessageDto,
-  ChatMessagePayload,
-  SessionListItem,
-} from "@fairy/shared";
+import type { ChatEvent, ChatMessageDto, ChatMessagePayload, SessionListItem } from "@fairy/shared";
 
 export type SessionErrorCode = "SESSION_NOT_FOUND" | "SESSION_FORBIDDEN";
 
 export type SessionErrorResult = { ok: false; code: SessionErrorCode };
 
-export type OwnedSessionResult =
-  | { ok: true; id: string; title: string }
-  | SessionErrorResult;
+export type OwnedSessionResult = { ok: true; id: string; title: string } | SessionErrorResult;
 
-export type SessionMessagesResult =
-  | { ok: true; messages: ChatMessageDto[] }
-  | SessionErrorResult;
+export type SessionMessagesResult = { ok: true; messages: ChatMessageDto[] } | SessionErrorResult;
 
 export interface AppendTurnInput {
   userContent: string;
@@ -62,7 +53,7 @@ export async function listSessions(userId: string): Promise<SessionListItem[]> {
 
 export async function getOwnedSession(
   userId: string,
-  sessionId: string
+  sessionId: string,
 ): Promise<OwnedSessionResult> {
   const session = await prisma.session.findUnique({ where: { id: sessionId } });
   if (!session) {
@@ -76,7 +67,7 @@ export async function getOwnedSession(
 
 export async function getSessionMessages(
   userId: string,
-  sessionId: string
+  sessionId: string,
 ): Promise<SessionMessagesResult> {
   const owned = await getOwnedSession(userId, sessionId);
   if (!owned.ok) {
@@ -109,7 +100,7 @@ export interface HistoryTurn {
 export async function getRecentMessages(
   userId: string,
   sessionId: string,
-  take = 10
+  take = 10,
 ): Promise<HistoryTurn[]> {
   const owned = await getOwnedSession(userId, sessionId);
   if (!owned.ok) {
@@ -122,18 +113,16 @@ export async function getRecentMessages(
     take,
   });
 
-  return messages
-    .reverse()
-    .map((message) => ({
-      role: message.role === "ASSISTANT" ? "assistant" : "user",
-      content: message.content,
-    }));
+  return messages.reverse().map((message) => ({
+    role: message.role === "ASSISTANT" ? "assistant" : "user",
+    content: message.content,
+  }));
 }
 
 export async function appendTurn(
   userId: string,
   sessionId: string,
-  input: AppendTurnInput
+  input: AppendTurnInput,
 ): Promise<{ ok: true } | SessionErrorResult> {
   const owned = await getOwnedSession(userId, sessionId);
   if (!owned.ok) {

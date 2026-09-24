@@ -30,10 +30,10 @@ const movieFieldsSchema = z.object({
   description: z.string().default(""),
 });
 
-export const createMovieSchema = movieFieldsSchema.refine(
-  (data) => data.totalStock >= data.stock,
-  { message: "totalStock must be greater than or equal to stock", path: ["totalStock"] }
-);
+export const createMovieSchema = movieFieldsSchema.refine((data) => data.totalStock >= data.stock, {
+  message: "totalStock must be greater than or equal to stock",
+  path: ["totalStock"],
+});
 
 export const updateMovieSchema = movieFieldsSchema.partial();
 
@@ -59,8 +59,7 @@ export type MovieDto = z.infer<typeof movieDtoSchema>;
 export type MovieWriteField = keyof z.infer<typeof movieFieldsSchema>;
 
 export type ParseCreateMovieResult =
-  | { success: true; data: CreateMovieInput }
-  | { success: false; fields: MovieWriteField[] };
+  { success: true; data: CreateMovieInput } | { success: false; fields: MovieWriteField[] };
 
 export function parseCreateMovieInput(input: unknown): ParseCreateMovieResult {
   const result = createMovieSchema.safeParse(input);
@@ -89,11 +88,9 @@ export const searchMoviesQuerySchema = z
     page: z.coerce.number().int().min(1).default(1),
     limit: z.coerce.number().int().min(1).max(100).default(10),
   })
-  .refine(
-    (data) =>
-      Boolean(data.mood?.trim() || data.scene?.trim() || data.keyword?.trim()),
-    { message: "At least one of mood, scene, or keyword is required" }
-  );
+  .refine((data) => Boolean(data.mood?.trim() || data.scene?.trim() || data.keyword?.trim()), {
+    message: "At least one of mood, scene, or keyword is required",
+  });
 
 export type CreateMovieInput = z.infer<typeof createMovieSchema>;
 export type UpdateMovieInput = z.infer<typeof updateMovieSchema>;

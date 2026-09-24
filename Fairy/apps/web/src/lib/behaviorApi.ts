@@ -8,7 +8,7 @@ interface FetchBehaviorLogsParams {
 }
 
 export async function fetchBehaviorLogs(
-  params: FetchBehaviorLogsParams = {}
+  params: FetchBehaviorLogsParams = {},
 ): Promise<BehaviorLogFeed> {
   const query = new URLSearchParams();
   if (params.action) query.set("action", params.action);

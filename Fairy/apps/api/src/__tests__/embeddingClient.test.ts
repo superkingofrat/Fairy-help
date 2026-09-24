@@ -1,9 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  createEmbeddingProvider,
-  EMBEDDING_DIMENSIONS,
-  type AiProvider,
-} from "@fairy/ai-sdk";
+import { createEmbeddingProvider, EMBEDDING_DIMENSIONS, type AiProvider } from "@fairy/ai-sdk";
 
 // embeddingClient 的 memoize 缓存是模块级单例：用 resetModules + 动态 import 让每个用例拿到全新缓存。
 vi.mock("@fairy/ai-sdk", () => ({
@@ -24,8 +20,7 @@ function fakeProvider(overrides: Partial<AiProvider> = {}): AiProvider {
   } as unknown as AiProvider;
 }
 
-const vectorOf = (dimensions: number): number[] =>
-  Array.from({ length: dimensions }, (_, i) => i);
+const vectorOf = (dimensions: number): number[] => Array.from({ length: dimensions }, (_, i) => i);
 
 describe("embeddingClient.embedContent (FU-16)", () => {
   beforeEach(() => {

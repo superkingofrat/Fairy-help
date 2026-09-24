@@ -4,6 +4,7 @@ import { ChatPage } from "../components/chat/ChatPage";
 import { RecommendationCard } from "../components/chat/RecommendationCard";
 import * as chatApi from "../lib/chatApi";
 import { parseSseBuffer } from "../lib/chatApi";
+import { ApiRequestError } from "../lib/http";
 import * as sessionApi from "../lib/sessionApi";
 import * as memoryApi from "../lib/memoryApi";
 import { listRentals } from "../lib/rentalsApi";
@@ -97,7 +98,7 @@ const tripResult: TripResult = {
 
 afterEach(() => {
   cleanup();
-  useChatStore.setState({ messages: [], activeRentals: [] });
+  useChatStore.setState({ activeRentals: [] });
   localStorage.clear();
 });
 
@@ -162,8 +163,8 @@ describe("ChatPage", () => {
     await waitFor(() =>
       expect(chatApi.postChat).toHaveBeenLastCalledWith(
         { message: "", movieId: MOVIE_ID, sessionId: SESSION_ID },
-        expect.any(Function)
-      )
+        expect.any(Function),
+      ),
     );
   });
 
@@ -204,8 +205,8 @@ describe("ChatPage", () => {
     await waitFor(() =>
       expect(chatApi.postChat).toHaveBeenLastCalledWith(
         { message: "", movieId: MOVIE_ID, action: "return" },
-        expect.any(Function)
-      )
+        expect.any(Function),
+      ),
     );
     expect(sessionApi.createSession).not.toHaveBeenCalled();
     await waitFor(() => expect(screen.queryByText("盗梦空间")).toBeNull());
@@ -226,8 +227,24 @@ describe("ChatPage", () => {
     await waitFor(() => expect(sessionApi.createSession).toHaveBeenCalled());
     expect(chatApi.postChat).toHaveBeenLastCalledWith(
       { message: "你好呀", sessionId: SESSION_ID },
-      expect.any(Function)
+      expect.any(Function),
     );
+  });
+
+  it("shows a localized message instead of the raw error when the request fails", async () => {
+    vi.mocked(chatApi.postChat).mockRejectedValue(
+      new ApiRequestError("chat request timed out", "TIMEOUT"),
+    );
+
+    render(<ChatPage />);
+    fireEvent.change(screen.getByPlaceholderText("和 Fairy 说点什么吧..."), {
+      target: { value: "你好呀" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+
+    expect(await screen.findByText("对话超时，请重试")).toBeDefined();
+    // 乐观插入的用户消息保留，失败时不再残留空的 Fairy 气泡
+    expect(screen.getByText("你好呀")).toBeDefined();
   });
 
   it("shows the empty state when there are no sessions", async () => {
@@ -251,8 +268,8 @@ describe("ChatPage", () => {
     await waitFor(() =>
       expect(chatApi.postChat).toHaveBeenLastCalledWith(
         { message: "", movieId: MOVIE_ID, sessionId: SESSION_ID },
-        expect.any(Function)
-      )
+        expect.any(Function),
+      ),
     );
   });
 
@@ -267,7 +284,7 @@ describe("ChatPage", () => {
     fireEvent.click(await screen.findByText("通勤"));
 
     await waitFor(() =>
-      expect(sessionApi.getSessionMessages).toHaveBeenCalledWith(OTHER_SESSION_ID)
+      expect(sessionApi.getSessionMessages).toHaveBeenCalledWith(OTHER_SESSION_ID),
     );
   });
 
@@ -354,7 +371,7 @@ describe("RecommendationCard borrow/return toggle", () => {
         isBorrowed
         onBorrow={vi.fn()}
         onReturn={onReturn}
-      />
+      />,
     );
 
     const button = screen.getByRole("button", { name: "归还" });

@@ -6,6 +6,8 @@ import { authMiddleware } from "./middleware/auth";
 import { authRouter } from "./routes/auth";
 import { borrowRouter } from "./routes/borrow";
 import { rentalsRouter } from "./routes/rentals";
+import { tripsRouter } from "./routes/trips";
+import { suggestionsRouter } from "./routes/suggestions";
 import { moviesRouter } from "./routes/movies";
 import { profilesRouter } from "./routes/profiles";
 import { behaviorLogsRouter } from "./routes/behaviorLogs";
@@ -18,8 +20,25 @@ function tooManyRequests(_req: express.Request, res: express.Response): void {
   res.status(429).json({ code: "TOO_MANY_REQUESTS", data: null, msg: "尝试过于频繁，请稍后再试" });
 }
 
+function resolveTrustProxyHops(): number {
+  const raw = process.env.TRUST_PROXY_HOPS?.trim();
+  if (!raw) {
+    return 1;
+  }
+  const hops = Number.parseInt(raw, 10);
+  if (!Number.isInteger(hops) || hops < 0) {
+    console.warn(`[app] invalid TRUST_PROXY_HOPS "${raw}", falling back to 1`);
+    return 1;
+  }
+  return hops;
+}
+
 export function createApp(): express.Application {
   const app = express();
+
+  // 反代后的客户端 IP 还原：express-rate-limit 按 req.ip 分桶，
+  // 不信任代理时所有请求共享代理 IP，三个限流器会退化成全站单桶
+  app.set("trust proxy", resolveTrustProxyHops());
 
   app.use(helmet());
   app.use(cors());
@@ -29,7 +48,7 @@ export function createApp(): express.Application {
     res.json({ code: "OK", data: { status: "healthy" }, msg: "ok" });
   });
 
-  // 限流器在 createApp() 内创建，保证测试隔离；生产部署在反向代理后须设置 trust proxy
+  // 限流器在 createApp() 内创建，保证测试隔离
   const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 10,
@@ -66,21 +85,18 @@ export function createApp(): express.Application {
   app.use("/api/sessions", authMiddleware, sessionsRouter);
   app.use("/api/insights", authMiddleware, insightsRouter);
   app.use("/api/memories", authMiddleware, memoriesRouter);
+  app.use("/api/trips", authMiddleware, tripsRouter);
+  app.use("/api/suggestions", authMiddleware, suggestionsRouter);
 
   app.use(
-    (
-      err: Error,
-      _req: express.Request,
-      res: express.Response,
-      _next: express.NextFunction
-    ) => {
+    (err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
       console.error(err);
       res.status(500).json({
         code: "INTERNAL_ERROR",
         data: null,
         msg: "Unexpected server error",
       });
-    }
+    },
   );
 
   return app;

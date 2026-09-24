@@ -10,7 +10,7 @@ const uuidSchema = z.string().uuid();
 export async function listRentalsHandler(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
     const role = res.locals.role as Role;

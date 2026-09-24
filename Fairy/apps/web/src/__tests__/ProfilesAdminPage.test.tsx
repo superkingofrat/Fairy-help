@@ -90,7 +90,7 @@ describe("ProfilesAdminPage", () => {
 
     expect(await screen.findByText("加载中...")).toBeDefined();
     expect(profileApi.createProfile).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: DEV_ADMIN_ID, name: "管理员" })
+      expect.objectContaining({ userId: DEV_ADMIN_ID, name: "管理员" }),
     );
   });
 

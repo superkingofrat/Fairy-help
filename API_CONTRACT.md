@@ -78,6 +78,8 @@ interface Profile {
 
 请求体 `{ refreshToken }`。校验通过后**旋转**：旧 token 立即失效（`revokedAt` + 记录 `replacedByTokenId`），返回新的一对 `{ code, data: { token, refreshToken, user } }`。**复用检测**：已吊销/已替换的 token 再次出现 → 401 `INVALID_REFRESH_TOKEN`，并吊销该用户全部 refresh token（强制重新登录）。过期/不存在的 token 同样 401。
 
+旋转在单个事务内 compare-and-swap：并发的两个相同旧 token 只有一个成功，另一个按复用检测同一路径返回 401 `INVALID_REFRESH_TOKEN`（响应形状与错误码不变，详见 ARCHITECTURE §8）。
+
 **POST** `/auth/logout` — **Public**（FU-10）
 
 请求体 `{ refreshToken }`；吊销该 token（幂等，未知 token 也返回 200）。access token 不做服务端吊销，自然过期。
@@ -88,7 +90,7 @@ interface Profile {
 
 #### 限流（FU-10）
 
-登录、注册与对话按 IP 限流（默认不信任代理，生产部署在反向代理后须启用 trust proxy）：
+登录、注册与对话按 IP 限流。客户端 IP 取 `req.ip`，服务默认信任 1 跳反向代理（`TRUST_PROXY_HOPS` 环境变量，默认 `1`；`0` = 不信任代理，仅限直连部署；非整数/负值 warn 后回退 1）。反代链路更长时按实际跳数设置——否则限流器按反代 IP 分桶，三个限流器退化为全站共享单桶：
 
 | 端点 | 窗口 | 上限 | 超限响应 |
 |---|---|---|---|
@@ -275,14 +277,16 @@ Authorization: Bearer <jwt>
 
 ```ts
 {
-  message: string;     // 可为空（仅 movieId 借阅 / action 归还时）
+  message: string;     // 可为空（仅 movieId 借阅 / action 归还时）；上限 2000 字符
   movieId?: string;    // UUID，一键借阅或 action 归还
   action?: "return";   // FU-8：确定性归还，必须携带 movieId（否则 400）
-  sessionId?: string;  // FU-7：可选；普通消息缺省时后端自动创建会话
+  sessionId?: string;  // FU-7：可选 UUID；普通消息缺省时后端自动创建会话
 }
 ```
 
 `action: "return"` 与 `movieId` 必须同时出现；缺失其一返回 400 `VALIDATION_ERROR`。
+
+`message` 上限 2000 字符、`sessionId` 必须为 UUID；超出上限或非 UUID 均返回 400 `VALIDATION_ERROR`（与 `movieId` 同规则，不静默截断消息）。
 
 会话行为（FU-7 起）：
 
@@ -303,9 +307,11 @@ Authorization: Bearer <jwt>
 
 `borrow.code` 成功为 `OK`；失败为 `OUT_OF_STOCK`、`ALREADY_BORROWED`、`MOVIE_NOT_FOUND`。`return.code` 成功为 `OK`；失败为 `RENTAL_NOT_FOUND`。
 
-`trip` 事件仅在行程规划成功时发出，`data` 为完整 `TripResult`（`tripId`、`destination`、`days`、`itinerary`——按天分组的 POI 步骤，每步含 `time`/`name`/`category`/`note`/`location`/`validated`、`route`——相邻已校验 POI 间的路线 `from`/`to`/`distanceMeters`/`durationSeconds`，无校验时为 `null`、`validated`）。行程规划对代理人「铃」（画像名 `铃`）与绳匠（admin）开放：其他身份请求时**不调用规划工具、不落库、不发出事件**，回复婉拒文本并引导推荐影片。目的地无法从消息确定时**不落库、不发出事件**，只返回追问文本；高德不可用（`AMAP_SERVER_KEY` 缺失/超时/报错）时 POI 标 `validated: false`、`route: null`，仍返回行程，且不暴露密钥、原始响应或堆栈（FU-13）。
+`trip` 事件仅在行程规划成功时发出，`data` 为完整 `TripResult`（`tripId`、`destination`、`days`、`itinerary`——按天分组的 POI 步骤，每步含 `time`/`name`/`category`/`note`/`location`/`validated`、`route`——相邻已校验 POI 间的路线 `from`/`to`/`distanceMeters`/`durationSeconds`，无校验时为 `null`、`validated`）。行程规划对 `admin` 与 `agent` 两种角色开放（按 token 中的 `role` 判定；种子账号 `user@fairy.local` 为 agent，新注册用户默认为 `user`）：其他身份请求时**不调用规划工具、不落库、不发出事件**，回复婉拒文本并引导推荐影片。目的地无法从消息确定时**不落库、不发出事件**，只返回追问文本；高德不可用（`AMAP_SERVER_KEY` 缺失/超时/报错）时 POI 标 `validated: false`、`route: null`，仍返回行程，且不暴露密钥、原始响应或堆栈（FU-13）。
 
-意图顺序：合法 `movieId` → 手打「借」+ 唯一片名 → 手打「还」+ 唯一片名 → 消息含子串 mood/scene → 引导语（不调工具）。LLM 路径（FU-2 起）按结构化意图输出，规则链为降级路径；归还仅在用户明确表达归还影片时触发（「还」有 hái/huán 歧义）。
+意图顺序：合法 `movieId` → 手打「借」+ 唯一片名 → 手打「还」+ 唯一片名 → 消息含子串 mood/scene → 引导语（不调工具）。LLM 路径（FU-2 起）按结构化意图输出，规则链为降级路径；归还仅在用户明确表达归还影片时触发（「还」有 hái/huán 歧义）。规则层语境修正（2026-09-22）：消息含影片名词（片子/影片/电影/短片/纪录片/碟片/录像带）时旅行词只是题材修饰，「有没有旅行为主题的片子」不触发行程意图，交 LLM 判定；「借」请求携带心情/场景词（如「想借个治愈的片子」）时回落 `recommend`，不再作为无片名的借阅追问。
+
+前端错误展示（2026-09-22，消费方约定，不改变本契约负载）：开启 SSE 前的 JSON 错误码（`SESSION_NOT_FOUND`/`SESSION_FORBIDDEN`/`TOO_MANY_REQUESTS`/`VALIDATION_ERROR` 等）与流中断场景在前端映射为 `chat.error.*` 本地化文案；界面不展示原始 JSON、英文开发提示或 i18n key 字面量。传输层合成码（`NETWORK_ERROR`/`INVALID_RESPONSE`/`EMPTY_RESPONSE`/`REQUEST_FAILED`）属前端 lib 层内部码，不对应任何后端响应。
 
 #### LLM 行为与降级（FU-2 起）
 
@@ -325,7 +331,7 @@ Authorization: Bearer <jwt>
 
 | 状态 | Code | 场景 |
 |---|---|---|
-| 400 | `VALIDATION_ERROR` | 请求体不合法（如 `movieId` 不是 UUID）。 |
+| 400 | `VALIDATION_ERROR` | 请求体不合法（如 `movieId`/`sessionId` 不是 UUID、`message` 超 2000 字符）。 |
 | 403 | `SESSION_FORBIDDEN` | `sessionId` 属于其他用户（FU-7 起）。 |
 | 404 | `SESSION_NOT_FOUND` | `sessionId` 不存在（FU-7 起）。 |
 
@@ -759,8 +765,8 @@ Authorization: Bearer <jwt>
 
 字段说明：
 
-- `popularMovies`：按借阅次数（`Rental` 按 `movieId` 分组）降序 TOP 5；`recommendCount` 来自 RECOMMEND 行为日志 `payload.movieIds` 累计；`inStock` = `stock > 0`。
-- `trend`：最近 14 天逐日借出（`Rental.createdAt`）与归还（`status=RETURNED` 的 `updatedAt`）计数，缺失日期补 0；`date` 为 `yyyy-mm-dd`（服务器本地日期分桶）。
+- `popularMovies`：按借阅次数（`Rental` 按 `movieId` 分组）降序 TOP 5；`recommendCount` 来自**近 30 天** RECOMMEND 行为日志 `payload.movieIds` 累计（与 `moods`/`scenes` 同窗口，窗口起点为本地午夜前的第 30 天）；`inStock` = `stock > 0`。
+- `trend`：最近 14 天逐日借出（`Rental.createdAt`）与归还（`status=RETURNED` 的 `updatedAt`）计数，缺失日期补 0；`date` 为 `yyyy-mm-dd`。窗口起点为首日**本地午夜**（00:00:00 服务器本地时间，非 UTC 午夜）——分桶随服务器时区，部署必须显式设置 `TZ`（如 `Asia/Shanghai`），否则边界随运行环境漂移。
 - `inventory`：`activeRentals` 为当前 ACTIVE 借出数；`borrowedRatio` = 借出 / 总库存（0–1）；`lowStockMovies` 为 `stock ≤ 1` 的影片（按库存升序）。
 - `moods` / `scenes`：近 30 天被借影片的标签计数 TOP 5，仅含有数据的维度；无数据显示空数组。
 - `activity`：`totalUsers` 用户总数、`activeUsers7d` 近 7 天有行为日志的 distinct userId 数、`newUsers7d` 近 7 天注册数。
@@ -941,6 +947,189 @@ admin 硬删一条记忆（`Memory` 无外键引用，物理删除即可）。�
 
 ---
 
+### 3.15 旅行规划 `/api/trips`（FU-19 二期）
+
+行程 REST 面。创建与对话内规划走**同一条生成落库链路**（`planTripTool`：画像 travelStyle → LLM 起草 → 高德 POI/路线校验，缺 `AMAP_SERVER_KEY` 时静默降级 → 事务落库 `Trip`），无第二套实现；列表/详情为只读。三个端点均需认证（401 `UNAUTHORIZED`）。
+
+#### 3.15.1 创建
+
+**POST** `/api/trips`
+
+仅 `admin` / `agent` 角色可创建（与对话内 trip 工具门禁一致）。请求体：
+
+```ts
+{
+  destination: string;  // 1–100 字，行程目的地
+  days?: number;        // 可选，整数 1–14；缺省由模型自行决定天数
+}
+```
+
+#### 成功响应 — 201 Created
+
+`data` 为行程结果（`TripResult`；`tripId` 即落库 `Trip.id`）：
+
+```json
+{
+  "code": "OK",
+  "data": {
+    "tripId": "550e8400-e29b-41d4-a716-446655440000",
+    "destination": "杭州",
+    "days": 2,
+    "itinerary": [
+      {
+        "day": 1,
+        "title": "西湖经典",
+        "steps": [
+          {
+            "time": "09:00",
+            "name": "西湖",
+            "category": "景点",
+            "note": null,
+            "location": { "lng": 120.15, "lat": 30.25 },
+            "validated": true
+          }
+        ]
+      }
+    ],
+    "route": [
+      { "from": "西湖", "to": "灵隐寺", "distanceMeters": 8000, "durationSeconds": 1200 }
+    ],
+    "validated": true
+  },
+  "msg": "行程已创建"
+}
+```
+
+`location` 为 `{ lng, lat }` 或 `null`（无高德 key 或 POI 未命中时为 `null`）；`route` 无已校验 POI 对时为 `null`；`validated` 表示是否存在经高德核实的 POI。
+
+#### 错误响应
+
+| 状态 | Code | 场景 |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | 请求体不合法（缺 `destination`、超长、`days` 非 1–14 整数）。 |
+| 400 | `TRIP_UNRESOLVED` | 链路无法确定目的地（LLM 侧异常；body 已强校验，正常不会触发）。 |
+| 403 | `TRIP_FORBIDDEN` | 非 `admin`/`agent` 角色；门禁先于任何 LLM 调用，不落库、不写行为日志。 |
+| 502 | `TRIP_DRAFT_FAILED` | 行程生成失败（LLM 重试后仍败）。 |
+
+#### 3.15.2 列表
+
+**GET** `/api/trips`
+
+返回**调用者本人**的行程，按 `createdAt` 倒序。`admin` 可传 `userId`（合法 UUID 且用户存在）代查他人行程；非 admin 传 `userId` 一律 403。
+
+查询参数：`page`（默认 1）、`limit`（默认 20，最大 100）、`userId?`（仅 admin）。
+
+#### 成功响应 — 200 OK
+
+```json
+{
+  "code": "OK",
+  "data": {
+    "items": [
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440000",
+        "destination": "杭州",
+        "days": 2,
+        "validated": true,
+        "createdAt": "2026-09-20T10:00:00.000Z"
+      }
+    ],
+    "pagination": { "page": 1, "limit": 20, "total": 1, "totalPages": 1 }
+  },
+  "msg": "查询成功"
+}
+```
+
+列表项**不含** itinerary/route 与属主邮箱等用户数据；`validated` 由 itinerary 内 POI 核实情况派生。
+
+#### 错误响应
+
+| 状态 | Code | 场景 |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | 查询参数不合法。 |
+| 400 | `INVALID_USER_ID` | `userId` 非 UUID（仅 admin 可传）。 |
+| 403 | `FORBIDDEN` | 非 admin 传 `userId` 代查。 |
+| 404 | `USER_NOT_FOUND` | `userId` 对应的用户不存在。 |
+
+#### 3.15.3 详情
+
+**GET** `/api/trips/:id`
+
+`data` 为行程详情（`TripResult` + `createdAt`）。仅属主或 `admin` 可读；**他人行程与不存在的 id 同返 404**，不泄漏存在性。
+
+#### 错误响应
+
+| 状态 | Code | 场景 |
+|---|---|---|
+| 404 | `TRIP_NOT_FOUND` | 行程不存在，或不属于调用者且调用者非 admin。 |
+
+地图叠加：前端行程卡片（对话内与 `/trips` 历史页同一组件）用浏览器端高德 JS API 渲染 Marker/折线，密钥为 build-time 注入的 referrer 受限浏览器安全密钥 `VITE_AMAP_JS_KEY`；服务端 `AMAP_SERVER_KEY` 不得出现在任何前端产物。未配置 key、无坐标 POI 或脚本加载失败时地图区域整体不渲染（静默降级）。
+
+---
+
+### 3.16 运营建议 `/api/suggestions`（2026-09-23-proactive-ops-suggestions）
+
+Fairy **主动**生成的经营建议面（仅 `admin`）。建议由 API 进程内调度器产生，无需外部 cron/queue：阈值异常（任一影片库存 ≤ 1 → `LOW_STOCK`；借出率 ≥ 0.8 → `BORROW_RATIO`；近 7 天零借阅 → `DORMANT`）+ 每本地日 08:00 的经营日报（`DAILY_REPORT`）。同一异常在恢复前只生成一条（`dedupeKey` 唯一索引，并发/多实例下后到一方冲突即跳过）；恢复后重现会作为全新建议再次出现。AI 供应商可用时正文由统一 AI SDK `chat()` 基于真实聚合数据起草，不可用或失败时降级为模板数据摘要——任何路径都不返回 500、不向管理端暴露供应商错误负载。四个端点均需认证（401 `UNAUTHORIZED`），非 admin 一律 403 `FORBIDDEN`。
+
+#### 3.16.1 列表
+
+**GET** `/api/suggestions`　查询参数：`page`（默认 1）、`limit`（默认 20，最大 100）。
+
+```json
+{
+  "code": "OK",
+  "data": {
+    "items": [
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440000",
+        "kind": "LOW_STOCK",
+        "summary": "《教父》库存告急",
+        "body": "目前仅剩 0 盒在库，建议尽快补货。",
+        "sourceData": { "movieId": "m1", "title": "教父", "stock": 0, "totalStock": 2 },
+        "readAt": null,
+        "createdAt": "2026-09-23T04:00:00.000Z"
+      }
+    ],
+    "pagination": { "page": 1, "limit": 20, "total": 1, "totalPages": 1 }
+  },
+  "msg": "查询成功"
+}
+```
+
+`kind` ∈ `LOW_STOCK` / `BORROW_RATIO` / `DORMANT` / `DAILY_REPORT`；`sourceData` 为触发时的真实聚合快照（只含影片名、库存与聚合数字，**无任何用户身份/画像/行为字段**）；`readAt` 为 `null` 即未读；`createdAt` 倒序。
+
+#### 3.16.2 未读数
+
+**GET** `/api/suggestions/unread-count`
+
+```json
+{ "code": "OK", "data": { "count": 3 }, "msg": "查询成功" }
+```
+
+四类建议的未读合计（标记已读前全部计入）。
+
+#### 3.16.3 标记已读
+
+**PATCH** `/api/suggestions/:id/read`
+
+`data` 为标记后的建议（`readAt` 已填）。幂等：对同一条重复调用均返回 200，已写入的 `readAt` 时间戳不变。
+
+#### 3.16.4 手动生成当日日报
+
+**POST** `/api/suggestions/generate-daily`
+
+`data` 为当日的 `DAILY_REPORT`。与调度器同一入口、同样以本地日为键去重：当日已有产物时直接返回既有那条（幂等），只在当日首条缺失时生成。
+
+#### 错误响应
+
+| 状态 | Code | 场景 |
+|---|---|---|
+| 401 | `UNAUTHORIZED` | 缺少或无效的认证信息。 |
+| 403 | `FORBIDDEN` | 非 `admin` 角色访问任一建议端点。 |
+| 404 | `SUGGESTION_NOT_FOUND` | `:id` 对应的建议不存在（或被恢复清理删除）。 |
+
+---
+
 ## 4. 错误码参考
 
 | Code | HTTP 状态 | 含义 |
@@ -961,6 +1150,11 @@ admin 硬删一条记忆（`Memory` 无外键引用，物理删除即可）。�
 | `SESSION_NOT_FOUND` | 404 | 会话不存在（FU-7 起）。 |
 | `SESSION_FORBIDDEN` | 403 | 会话属于其他用户（FU-7 起）。 |
 | `MEMORY_NOT_FOUND` | 404 | 记忆不存在（FU-15 管理面起）。 |
+| `TRIP_FORBIDDEN` | 403 | 非 `admin`/`agent` 角色创建行程（FU-19 二期起）。 |
+| `TRIP_NOT_FOUND` | 404 | 行程不存在或不属于调用者（FU-19 二期起；防枚举统一文案）。 |
+| `TRIP_UNRESOLVED` | 400 | 行程链路无法确定目的地（FU-19 二期起）。 |
+| `TRIP_DRAFT_FAILED` | 502 | 行程生成失败，LLM 重试后仍败（FU-19 二期起）。 |
+| `SUGGESTION_NOT_FOUND` | 404 | 运营建议不存在（2026-09-23-proactive-ops-suggestions 起）。 |
 | `EMAIL_ALREADY_EXISTS` | 409 | 注册邮箱已存在（FU-10 起）。 |
 | `INVALID_REFRESH_TOKEN` | 401 | refresh token 无效/过期/已吊销（FU-10 起）。 |
 | `TOO_MANY_REQUESTS` | 429 | 登录、注册或对话频率超限（FU-10 起；`POST /chat` 自 2026-09-20 起 30 次/分钟）。 |
@@ -972,5 +1166,8 @@ admin 硬删一条记忆（`Memory` 无外键引用，物理删除即可）。�
 
 以下端点为后续版本规划，暂不属于本契约：
 
-- `POST /api/trips` — 旅行规划。
-- `GET /api/admin/insights` — 运营看板数据。
+（当前无登记的未交付端点。）
+
+> **2026-09-23 顺带修正（与本次 FU-19 二期变更无关的文档清理，单列备查）：**
+> - 移除 `POST /api/trips`——已随 FU-19 二期交付，见 §3.15。
+> - 移除 `GET /api/admin/insights`——过期条目；运营看板自 FU-11 起以 `GET /api/insights/overview` 交付，见 §3.13。

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { BEHAVIOR_ACTIONS, type BehaviorLogListItem } from "@fairy/shared";
 import { fetchBehaviorLogs } from "../../lib/behaviorApi";
+import { localizedErrorMessage } from "../../lib/errorMessages";
 import { t } from "../../lib/i18n";
 
 function formatTime(iso: string): string {
@@ -38,7 +39,7 @@ export function BehaviorPage(): JSX.Element {
       setLogs(feed.items);
       setTotalPages(feed.pagination.totalPages);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : t("behavior.error.load"));
+      setError(localizedErrorMessage(loadError, t, "behavior.error.load"));
       setLogs([]);
       setTotalPages(0);
     } finally {

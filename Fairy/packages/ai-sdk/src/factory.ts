@@ -43,9 +43,7 @@ export interface CreateAiProviderOptions {
   fetchImpl?: typeof fetch;
 }
 
-export function createAiProvider(
-  options: CreateAiProviderOptions = {},
-): AiProvider {
+export function createAiProvider(options: CreateAiProviderOptions = {}): AiProvider {
   const env = options.env ?? process.env;
 
   const rawName = env.AI_PROVIDER?.trim() || "deepseek";
@@ -67,13 +65,10 @@ export function createAiProvider(
   }
 
   const defaultModel = env.AI_MODEL?.trim() || PROVIDER_DEFAULT_MODELS[rawName];
-  const baseUrl =
-    env[BASE_URL_VARS[rawName]]?.trim() || DEFAULT_BASE_URLS[rawName];
+  const baseUrl = env[BASE_URL_VARS[rawName]]?.trim() || DEFAULT_BASE_URLS[rawName];
   const timeoutValue = Number(env.AI_TIMEOUT_MS);
   const timeoutMs =
-    Number.isFinite(timeoutValue) && timeoutValue > 0
-      ? timeoutValue
-      : DEFAULT_TIMEOUT_MS;
+    Number.isFinite(timeoutValue) && timeoutValue > 0 ? timeoutValue : DEFAULT_TIMEOUT_MS;
 
   if (rawName === "claude") {
     return createClaudeProvider({
@@ -92,9 +87,7 @@ export function createAiProvider(
     defaultModel,
     timeoutMs,
     embeddingsSupported: rawName === "openai",
-    ...(rawName === "openai"
-      ? { defaultEmbeddingModel: "text-embedding-3-small" }
-      : {}),
+    ...(rawName === "openai" ? { defaultEmbeddingModel: "text-embedding-3-small" } : {}),
     ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
   });
 }
@@ -122,14 +115,10 @@ export function createEmbeddingProvider(
 
   const model = env.EMBEDDING_MODEL?.trim() || EMBEDDING_DEFAULT_MODEL;
   const baseUrl =
-    env.EMBEDDING_BASE_URL?.trim() ||
-    env.OPENAI_BASE_URL?.trim() ||
-    DEFAULT_BASE_URLS.openai;
+    env.EMBEDDING_BASE_URL?.trim() || env.OPENAI_BASE_URL?.trim() || DEFAULT_BASE_URLS.openai;
   const timeoutValue = Number(env.AI_TIMEOUT_MS);
   const timeoutMs =
-    Number.isFinite(timeoutValue) && timeoutValue > 0
-      ? timeoutValue
-      : DEFAULT_TIMEOUT_MS;
+    Number.isFinite(timeoutValue) && timeoutValue > 0 ? timeoutValue : DEFAULT_TIMEOUT_MS;
 
   return createOpenAiCompatibleProvider({
     name: "openai",

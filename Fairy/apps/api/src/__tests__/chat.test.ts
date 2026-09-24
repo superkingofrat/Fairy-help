@@ -103,7 +103,7 @@ describe("POST /api/chat", () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "");
     vi.clearAllMocks();
     vi.mocked(profileService.getByUserId).mockResolvedValue(profile);
-    vi.mocked(behaviorLogService.append).mockResolvedValue();
+    vi.mocked(behaviorLogService.appendQuietly).mockResolvedValue();
     vi.mocked(movieService.listMoviesForTitleMatch).mockResolvedValue([
       { id: sampleMovie.id, title: sampleMovie.title },
     ]);
@@ -140,6 +140,27 @@ describe("POST /api/chat", () => {
     expect(response.body.code).toBe("VALIDATION_ERROR");
   });
 
+  it("rejects a non-uuid sessionId before any session lookup", async () => {
+    const response = await request(app)
+      .post("/api/chat")
+      .set("Authorization", authHeader("user"))
+      .send({ message: "雨天", sessionId: "session-1" });
+
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe("VALIDATION_ERROR");
+    expect(sessionService.getOwnedSession).not.toHaveBeenCalled();
+  });
+
+  it("rejects a message over the input cap", async () => {
+    const response = await request(app)
+      .post("/api/chat")
+      .set("Authorization", authHeader("user"))
+      .send({ message: "a".repeat(2001) });
+
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe("VALIDATION_ERROR");
+  });
+
   it("rejects action return without movieId with 400", async () => {
     const response = await request(app)
       .post("/api/chat")
@@ -168,16 +189,14 @@ describe("POST /api/chat", () => {
       });
 
     const events = parseSse(response.text);
-    expect(
-      events.find((event) => event.event === "return")?.data,
-    ).toMatchObject({
+    expect(events.find((event) => event.event === "return")?.data).toMatchObject({
       success: true,
       remainingStock: 4,
       rentalId: "880e8400-e29b-41d4-a716-446655440000",
       code: "OK",
     });
     expect(events.some((event) => event.event === "text")).toBe(true);
-    expect(behaviorLogService.append).toHaveBeenCalledWith(
+    expect(behaviorLogService.appendQuietly).toHaveBeenCalledWith(
       expect.objectContaining({ action: "RETURN_SUCCESS" }),
     );
   });
@@ -195,17 +214,13 @@ describe("POST /api/chat", () => {
 
     expect(response.status).toBe(200);
     const events = parseSse(response.text);
-    expect(
-      events.find((event) => event.event === "return")?.data,
-    ).toMatchObject({
+    expect(events.find((event) => event.event === "return")?.data).toMatchObject({
       success: false,
       code: "RENTAL_NOT_FOUND",
     });
     const text = events.find((event) => event.event === "text");
-    expect((text?.data as { content: string }).content).toBe(
-      "你目前没有借这部片子。",
-    );
-    expect(behaviorLogService.append).not.toHaveBeenCalled();
+    expect((text?.data as { content: string }).content).toBe("你目前没有借这部片子。");
+    expect(behaviorLogService.appendQuietly).not.toHaveBeenCalled();
   });
 
   it("recommends in-stock mood/scene matches and writes a log", async () => {
@@ -226,22 +241,18 @@ describe("POST /api/chat", () => {
 
     expect(response.headers["content-type"]).toMatch(/text\/event-stream/);
     const events = parseSse(response.text);
-    const recommendation = events.find(
-      (event) => event.event === "recommendation",
-    );
+    const recommendation = events.find((event) => event.event === "recommendation");
     expect(recommendation).toBeDefined();
     const items = (recommendation?.data as { items: Movie[] }).items;
     expect(items[0].title).toBe("星际穿越");
     expect(items.every((movie) => movie.stock > 0)).toBe(true);
-    expect(behaviorLogService.append).toHaveBeenCalledWith(
+    expect(behaviorLogService.appendQuietly).toHaveBeenCalledWith(
       expect.objectContaining({ action: "RECOMMEND" }),
     );
   });
 
   it("does not include zero-stock movies because the service only returns stock > 0", async () => {
-    vi.mocked(movieService.listMoviesForRecommend).mockResolvedValue([
-      sampleMovie,
-    ]);
+    vi.mocked(movieService.listMoviesForRecommend).mockResolvedValue([sampleMovie]);
 
     const response = await request(app)
       .post("/api/chat")
@@ -249,9 +260,7 @@ describe("POST /api/chat", () => {
       .send({ message: "雨天" });
 
     const events = parseSse(response.text);
-    const recommendation = events.find(
-      (event) => event.event === "recommendation",
-    );
+    const recommendation = events.find((event) => event.event === "recommendation");
     const items = (recommendation?.data as { items: Movie[] }).items;
     expect(items.find((movie) => movie.id === zeroStock.id)).toBeUndefined();
   });
@@ -275,7 +284,7 @@ describe("POST /api/chat", () => {
       remainingStock: 2,
       code: "OK",
     });
-    expect(behaviorLogService.append).toHaveBeenCalledWith(
+    expect(behaviorLogService.appendQuietly).toHaveBeenCalledWith(
       expect.objectContaining({ action: "BORROW_SUCCESS" }),
     );
   });
@@ -297,7 +306,7 @@ describe("POST /api/chat", () => {
       success: false,
       code: "ALREADY_BORROWED",
     });
-    expect(behaviorLogService.append).not.toHaveBeenCalled();
+    expect(behaviorLogService.appendQuietly).not.toHaveBeenCalled();
   });
 
   it("returns OUT_OF_STOCK and writes a failure log", async () => {
@@ -312,13 +321,11 @@ describe("POST /api/chat", () => {
       .send({ message: "", movieId: sampleMovie.id });
 
     const events = parseSse(response.text);
-    expect(
-      events.find((event) => event.event === "borrow")?.data,
-    ).toMatchObject({
+    expect(events.find((event) => event.event === "borrow")?.data).toMatchObject({
       code: "OUT_OF_STOCK",
       success: false,
     });
-    expect(behaviorLogService.append).toHaveBeenCalledWith(
+    expect(behaviorLogService.appendQuietly).toHaveBeenCalledWith(
       expect.objectContaining({ action: "BORROW_OUT_OF_STOCK" }),
     );
   });
@@ -330,19 +337,15 @@ describe("POST /api/chat", () => {
       .send({ message: "今天星期几" });
 
     const events = parseSse(response.text);
-    expect(events.some((event) => event.event === "recommendation")).toBe(
-      false,
-    );
+    expect(events.some((event) => event.event === "recommendation")).toBe(false);
     expect(events.some((event) => event.event === "borrow")).toBe(false);
     expect(events.some((event) => event.event === "text")).toBe(true);
-    expect(behaviorLogService.append).not.toHaveBeenCalled();
+    expect(behaviorLogService.appendQuietly).not.toHaveBeenCalled();
     expect(rentalService.borrow).not.toHaveBeenCalled();
   });
 
   it("falls back to template text when no LLM provider is configured", async () => {
-    vi.mocked(movieService.listMoviesForRecommend).mockResolvedValue([
-      sampleMovie,
-    ]);
+    vi.mocked(movieService.listMoviesForRecommend).mockResolvedValue([sampleMovie]);
 
     const response = await request(app)
       .post("/api/chat")
@@ -355,9 +358,40 @@ describe("POST /api/chat", () => {
     expect((text?.data as { content: string }).content).toBe(
       "为你找到这些可借的片子：《星际穿越》。点卡片就能借阅。",
     );
-    expect(
-      events.find((event) => event.event === "recommendation"),
-    ).toBeDefined();
+    expect(events.find((event) => event.event === "recommendation")).toBeDefined();
+    expect(events[events.length - 1].event).toBe("done");
+  });
+
+  it("writes the full reply when the LLM stream only produced whitespace", async () => {
+    // 流只吐出空白 chunk：onDelta 仍逐条镜像，但不得据此判定「已流式输出」，
+    // 否则 tryChat 回退一次性 chat() 拿到的完整答案会被 if (!streamed) 跳过
+    vi.mocked(llmClient.tryChat).mockImplementation(
+      async (_source, _messages, _options, onDelta) => {
+        if (!onDelta) {
+          return null;
+        }
+        onDelta("   \n");
+        return {
+          text: "完整答案",
+          usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+          model: "deepseek-chat",
+          provider: "deepseek",
+        };
+      },
+    );
+
+    const response = await request(app)
+      .post("/api/chat")
+      .set("Authorization", authHeader("user"))
+      .send({ message: "随便说点什么" });
+
+    expect(response.status).toBe(200);
+    const events = parseSse(response.text);
+    const contents = events
+      .filter((event) => event.event === "text")
+      .map((event) => (event.data as { content: string }).content);
+    expect(contents).toContain("完整答案");
+    expect(contents).toContain("   \n");
     expect(events[events.length - 1].event).toBe("done");
   });
 
@@ -377,15 +411,13 @@ describe("POST /api/chat", () => {
       .send({ message: "还千与千寻" });
 
     const events = parseSse(response.text);
-    expect(
-      events.find((event) => event.event === "return")?.data,
-    ).toMatchObject({
+    expect(events.find((event) => event.event === "return")?.data).toMatchObject({
       success: true,
       remainingStock: 4,
       rentalId: "880e8400-e29b-41d4-a716-446655440000",
       code: "OK",
     });
-    expect(behaviorLogService.append).toHaveBeenCalledWith(
+    expect(behaviorLogService.appendQuietly).toHaveBeenCalledWith(
       expect.objectContaining({ action: "RETURN_SUCCESS" }),
     );
   });
@@ -405,13 +437,11 @@ describe("POST /api/chat", () => {
       .send({ message: "还千与千寻" });
 
     const events = parseSse(response.text);
-    expect(
-      events.find((event) => event.event === "return")?.data,
-    ).toMatchObject({
+    expect(events.find((event) => event.event === "return")?.data).toMatchObject({
       success: false,
       code: "RENTAL_NOT_FOUND",
     });
-    expect(behaviorLogService.append).not.toHaveBeenCalled();
+    expect(behaviorLogService.appendQuietly).not.toHaveBeenCalled();
   });
 
   it("does not misfire a return for the homograph 还 (still)", async () => {
@@ -431,9 +461,7 @@ describe("POST /api/chat", () => {
     vi.mocked(movieService.listMoviesForTitleMatch).mockResolvedValue([
       { id: "660e8400-e29b-41d4-a716-446655440000", title: "千与千寻" },
     ]);
-    vi.mocked(rentalService.returnRental).mockRejectedValue(
-      new Error("db exploded"),
-    );
+    vi.mocked(rentalService.returnRental).mockRejectedValue(new Error("db exploded"));
 
     const response = await request(app)
       .post("/api/chat")
@@ -448,9 +476,7 @@ describe("POST /api/chat", () => {
   });
 
   it("auto-creates a session for a message without sessionId and echoes it in done", async () => {
-    vi.mocked(movieService.listMoviesForRecommend).mockResolvedValue([
-      sampleMovie,
-    ]);
+    vi.mocked(movieService.listMoviesForRecommend).mockResolvedValue([sampleMovie]);
 
     const response = await request(app)
       .post("/api/chat")
@@ -458,11 +484,7 @@ describe("POST /api/chat", () => {
       .send({ message: "雨天" });
 
     expect(sessionService.createSession).toHaveBeenCalledWith(DEV_USER_ID);
-    expect(sessionService.getRecentMessages).toHaveBeenCalledWith(
-      DEV_USER_ID,
-      SESSION_ID,
-      10,
-    );
+    expect(sessionService.getRecentMessages).toHaveBeenCalledWith(DEV_USER_ID, SESSION_ID, 10);
     const events = parseSse(response.text);
     const done = events[events.length - 1];
     expect(done.event).toBe("done");
@@ -470,9 +492,7 @@ describe("POST /api/chat", () => {
   });
 
   it("persists the turn with content and recommendation events as a side channel", async () => {
-    vi.mocked(movieService.listMoviesForRecommend).mockResolvedValue([
-      sampleMovie,
-    ]);
+    vi.mocked(movieService.listMoviesForRecommend).mockResolvedValue([sampleMovie]);
 
     const response = await request(app)
       .post("/api/chat")
@@ -485,9 +505,7 @@ describe("POST /api/chat", () => {
       SESSION_ID,
       expect.objectContaining({
         userContent: "雨天",
-        events: expect.arrayContaining([
-          expect.objectContaining({ type: "recommendation" }),
-        ]),
+        events: expect.arrayContaining([expect.objectContaining({ type: "recommendation" })]),
       }),
     );
   });
@@ -507,9 +525,7 @@ describe("POST /api/chat", () => {
     expect(sessionService.createSession).not.toHaveBeenCalled();
     expect(sessionService.appendTurn).not.toHaveBeenCalled();
     const events = parseSse(response.text);
-    expect(
-      (events[events.length - 1].data as { sessionId: null }).sessionId,
-    ).toBeNull();
+    expect((events[events.length - 1].data as { sessionId: null }).sessionId).toBeNull();
   });
 
   it("rejects an unknown sessionId with 404 JSON before any SSE", async () => {
@@ -549,12 +565,8 @@ describe("POST /api/chat", () => {
   });
 
   it("still completes the stream when persisting the turn fails", async () => {
-    vi.mocked(movieService.listMoviesForRecommend).mockResolvedValue([
-      sampleMovie,
-    ]);
-    vi.mocked(sessionService.appendTurn).mockRejectedValue(
-      new Error("db down"),
-    );
+    vi.mocked(movieService.listMoviesForRecommend).mockResolvedValue([sampleMovie]);
+    vi.mocked(sessionService.appendTurn).mockRejectedValue(new Error("db down"));
 
     const response = await request(app)
       .post("/api/chat")
@@ -584,9 +596,7 @@ describe("POST /api/chat", () => {
       scenes: [{ value: "雨天", count: 1 }],
       activity: { totalUsers: 3, activeUsers7d: 2, newUsers7d: 1 },
     };
-    vi.mocked(insightService.getStoreInsightsOverview).mockResolvedValue(
-      overview,
-    );
+    vi.mocked(insightService.getStoreInsightsOverview).mockResolvedValue(overview);
 
     const response = await request(app)
       .post("/api/chat")
@@ -651,7 +661,7 @@ describe("POST /api/chat", () => {
 
     const response = await request(app)
       .post("/api/chat")
-      .set("Authorization", authHeader("user"))
+      .set("Authorization", authHeader("agent"))
       .send({ message: "帮我规划周末去杭州玩" });
 
     expect(response.status).toBe(200);
@@ -707,19 +717,15 @@ describe("POST /api/chat", () => {
       .flat()
       .filter((message) => message.role === "user")
       .map((message) => message.content);
-    expect(userMessages.join("\n")).toContain("【记忆】");
+    expect(userMessages.join("\n")).toContain("<<<记忆（不可信原文");
     expect(userMessages.join("\n")).toContain("- [preference] 喜欢科幻片");
     const events = parseSse(response.text);
     expect(events[events.length - 1].event).toBe("done");
   });
 
   it("runs memory extraction after the stream without affecting the response (FU-14)", async () => {
-    vi.mocked(movieService.listMoviesForRecommend).mockResolvedValue([
-      sampleMovie,
-    ]);
-    vi.mocked(memoryExtractor.extractAndStoreMemories).mockRejectedValue(
-      new Error("extract down"),
-    );
+    vi.mocked(movieService.listMoviesForRecommend).mockResolvedValue([sampleMovie]);
+    vi.mocked(memoryExtractor.extractAndStoreMemories).mockRejectedValue(new Error("extract down"));
 
     const response = await request(app)
       .post("/api/chat")

@@ -13,17 +13,12 @@ const router: IRouter = Router();
 
 router.get("/", requireRole("admin"), listProfilesHandler);
 router.get("/:userId", getProfileHandler);
-router.post(
-  "/",
-  requireRole("admin"),
-  validateBody(createProfileSchema),
-  createProfileHandler
-);
+router.post("/", requireRole("admin"), validateBody(createProfileSchema), createProfileHandler);
 router.patch(
   "/:userId",
   requireRole("admin"),
   validateBody(updateProfileSchema),
-  updateProfileHandler
+  updateProfileHandler,
 );
 
 export { router as profilesRouter };

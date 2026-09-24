@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@fairy/database";
 import {
   getStoreInsightsOverview,
+  localMidnight,
   toLocalDateKey,
 } from "../services/insightService";
 
@@ -27,9 +28,9 @@ vi.mock("@fairy/database", () => ({
 }));
 
 const DAY = 24 * 60 * 60 * 1000;
+const now = new Date("2026-08-31T12:00:00.000Z");
 
 describe("getStoreInsightsOverview", () => {
-  const now = new Date("2026-08-31T12:00:00.000Z");
   const borrowA = new Date(now.getTime() - DAY);
   const borrowB = new Date(now.getTime() - 3 * DAY);
   const returnC = new Date(now.getTime() - 2 * DAY);
@@ -47,15 +48,9 @@ describe("getStoreInsightsOverview", () => {
       { payload: null },
     ] as never);
     vi.mocked(prisma.rental.findMany)
-      .mockResolvedValueOnce([
-        { createdAt: borrowA },
-        { createdAt: borrowB },
-      ] as never)
+      .mockResolvedValueOnce([{ createdAt: borrowA }, { createdAt: borrowB }] as never)
       .mockResolvedValueOnce([{ updatedAt: returnC }] as never)
-      .mockResolvedValueOnce([
-        { movieId: "m1" },
-        { movieId: "m2" },
-      ] as never);
+      .mockResolvedValueOnce([{ movieId: "m1" }, { movieId: "m2" }] as never);
     vi.mocked(prisma.rental.count).mockResolvedValue(2);
     vi.mocked(prisma.movie.aggregate).mockResolvedValue({
       _sum: { totalStock: 7 },
@@ -81,9 +76,7 @@ describe("getStoreInsightsOverview", () => {
           scenes: ["INSOMNIA"],
         },
       ] as never);
-    vi.mocked(prisma.user.count)
-      .mockResolvedValueOnce(4)
-      .mockResolvedValueOnce(1);
+    vi.mocked(prisma.user.count).mockResolvedValueOnce(4).mockResolvedValueOnce(1);
     vi.mocked(prisma.behaviorLog.groupBy).mockResolvedValue([
       { userId: "u1" },
       { userId: "u2" },
@@ -104,20 +97,20 @@ describe("getStoreInsightsOverview", () => {
 
     expect(overview.trend).toHaveLength(14);
     expect(overview.trend[0].date).toBe(
-      toLocalDateKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 13))
+      toLocalDateKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 13)),
     );
     expect(overview.trend[13].date).toBe(toLocalDateKey(now));
     expect(
-      overview.trend.find((point) => point.date === toLocalDateKey(borrowA))?.borrowCount
+      overview.trend.find((point) => point.date === toLocalDateKey(borrowA))?.borrowCount,
     ).toBe(1);
     expect(
-      overview.trend.find((point) => point.date === toLocalDateKey(borrowB))?.borrowCount
+      overview.trend.find((point) => point.date === toLocalDateKey(borrowB))?.borrowCount,
     ).toBe(1);
     expect(
-      overview.trend.find((point) => point.date === toLocalDateKey(returnC))?.returnCount
+      overview.trend.find((point) => point.date === toLocalDateKey(returnC))?.returnCount,
     ).toBe(1);
     expect(
-      overview.trend.find((point) => point.date === toLocalDateKey(borrowA))?.returnCount
+      overview.trend.find((point) => point.date === toLocalDateKey(borrowA))?.returnCount,
     ).toBe(0);
   });
 
@@ -161,7 +154,9 @@ describe("getStoreInsightsOverview", () => {
     vi.mocked(prisma.rental.findMany)
       .mockReset()
       .mockResolvedValue([] as never);
-    vi.mocked(prisma.movie.findMany).mockReset().mockResolvedValue([] as never);
+    vi.mocked(prisma.movie.findMany)
+      .mockReset()
+      .mockResolvedValue([] as never);
     vi.mocked(prisma.rental.count).mockResolvedValue(0);
     vi.mocked(prisma.movie.aggregate).mockResolvedValue({
       _sum: { totalStock: null },
@@ -186,5 +181,54 @@ describe("getStoreInsightsOverview", () => {
       activeUsers7d: 0,
       newUsers7d: 0,
     });
+  });
+});
+
+describe("localMidnight", () => {
+  it("returns local midnight of the given calendar day, not UTC midnight", () => {
+    const afternoon = new Date(2026, 7, 31, 15, 30, 45, 500);
+
+    const midnight = localMidnight(afternoon);
+
+    // UTC+8 下 UTC 午夜等于本地 08:00，会让趋势首日丢掉 00:00-08:00 的数据
+    expect(midnight.getTime()).toBe(new Date(2026, 7, 31).getTime());
+    expect(midnight.getHours()).toBe(0);
+    expect(midnight.getMinutes()).toBe(0);
+    expect(midnight.getSeconds()).toBe(0);
+    expect(midnight.getMilliseconds()).toBe(0);
+  });
+
+  it("keeps the calendar day when the input is already local midnight", () => {
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 13);
+
+    expect(localMidnight(firstDay).getTime()).toBe(firstDay.getTime());
+    expect(toLocalDateKey(localMidnight(firstDay))).toBe(toLocalDateKey(firstDay));
+  });
+});
+
+describe("trend window boundary", () => {
+  it("starts the borrow window at local midnight of the first trend day", async () => {
+    await getStoreInsightsOverview(now);
+
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 13);
+    const [borrowQuery] = vi.mocked(prisma.rental.findMany).mock.calls[0];
+    expect(borrowQuery).toEqual(
+      expect.objectContaining({ where: { createdAt: { gte: firstDay } } }),
+    );
+  });
+});
+
+describe("recommend log window", () => {
+  it("windows the RECOMMEND log query to the last 30 days", async () => {
+    await getStoreInsightsOverview(now);
+
+    // behavior_logs 只增不减：全表累计的 recommendCount 会让看板成本随流水线性增长
+    const distStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30);
+    const [recommendQuery] = vi.mocked(prisma.behaviorLog.findMany).mock.calls[0];
+    expect(recommendQuery).toEqual(
+      expect.objectContaining({
+        where: { action: "RECOMMEND", createdAt: { gte: distStart } },
+      }),
+    );
   });
 });

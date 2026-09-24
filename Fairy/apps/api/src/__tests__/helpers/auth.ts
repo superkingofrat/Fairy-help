@@ -4,10 +4,11 @@ import { DEV_ADMIN_ID, DEV_USER_ID } from "@fairy/shared";
 // 测试进程不加载 .env：helper 被导入时注入固定测试密钥（中间件在请求期读取）
 process.env.JWT_SECRET ??= "test-jwt-secret";
 
-export type TestRole = "admin" | "user";
+export type TestRole = "admin" | "agent" | "user";
 
 const USER_ID_BY_ROLE: Record<TestRole, string> = {
   admin: DEV_ADMIN_ID,
+  agent: DEV_USER_ID,
   user: DEV_USER_ID,
 };
 

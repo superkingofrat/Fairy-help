@@ -4,7 +4,7 @@ import { returnMovieTool } from "../tools/returnMovieTool";
 import { storeInsightTool } from "../tools/storeInsightTool";
 import { planTripTool } from "../tools/planTripTool";
 import type { PlannedCall } from "./planner";
-import type { Movie, StoreInsightsOverview, InsightTopic, TripResult, Profile } from "@fairy/shared";
+import type { Movie, StoreInsightsOverview, InsightTopic, TripResult } from "@fairy/shared";
 import type { Role } from "../middleware/auth";
 
 export type ToolObservation =
@@ -48,7 +48,6 @@ export async function dispatch(
   userId: string,
   role: Role = "user",
   message?: string,
-  profile: Profile | null = null
 ): Promise<ToolObservation> {
   if (plan.tool === "recommend") {
     const result = await recommendMovieTool({
@@ -133,8 +132,8 @@ export async function dispatch(
   }
 
   if (plan.tool === "trip") {
-    // 行程规划对代理人「铃」与绳匠（admin）开放；其余用户仅影片服务，不调用工具
-    if (profile?.name !== "铃" && role !== "admin") {
+    // 行程规划对 agent 与 admin 两种角色开放；普通用户仅影片服务，不调用工具
+    if (role !== "admin" && role !== "agent") {
       return {
         kind: "trip",
         success: false,

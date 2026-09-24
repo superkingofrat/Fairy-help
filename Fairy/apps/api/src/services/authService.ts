@@ -16,8 +16,7 @@ export interface LoginResult {
 }
 
 export type RegisterResult =
-  | { ok: true; user: AuthUser }
-  | { ok: false; code: "EMAIL_ALREADY_EXISTS" };
+  { ok: true; user: AuthUser } | { ok: false; code: "EMAIL_ALREADY_EXISTS" };
 
 export type RefreshResult =
   | { ok: true; token: string; refreshToken: string; user: AuthUser }
@@ -59,14 +58,17 @@ export async function registerUser(email: string, password: string): Promise<Reg
         travelStyle: null,
       });
     } catch (profileError) {
-      // eslint-disable-next-line no-console
       console.warn("[auth] blank profile creation failed:", profileError);
     }
 
     return { ok: true, user: { id: user.id, email: user.email, role: user.role } };
   } catch (error) {
     // P2002: unique constraint（email 已存在）
-    if (error instanceof Error && "code" in error && (error as { code?: string }).code === "P2002") {
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      (error as { code?: string }).code === "P2002"
+    ) {
       return { ok: false, code: "EMAIL_ALREADY_EXISTS" };
     }
     throw error;
@@ -109,47 +111,63 @@ export async function issueRefreshToken(userId: string): Promise<string> {
 export async function rotateRefreshToken(refreshToken: string): Promise<RefreshResult> {
   const tokenHash = hashToken(refreshToken);
 
-  const existing = await prisma.refreshToken.findUnique({ where: { tokenHash } });
-  if (!existing) {
-    return { ok: false, code: "INVALID_REFRESH_TOKEN" };
-  }
-  if (existing.expiresAt <= new Date()) {
-    return { ok: false, code: "INVALID_REFRESH_TOKEN" };
-  }
-  if (existing.revokedAt) {
-    // 复用检测：已旋转/已吊销的 token 再次出现 → 全家吊销，强制重登
-    await revokeAllUserRefreshTokens(existing.userId);
-    return { ok: false, code: "INVALID_REFRESH_TOKEN" };
-  }
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.refreshToken.findUnique({ where: { tokenHash } });
+    if (!existing) {
+      return { ok: false, code: "INVALID_REFRESH_TOKEN" };
+    }
+    if (existing.expiresAt <= new Date()) {
+      return { ok: false, code: "INVALID_REFRESH_TOKEN" };
+    }
+    if (existing.revokedAt) {
+      // 复用检测：已旋转/已吊销的 token 再次出现 → 全家吊销，强制重登
+      await tx.refreshToken.updateMany({
+        where: { userId: existing.userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      return { ok: false, code: "INVALID_REFRESH_TOKEN" };
+    }
 
-  const user = await prisma.user.findUnique({ where: { id: existing.userId } });
-  if (!user) {
-    return { ok: false, code: "INVALID_REFRESH_TOKEN" };
-  }
-
-  const newToken = newRefreshTokenValue();
-  const newId = crypto.randomUUID();
-  await prisma.$transaction([
-    prisma.refreshToken.update({
-      where: { id: existing.id },
+    // 并发安全：条件更新（compare-and-swap）代替先读后写。两个刷新拿着同一 token 竞速时，
+    // 只有一个能把 revokedAt 置上；另一个 updateMany 命中 0 行，按复用处理，
+    // 不会两个请求都拿到各自的新 token（旧实现下双发请求可双双旋转成功）
+    const newToken = newRefreshTokenValue();
+    const newId = crypto.randomUUID();
+    const claimed = await tx.refreshToken.updateMany({
+      where: { id: existing.id, revokedAt: null },
       data: { revokedAt: new Date(), replacedByTokenId: newId },
-    }),
-    prisma.refreshToken.create({
+    });
+    if (claimed.count === 0) {
+      await tx.refreshToken.updateMany({
+        where: { userId: existing.userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      return { ok: false, code: "INVALID_REFRESH_TOKEN" };
+    }
+
+    const user = await tx.user.findUnique({ where: { id: existing.userId } });
+    if (!user) {
+      return { ok: false, code: "INVALID_REFRESH_TOKEN" };
+    }
+
+    await tx.refreshToken.create({
       data: {
         id: newId,
         tokenHash: hashToken(newToken),
         userId: user.id,
         expiresAt: new Date(Date.now() + REFRESH_TTL_MS),
       },
-    }),
-  ]);
+    });
 
-  const authUser: AuthUser = { id: user.id, email: user.email, role: user.role };
-  return { ok: true, token: signToken(authUser), refreshToken: newToken, user: authUser };
+    const authUser: AuthUser = { id: user.id, email: user.email, role: user.role };
+    return { ok: true, token: signToken(authUser), refreshToken: newToken, user: authUser };
+  });
 }
 
 export async function revokeRefreshToken(refreshToken: string): Promise<boolean> {
-  const existing = await prisma.refreshToken.findUnique({ where: { tokenHash: hashToken(refreshToken) } });
+  const existing = await prisma.refreshToken.findUnique({
+    where: { tokenHash: hashToken(refreshToken) },
+  });
   if (!existing || existing.revokedAt) {
     return false;
   }
@@ -158,11 +176,4 @@ export async function revokeRefreshToken(refreshToken: string): Promise<boolean>
     data: { revokedAt: new Date() },
   });
   return true;
-}
-
-export async function revokeAllUserRefreshTokens(userId: string): Promise<void> {
-  await prisma.refreshToken.updateMany({
-    where: { userId, revokedAt: null },
-    data: { revokedAt: new Date() },
-  });
 }

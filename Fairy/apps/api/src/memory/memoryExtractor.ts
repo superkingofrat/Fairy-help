@@ -68,17 +68,14 @@ export async function extractAndStoreMemories(input: {
 
 export async function extractMemories(
   userMessage: string,
-  replyText: string
+  replyText: string,
 ): Promise<MemoryExtraction["memories"]> {
   const extraction = await extractTurn(userMessage, replyText);
   return extraction.memories;
 }
 
 // 完整抽取结果（memories + genres）；失败一律降级为“无内容”而非抛错。extractMemories 仅取 memories。
-async function extractTurn(
-  userMessage: string,
-  replyText: string
-): Promise<MemoryExtraction> {
+async function extractTurn(userMessage: string, replyText: string): Promise<MemoryExtraction> {
   const user = sanitizeUserInput(userMessage);
   if (!user) {
     return { memories: [] };

@@ -3,14 +3,12 @@ import type { RentalListItem } from "@fairy/shared";
 import { listRentals } from "../lib/rentalsApi";
 
 interface ChatState {
-  messages: string[];
   activeRentals: RentalListItem[];
   refreshRentals: () => Promise<void>;
   removeActiveRental: (rentalId: string) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
-  messages: [],
   activeRentals: [],
   refreshRentals: async () => {
     try {

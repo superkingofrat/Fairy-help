@@ -65,4 +65,21 @@ describe("chatRequestSchema", () => {
     const result = chatRequestSchema.safeParse({ message: "雨天", sessionId: "" });
     expect(result.success).toBe(false);
   });
+
+  it("rejects a non-uuid sessionId", () => {
+    // 会话 id 是 Prisma uuid()：非 UUID 会穿透到查询变 500，而契约承诺 404/403
+    const result = chatRequestSchema.safeParse({ message: "雨天", sessionId: "session-1" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a message longer than the input cap", () => {
+    // 与 llmClient.MAX_INPUT_CHARS 对齐：超长消息此前被静默截断
+    const result = chatRequestSchema.safeParse({ message: "a".repeat(2001) });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts a message at the input cap", () => {
+    const result = chatRequestSchema.safeParse({ message: "a".repeat(2000) });
+    expect(result.success).toBe(true);
+  });
 });

@@ -19,7 +19,12 @@ vi.mock("@fairy/database", () => ({
       update: vi.fn(),
       updateMany: vi.fn(),
     },
-    $transaction: vi.fn(),
+    // 交互式事务的桩：以真实 prisma 当 tx 执行回调，保留对各模型方法的调用记录
+    $transaction: vi.fn((arg: unknown) =>
+      typeof arg === "function"
+        ? (arg as (tx: typeof prisma) => Promise<unknown>)(prisma)
+        : Promise.all(arg as Promise<unknown>[]),
+    ),
   },
 }));
 vi.mock("../services/profileService");
@@ -63,7 +68,7 @@ describe("auth routes", () => {
     expect(typeof login.body.data.token).toBe("string");
     expect(typeof login.body.data.refreshToken).toBe("string");
     expect(prisma.refreshToken.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ userId: DEV_USER_ID }) })
+      expect.objectContaining({ data: expect.objectContaining({ userId: DEV_USER_ID }) }),
     );
 
     const me = await request(app)
@@ -93,7 +98,9 @@ describe("auth routes", () => {
 
   it("rejects dev stub headers on business endpoints", async () => {
     const byHeader = await request(app).get("/api/movies").set("X-Dev-Role", "admin");
-    const byDevToken = await request(app).get("/api/movies").set("Authorization", "Bearer dev-admin");
+    const byDevToken = await request(app)
+      .get("/api/movies")
+      .set("Authorization", "Bearer dev-admin");
 
     expect(byHeader.status).toBe(401);
     expect(byHeader.body.code).toBe("UNAUTHORIZED");
@@ -107,7 +114,9 @@ describe("auth routes", () => {
     expect(asUser.status).toBe(403);
     expect(asUser.body.code).toBe("FORBIDDEN");
 
-    const asAdmin = await request(app).get("/api/profiles").set("Authorization", authHeader("admin"));
+    const asAdmin = await request(app)
+      .get("/api/profiles")
+      .set("Authorization", authHeader("admin"));
     expect(asAdmin.status).toBe(200);
   });
 
@@ -164,7 +173,7 @@ describe("auth routes", () => {
       expect(res.status).toBe(201);
       expect(res.body.code).toBe("OK");
       expect(profileService.createForExistingUser).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: "new-user-2" })
+        expect.objectContaining({ userId: "new-user-2" }),
       );
     });
 
@@ -199,6 +208,7 @@ describe("auth routes", () => {
   describe("refresh token rotation", () => {
     it("rotates a valid refresh token and revokes the old one", async () => {
       vi.mocked(prisma.refreshToken.findUnique).mockResolvedValue(activeRefreshRow as never);
+      vi.mocked(prisma.refreshToken.updateMany).mockResolvedValue({ count: 1 } as never);
       vi.mocked(prisma.user.findUnique).mockResolvedValue(seededUser as never);
 
       const res = await request(app)
@@ -209,13 +219,37 @@ describe("auth routes", () => {
       expect(res.body.code).toBe("OK");
       expect(typeof res.body.data.token).toBe("string");
       expect(typeof res.body.data.refreshToken).toBe("string");
-      expect(res.body.data.user).toEqual({ id: DEV_USER_ID, email: seededUser.email, role: "user" });
+      expect(res.body.data.user).toEqual({
+        id: DEV_USER_ID,
+        email: seededUser.email,
+        role: "user",
+      });
 
-      expect(prisma.refreshToken.update).toHaveBeenCalledWith({
-        where: { id: "rt-1" },
+      // 条件更新（compare-and-swap）：只认尚未吊销的行，替代先读后写
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { id: "rt-1", revokedAt: null },
         data: { revokedAt: expect.any(Date), replacedByTokenId: expect.any(String) },
       });
       expect(prisma.refreshToken.create).toHaveBeenCalledTimes(1);
+    });
+
+    it("treats a lost rotation race as reuse instead of issuing a second token", async () => {
+      // 并发场景：两个刷新拿着同一 token 竞速，CAS 命中 0 行的一方按复用处理
+      vi.mocked(prisma.refreshToken.findUnique).mockResolvedValue(activeRefreshRow as never);
+      vi.mocked(prisma.refreshToken.updateMany).mockResolvedValue({ count: 0 } as never);
+
+      const res = await request(app)
+        .post("/api/auth/refresh")
+        .send({ refreshToken: "the-raw-token" });
+
+      expect(res.status).toBe(401);
+      expect(res.body.code).toBe("INVALID_REFRESH_TOKEN");
+      expect(prisma.refreshToken.create).not.toHaveBeenCalled();
+      // 竞速失败同样吊销全家，强制重登
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { userId: DEV_USER_ID, revokedAt: null },
+        data: { revokedAt: expect.any(Date) },
+      });
     });
 
     it("rejects a reused (already revoked) token and revokes the whole family", async () => {
@@ -283,9 +317,7 @@ describe("auth routes", () => {
     it("is idempotent for an unknown token", async () => {
       vi.mocked(prisma.refreshToken.findUnique).mockResolvedValue(null);
 
-      const res = await request(app)
-        .post("/api/auth/logout")
-        .send({ refreshToken: "ghost-token" });
+      const res = await request(app).post("/api/auth/logout").send({ refreshToken: "ghost-token" });
 
       expect(res.status).toBe(200);
       expect(res.body.code).toBe("OK");

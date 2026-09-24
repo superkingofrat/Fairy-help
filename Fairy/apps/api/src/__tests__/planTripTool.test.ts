@@ -4,7 +4,6 @@ import type { ChatResult } from "@fairy/ai-sdk";
 import { planTripTool } from "../tools/planTripTool";
 import * as llmClient from "../agent/llmClient";
 import * as profileService from "../services/profileService";
-import * as behaviorLogService from "../services/behaviorLogService";
 import * as amapClient from "../services/amapClient";
 
 vi.mock("../agent/llmClient", () => ({
@@ -12,11 +11,15 @@ vi.mock("../agent/llmClient", () => ({
   tryChat: vi.fn(),
 }));
 vi.mock("../services/profileService");
-vi.mock("../services/behaviorLogService");
 vi.mock("../services/amapClient");
+// behaviorLogService 不 mock：经真实 appendQuietly → append → prisma.behaviorLog.create
+// 走完整链路，「日志写失败仍 success」才测得的是生产行为而非 mock 行为
 vi.mock("@fairy/database", () => ({
   prisma: {
     trip: {
+      create: vi.fn(),
+    },
+    behaviorLog: {
       create: vi.fn(),
     },
   },
@@ -129,17 +132,36 @@ describe("planTripTool", () => {
         days: 1,
       }),
     });
-    expect(behaviorLogService.append).toHaveBeenCalledWith({
-      userId: USER_ID,
-      action: "TRIP_PLANNED",
-      payload: {
-        destination: "杭州",
-        days: 1,
-        tripId: TRIP_ID,
-        validated: true,
+    expect(prisma.behaviorLog.create).toHaveBeenCalledWith({
+      data: {
+        userId: USER_ID,
+        action: "TRIP_PLANNED",
+        payload: {
+          destination: "杭州",
+          days: 1,
+          tripId: TRIP_ID,
+          validated: true,
+        },
       },
     });
     expect(amapClient.searchPoi).toHaveBeenCalledWith("西湖", "杭州");
+  });
+
+  it("still returns the trip when the TRIP_PLANNED log write throws", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(llmResult(draftJson));
+    vi.mocked(amapClient.searchPoi).mockResolvedValue(null);
+    vi.mocked(amapClient.planRoute).mockResolvedValue(null);
+    vi.mocked(prisma.behaviorLog.create).mockRejectedValue(new Error("db down"));
+
+    const result = await planTripTool({ userId: USER_ID, message: "帮我规划周末去杭州玩" });
+
+    // 行程已落库：日志失败只应损失可观测性，不能把既成事实翻成失败
+    expect(result.success).toBe(true);
+    if (!result.success || "unresolved" in result.data) {
+      throw new Error("expected a trip result");
+    }
+    expect(result.data.tripId).toBe(TRIP_ID);
+    expect(prisma.trip.create).toHaveBeenCalled();
   });
 
   it("degrades to an unvalidated itinerary when Amap is unavailable", async () => {
@@ -168,19 +190,23 @@ describe("planTripTool", () => {
       llmResult(
         JSON.stringify({
           destination: null,
-          itinerary: [{ day: 1, title: "x", steps: [{ time: "09:00", poi: "西湖", category: "景点" }] }],
-        })
-      )
+          itinerary: [
+            { day: 1, title: "x", steps: [{ time: "09:00", poi: "西湖", category: "景点" }] },
+          ],
+        }),
+      ),
     );
 
     const result = await planTripTool({ userId: USER_ID, message: "帮我规划个行程" });
 
     expect(result).toEqual({ success: true, data: { unresolved: true } });
     expect(prisma.trip.create).not.toHaveBeenCalled();
-    expect(behaviorLogService.append).toHaveBeenCalledWith({
-      userId: USER_ID,
-      action: "TRIP_UNRESOLVED",
-      payload: expect.objectContaining({ reason: "draft_destination_null" }),
+    expect(prisma.behaviorLog.create).toHaveBeenCalledWith({
+      data: {
+        userId: USER_ID,
+        action: "TRIP_UNRESOLVED",
+        payload: expect.objectContaining({ reason: "draft_destination_null" }),
+      },
     });
   });
 
@@ -191,10 +217,12 @@ describe("planTripTool", () => {
 
     expect(result).toEqual({ success: false, error: "TRIP_DRAFT_FAILED" });
     expect(prisma.trip.create).not.toHaveBeenCalled();
-    expect(behaviorLogService.append).toHaveBeenCalledWith({
-      userId: USER_ID,
-      action: "TRIP_DRAFT_FAILED",
-      payload: expect.objectContaining({ reason: "llm_draft_failed" }),
+    expect(prisma.behaviorLog.create).toHaveBeenCalledWith({
+      data: {
+        userId: USER_ID,
+        action: "TRIP_DRAFT_FAILED",
+        payload: expect.objectContaining({ reason: "llm_draft_failed" }),
+      },
     });
   });
 
@@ -222,10 +250,12 @@ describe("planTripTool", () => {
 
     expect(result).toEqual({ success: true, data: { unresolved: true } });
     expect(prisma.trip.create).not.toHaveBeenCalled();
-    expect(behaviorLogService.append).toHaveBeenCalledWith({
-      userId: USER_ID,
-      action: "TRIP_UNRESOLVED",
-      payload: expect.objectContaining({ reason: "draft_failed_no_destination" }),
+    expect(prisma.behaviorLog.create).toHaveBeenCalledWith({
+      data: {
+        userId: USER_ID,
+        action: "TRIP_UNRESOLVED",
+        payload: expect.objectContaining({ reason: "draft_failed_no_destination" }),
+      },
     });
   });
 
@@ -236,10 +266,12 @@ describe("planTripTool", () => {
 
     expect(result).toEqual({ success: false, error: "TRIP_DRAFT_FAILED" });
     expect(prisma.trip.create).not.toHaveBeenCalled();
-    expect(behaviorLogService.append).toHaveBeenCalledWith({
-      userId: USER_ID,
-      action: "TRIP_DRAFT_FAILED",
-      payload: expect.objectContaining({ reason: "llm_draft_failed" }),
+    expect(prisma.behaviorLog.create).toHaveBeenCalledWith({
+      data: {
+        userId: USER_ID,
+        action: "TRIP_DRAFT_FAILED",
+        payload: expect.objectContaining({ reason: "llm_draft_failed" }),
+      },
     });
   });
 
@@ -251,10 +283,12 @@ describe("planTripTool", () => {
     const result = await planTripTool({ userId: USER_ID, message: "帮我规划周末去杭州玩" });
 
     expect(result).toEqual({ success: false, error: "TRIP_PERSIST_FAILED" });
-    expect(behaviorLogService.append).toHaveBeenCalledWith({
-      userId: USER_ID,
-      action: "TRIP_PERSIST_FAILED",
-      payload: expect.objectContaining({ reason: "db_write_failed" }),
+    expect(prisma.behaviorLog.create).toHaveBeenCalledWith({
+      data: {
+        userId: USER_ID,
+        action: "TRIP_PERSIST_FAILED",
+        payload: expect.objectContaining({ reason: "db_write_failed" }),
+      },
     });
   });
 });

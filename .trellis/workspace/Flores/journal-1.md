@@ -977,3 +977,206 @@ Delivered FU-18 — 画像反向回写：每轮对话抽取（FU-14 旁路）在
 ### Next Steps
 
 - ~~网络恢复后推送本地提交~~（已完成，2026-09-20）：github.com 的 git 端口仍不可达（DNS 解析到被阻断的 IP，api.github.com 与经典 IP 均正常但 hosts 无写权限、无已授权 SSH key），改经 GitHub API 逐提交重建 tree/commit，每个提交先本地比对 SHA 一致才继续，全部 7 个校验通过后快进更新 ref。origin/master `56eb3b2` → `9af40b7`（`e699f44` / `8bdd77c` / `1eb4375` / `7e591dc` / `3c348a1` / `44571a5` / `9af40b7`）。推送前全历史扫描（973 个 blob）确认无任何真实密钥、无超过 1MB 的文件；令牌经 `git credential` 非交互读取，未落盘、未打印。另同步本地 `refs/remotes/origin/master` 并把仓库默认分支从孤儿的 `main`（仅 2026-08-06 一个 Initial commit + README，与 master 无共同祖先）切到 `master`。
+
+
+## Session 21: 工程验证门禁与可靠性整改：15 个提交（门禁+CI+8 个 P1 bug）
+
+**Date**: 2026-09-22
+**Task**: 工程验证门禁与可靠性整改：15 个提交（门禁+CI+8 个 P1 bug）
+**Branch**: `chore/reliability-fixes`
+
+### Summary
+
+按已批准计划完成批次 1–4：补齐 ESLint/Prettier 让 lint/format/test 全绿，新增 GitHub Actions CI，修复 8 个 P1 正确性 bug（trust proxy 限流桶、趋势时区、回填死循环、推荐统计窗口、日志写拖垮成功路径、空白流回退、sessionId/消息长度校验、编辑记忆后 embedding 刷新），顺带修复 web build 向 src 吐 tsc 产物导致 vitest 文件数翻倍的问题；脊柱三文档同步。完整 pnpm run ci 退出码 0（api 326 / web 79 / shared 99 / ai-sdk 16 / database 4），双 dev server 冒烟 6 项全过含 LLM 与降级双链路。15 个提交在本地分支 chore/reliability-fixes，未推送。
+
+### Main Changes
+
+# 2026-09-21 会话工作日志：工程验证门禁 + 8 个 P1 正确性修复（15 提交）
+
+## 本轮完成
+
+1. **工程门禁（批次 1，Commit 1–3）**：补齐 ESLint/Prettier 配置（eslint 8.57 + 最小规则集，不开 no-console——服务端日志是既有约定；printWidth 100 与现状一致，`pnpm format` 仅重排 44 行），删除 4 个被误提交的 `seed.{js,d.ts,js.map,d.ts.map}` tsc 产物与 5 处死代码（`routes/trips.ts`、两个 0 字节 controller、`AdminDashboard.tsx`、`useSSE.ts`），修 `.gitignore`（删 migration_lock.toml 自相矛盾的 ignore 行），让根 `pnpm lint` / `format:check` / `test` 三条命令从必败变全绿（database 包改 `--passWithNoTests`、补 `migrate:dev` 别名、turbo dev 加 `dependsOn: ["^build"]`）。
+2. **CI（批次 2，Commit 4）**：`.github/workflows/ci.yml` push/PR 触发，Node 20 + pnpm 9，lint → typecheck → test，测试全 mock、无需 DB 与密钥——AGENTS §10「不允许合并带失败检查的 PR」至此有着落。
+3. **P1 正确性修复（批次 3，Commit 5–12，每个独立提交，均按「先失败测试再修」）**：
+   - **① trust proxy**：`app.set("trust proxy")` 读 `TRUST_PROXY_HOPS`（默认 1）。反代后 login/register/chat 三个限流器此前的退化是全站共享单桶（chat 每分钟全网仅 30 请求）；补 `app.test.ts` 断言生效值，`.env.example` 登记并删除已移除的 dev auth stub 残留说明。
+   - **② 趋势首日丢数据**：`insightService` 的 `localMidnight` 之前取「本地日期的 UTC 午夜」，CST 下 00:00–08:00 静默丢失；改为本地构造 `new Date(y, m, d)` 并导出单测。契约同步「部署须显式 TZ=Asia/Shanghai」。
+   - **③ 回填脚本死循环**：`embedding IS NULL` 的选取条件对「跳过/失败」行永远选得到同一批，脚本空转。纯函数 `selectFreshRows(pending, attemptedIds)` 拆到 `scripts/backfillProgress.ts` 单测；主循环累积 attempted 集合、无新鲜行 break 并 warn、有失败行退出码 1。
+   - **④ 看板成本线性增长**：RECOMMEND 统计加 30 天窗口（全时累计→近 30 天，契约与决策行同步）；`behavior_logs`/`rentals` 无保留策略登记为残余风险。
+   - **⑤ 日志写拖垮成功路径**：`behaviorLogService` 增 `appendQuietly`（try/catch + warn），借（2 处）/还/推荐/规划行程四个工具的成功路径改用它——此前 insert 失败会把已成功的操作报成 500/「Fairy 出了点状况」，而契约错误表里没有 500 这档。
+   - **⑥ 空白流用户只收到空白**：`chat.ts` 的 `streamed` 仅当 `delta.trim()` 非空才置位，流只吐空白 chunk 时兜底完整答案被跳过；改为空白 chunk 也写 SSE 但不置位。补 `llmClient.test.ts` 四例（正常流/零 chunk/纯空白/中途失败）+ 空白流 SSE 用例。
+   - **⑦ 非 UUID sessionId 变 500**：`chatSchemas.sessionId` 加 `.uuid()`、`message` 加 `.max(2000)`（对齐 `llmClient.MAX_INPUT_CHARS`），契约 §3.7 同步注记。
+   - **⑧ 编辑记忆后向量不一致**：`updateMemory` 在 content 变更后补 `refreshEmbeddingQuietly`（create 路径本来就有、update 路径漏了）。
+4. **脊柱文档同步（Commit 13 + 15）**：API_CONTRACT（§3.0 限流与 trust proxy、§3.7 请求体注记、§3.13 时区与统计口径）、ARCHITECTURE（§3.0/§8 决策行、§9 映射、§10 CI 与本地验证）、PROJECT_STATUS（Completed 新条目、Next Steps 路线图登记、Last Updated）。
+5. **验证（批次 4）**：完整 `pnpm run ci`（lint + typecheck + test + build）退出码 0——api 326、web 79、shared 99、ai-sdk 16、database 4 全绿；build 后工作树干净（见踩坑 ④）。双 dev server 冒烟 6 项全过：api `/health` OK；web 首页 200；无 token 请求 401（统一 `{code,data,msg}` 信封）；非 UUID sessionId 400（修复 ⑦ 实测）；超 2000 字符 message 400（修复 ⑦ 实测）；LLM 链路完整 SSE 增量 + done + sessionId 落库 + usage 日志；**降级链路**用无效 key 起 api 实测——回复逐字命中 `templateForNone` 模板、正常 done、日志里 **0 条** LLM 用量、无挂起无 500（修复 ⑥ 的回退路径实测）。
+6. **顺带发现的工程缺陷（Commit 14–15）**：web 的 `build` 用裸 `tsc` 会向 `src/` 旁吐 168 个 `.js/.d.ts/.map` 产物，vitest 把编译出的 `.test.js` 也当测试文件——文件数 24 对 12、用例 158 对 79 翻倍。改为 `tsc --noEmit && vite build`（产出物全部来自 vite 的 `dist/`），清掉产物后复测 12/79；ARCHITECTURE §10 补了识别特征说明。
+
+## 踩坑记录
+
+- **turbo 2 严格 env 模式吞未声明变量**：`DEEPSEEK_API_KEY=x pnpm dev` 到不了 api 进程（turbo.json 没声明的 env 会被过滤），api 回落读 `.env`，日志证明每次都在真调 deepseek。想让冒烟强制走降级链路，须绕过 turbo 直接 `pnpm --filter=@fairy/api dev`（pnpm 会把父进程 env 透传下去，用 `sk-chain-test` 链路实测验证过透传本身没问题）。
+- **TaskStop 杀不干净孙子进程**：停 turbo wrapper 后 tsx/vite 仍在，第二次 `pnpm dev` 直接 EADDRINUSE :::3000、vite 偷偷让到 5174。按 `netstat -ano` 找到 LISTENING PID 逐个 `taskkill //F //PID`（多 PID 一次传会报「无效参数」，必须循环）。
+- **Bash 工具 → curl 的中文 UTF-8 串损**：`curl -d` 带中文 payload 到达 API 是乱码（LLM 礼貌回复「消息好像有点乱码」）。冒烟请求改用 `node -e` + fetch，UTF-8 才正确。
+- **`pnpm ci` 是保留命令**：pnpm 9 未实现 built-in `ci`，直接跑报 `ERR_PNPM_CI_NOT_IMPLEMENTED`；仓库脚本要写 `pnpm run ci`。
+- **空环境变量等于没有**：`DEEPSEEK_API_KEY= ...`（值为空）与 `''` 都走 dotenv 回退到配置文件，想「清空 key 逼降级」必须给一个非空假 key（如 `sk-invalid-smoke-key`）。
+- **journal 的 add_session.py 从仓库根跑会 import 失败**：须 cd 到 `.trellis/scripts/` 再执行（内部 `from common import ...`）。
+- **git add 报 pathspec 不匹配**：Bash cwd 跨调用会漂移，git 命令前先确认在仓库根 `E:\Fairy-help`（monorepo 的 pnpm 命令则相反，必须 `cd Fairy`）。
+
+## 未完成 / 后续
+
+- **`createSession` 失败未按契约优雅降级**（下一批候选，非本轮范围）：JWT 里 userId 不存在（FK P2003）或库瞬断（如 Neon 冷启动）时，`routes/chat.ts:54` 把异常抛成 500 `INTERNAL_ERROR`，而契约已写明 `done.sessionId = null` 表示「未建会话」——按「会话落库为旁路」的架构决策，这里应该 fail-quietly。本轮用伪造 userId 冒烟时复现过一次，确认为烟雾装置假象（真实 token 必带已存在用户），但库瞬断路径是本该修的。
+- **15 个提交未推送**：均在本地分支 `chore/reliability-fixes`（基于 master `c71c135`），推送需明确指示。
+- **后续路线图已登记进 PROJECT_STATUS.md Next Steps**，每批执行前逐个再确认：
+  - 批次 5（安全）：对话历史消毒 + 不可信跨度分隔符、refresh token 多标签同步（BroadcastChannel）+ SSE 401 单飞刷新、refresh 旋转 TOCTOU 改事务内 `updateMany`。
+  - 批次 6（产品）：行程门禁身份化（`User.role` 是 String 列、无需迁移，改画像名不再失效）、意图规则语境修正、错误信息归一化为 i18n code。
+  - 批次 7（落地件）：Dockerfile（TZ=Asia/Shanghai）+ 部署清单、seed 加 `NODE_ENV=production` 防护、真实库并发集成测试（默认跳过）、`docs/prompts.md`、README 补全。
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `be0f8c7` | (see git log) |
+| `9d816e5` | (see git log) |
+| `3c9dacf` | (see git log) |
+| `c50cf39` | (see git log) |
+| `b384984` | (see git log) |
+| `40e00c2` | (see git log) |
+| `7d771c9` | (see git log) |
+| `78d5e70` | (see git log) |
+| `070575e` | (see git log) |
+| `f85f4e0` | (see git log) |
+| `ae8151d` | (see git log) |
+| `c889d5b` | (see git log) |
+| `171b0f9` | (see git log) |
+| `74f8b32` | (see git log) |
+| `870a5ac` | (see git log) |
+
+### Status
+
+[OK] **Completed**
+
+
+## Session 22: 安全整改批次（批次 5）：prompt 不可信跨度标记 + refresh 旋转 CAS + 多标签会话同步与 SSE 401 刷新
+
+**Date**: 2026-09-22
+**Task**: 安全整改批次（批次 5）：prompt 不可信跨度标记 + refresh 旋转 CAS + 多标签会话同步与 SSE 401 刷新
+**Branch**: `chore/reliability-fixes`
+
+### Summary
+
+Session summary was not supplied.
+
+### Main Changes
+
+- api: 新增 agent/sanitize.ts 控制字符单一来源，contextBuilder sanitizeUntrustedEntry（换行折叠「 / 」+2000 字截断）与 wrapUntrustedSpan，对话历史/当轮消息/记忆在 intentClassifier 与 responseSynthesizer 对称包装，【事实】留跨度外
+- api: rotateRefreshToken 整体进事务，「旧 token 仍 revokedAt: null」作 updateMany where，count===0 判并发失败并同路径吊销全家；删除死代码 revokeAllUserRefreshTokens
+- web: authStore 建 fairy-auth BroadcastChannel（setSession/clear 广播、接收方 setState 不回播、无频道环境静默跳过）；chatApi SSE 401 改走共用单飞刷新后重试一次流请求
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `43e0850` | (see git log) |
+
+### Testing
+
+- [OK] api 340 / web 91 / shared 99 全绿；pnpm run ci（lint→typecheck→test→build）5/5；新增 authStore 跨标签 6 例、chatApi 6 例、auth 旋转竞争 1 例，chat.test.ts 记忆断言同步
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 批次 6（产品）：行程门禁身份化、意图规则语境修正、错误信息归一化；classifyIntent 历史不走预算裁剪的残余已登记风险
+
+
+## Session 23: 产品修复批次（批次 6）：行程门禁身份化（role∈{admin,agent}）+ 意图规则语境修正 + 错误信息归一化
+
+**Date**: 2026-09-22
+**Task**: 产品修复批次（批次 6）：行程门禁身份化（role∈{admin,agent}）+ 意图规则语境修正 + 错误信息归一化
+**Branch**: `chore/reliability-fixes`
+
+### Summary
+
+路线图批次 6（负责人「继续」确认，§15.2 P1 豁免）：行程门禁从画像名硬编码改 role∈{admin,agent} 免迁移；意图规则给影片名词与心情词让位；前端错误按 code→i18n 映射，原始 JSON/英文/i18n key 字面量不再上屏。
+
+### Main Changes
+
+- api: dispatch trip 门禁改 role∈{admin,agent}（Role 联合加 agent、authMiddleware 同步校验、seed create/update 双分支置 agent、测试 fixture 同步 authHeader），注册仍只签 user，无 DB 迁移
+- api: isPlanTripByRules 增加影片名词守卫（「有没有旅行为主题的片子」交 LLM）+ 关键词表去「规划」；借分支 insight 判定后内嵌心情/场景词检查（「想借个治愈的片子」回落 recommend）；INTENT_SYSTEM_PROMPT 补反例
+- web: http.ts 抽 fetchResponse + readEnvelope 共用，失败统一 ApiRequestError(message, code)（契约码透传 + 链路码 TIMEOUT/STREAM/EMPTY_STREAM/SESSION_EXPIRED + 传输码 NETWORK_ERROR/INVALID_RESPONSE/EMPTY_RESPONSE/REQUEST_FAILED）；新增 lib/errorMessages.ts 按 code→zh-CN 映射，十处组件接入；i18n 补 10 键并修复旧 chat.error.timeout 未翻译上屏
+- docs: API_CONTRACT §3.7 三处（门禁角色表述、意图注记、前端错误展示约定）；ARCHITECTURE §8 决策行 ×3 + 注记 ×2；PROJECT_STATUS Completed/Next/Decisions/Last Updated
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `19da2df` | (see git log) |
+| `4b18057` | (see git log) |
+| `0db19a2` | (see git log) |
+| `8c20656` | (see git log) |
+
+### Testing
+
+- [OK] api 344（33 文件）/ web 103（15 文件）/ shared 99 全绿；pnpm run ci（lint→typecheck→test→build）5/5；prettier check 通过；无新端点、无 DB 迁移、契约响应形状不变
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 批次 7（落地件）：Dockerfile（api+web，显式 TZ=Asia/Shanghai）+ 部署清单、seed NODE_ENV=production 防护、真实库并发集成测试（TEST_DATABASE_URL 门控，20 并发 borrow 断言不超卖）、docs/prompts.md、README prisma 步骤——执行前与负责人确认
+- 残余：classifyIntent 历史注入不走 token 预算裁剪（PROJECT_STATUS 风险，成本关注）；存量 dev 库重复 seed 后验证 user@fairy.local 变为 agent 且行程可用；全部提交未推送
+
+
+## Session 24: 部署落地批次（批次 7）：容器化、部署清单、真实库并发集成测试、文档补全
+
+**Date**: 2026-09-22
+**Task**: 部署落地批次（批次 7）：容器化、部署清单、真实库并发集成测试、文档补全
+**Branch**: `chore/reliability-fixes`
+
+### Summary
+
+完成路线图批次 7 五项：api/web 多阶段 Dockerfile（TZ=Asia/Shanghai、非 root）+ docs/deployment.md 部署清单、seed NODE_ENV=production 防护、TEST_DATABASE_URL 门控的真实库并发集成测试（20 并发借阅断言不超卖）、docs/prompts.md 提示词逐字文档、README 数据库初始化步骤 + packages/database/.env.example。脊柱文档（AGENTS/ARCHITECTURE/PROJECT_STATUS）同步更新。pnpm run ci 5/5，api 344+1 skipped / web 103 / shared 99 / database 6 / ai-sdk 16 全绿。镜像未在有 Docker 的环境实际构建，已登记风险；提交未推送。
+
+### Main Changes
+
+- 40bfd4e db: seed 模块级守卫拒绝 NODE_ENV=production 运行（懒连接前退出）+ 子进程测试（不可达 URL 反证不误伤未置 NODE_ENV）
+- f814ea9 api: rentalService.concurrency.test.ts 真实库 20 并发借阅（默认跳过，TEST_DATABASE_URL 门控，库存 5 恰 5 成功/其余 OUT_OF_STOCK/remaining 恰 [0-4]）；@fairy/database 全部动态 import 避开单例绑定开发库
+- 9bc90a3 chore: apps/api + apps/web 多阶段 Dockerfile（node:20-alpine + tzdata/openssl、USER node、HEALTHCHECK、corepack 固定 pnpm@9.0.0）、apps/web/nginx.conf（SPA 兜底/immutable assets/gzip）、.dockerignore 排除 .env
+- 0c0e3d1 db: 新增 migrate:deploy 脚本（部署先行迁移，不 reset 可重复执行）
+- 005d826 docs: docs/deployment.md 八节部署清单 + .env.example 补登三个 provider BASE_URL；9bc90a3 同轮容器化上下文支撑
+- e76962e docs: docs/prompts.md 三系统提示词逐字快照（脚本校验）+ 调用链总览 + 公共约束表 + 变更规则
+- 41da6fe docs: README 快速开始六步（install/三份 .env/generate/migrate:dev/可选 seed/pnpm dev）+ 常见问题 + 测试命令；新建 packages/database/.env.example
+- ed2a737 docs: 脊柱同步——ARCHITECTURE §8 三决策行 + §9/§10、AGENTS §7 TEST_DATABASE_URL 约定、PROJECT_STATUS 五节
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `40bfd4e` | (see git log) |
+| `f814ea9` | (see git log) |
+| `9bc90a3` | (see git log) |
+| `0c0e3d1` | (see git log) |
+| `005d826` | (see git log) |
+| `e76962e` | (see git log) |
+| `41da6fe` | (see git log) |
+| `ed2a737` | (see git log) |
+
+### Testing
+
+- [OK] pnpm run ci（lint/typecheck/test/build）5/5 任务通过；api 344 passed + 1 skipped（门控并发用例）/ web 103 / shared 99 / database 6 / ai-sdk 16 全绿；prettier format:check 通过；提示词逐字比对三例 VERBATIM-OK；seed 生产防护子进程测试（退出码 1 + stderr）+ 未误伤用例
+- [OK] Docker 镜像未实际构建（本环境无 Docker）——仅静态核对（COPY 路径存在、workspace 成员匹配、脚本名存在），已登记 PROJECT_STATUS 风险
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 真实库并发测试首次配置 fairy_test/Neon branch 并跑通（确认 5/15 分流断言）
+- 首次部署前在有 Docker 的环境构建两镜像并冒烟 /health 与 web SPA
+- classifyIntent 历史注入绕过 token 预算裁剪（上轮遗留，已登记风险）
+- 存量 dev 库 seed 时验证 user@fairy.local 已迁 role=agent
+- 提交均在本地 chore/reliability-fixes，未推送（需负责人指示）

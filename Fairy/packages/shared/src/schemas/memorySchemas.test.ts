@@ -103,8 +103,7 @@ describe("memoryExtractionSchema", () => {
       }).success,
     ).toBe(false);
     expect(
-      memoryExtractionSchema.safeParse({ memories: [{ kind: "fact", content: "" }] })
-        .success,
+      memoryExtractionSchema.safeParse({ memories: [{ kind: "fact", content: "" }] }).success,
     ).toBe(false);
   });
 
@@ -281,9 +280,7 @@ describe("memoryUpdateSchema", () => {
   it("accepts kind and/or content", () => {
     expect(memoryUpdateSchema.safeParse({ kind: "intent" }).success).toBe(true);
     expect(memoryUpdateSchema.safeParse({ content: "新内容" }).success).toBe(true);
-    expect(
-      memoryUpdateSchema.safeParse({ kind: "fact", content: "新内容" }).success,
-    ).toBe(true);
+    expect(memoryUpdateSchema.safeParse({ kind: "fact", content: "新内容" }).success).toBe(true);
   });
 
   it("rejects an empty body or empty content", () => {
@@ -393,4 +390,3 @@ describe("memorySelfListFeedSchema", () => {
     ).toBe(true);
   });
 });
-

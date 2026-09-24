@@ -44,3 +44,6 @@ Thumbs.db
 *.zip
 *.tar.gz
 *.rar
+
+# 智能体本地配置与计划（ZCode 生成，非项目资产）
+.zcode/

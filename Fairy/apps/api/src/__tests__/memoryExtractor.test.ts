@@ -41,8 +41,8 @@ describe("memoryExtractor.extractMemories", () => {
             { kind: "preference", content: "喜欢科幻片" },
             { kind: "intent", content: "想周末去杭州玩" },
           ],
-        })
-      )
+        }),
+      ),
     );
 
     const memories = await extractMemories("我喜欢科幻片", "好的，记下了～");
@@ -54,7 +54,7 @@ describe("memoryExtractor.extractMemories", () => {
     expect(llmClient.tryChat).toHaveBeenCalledWith(
       "agent.memory",
       expect.any(Array),
-      expect.objectContaining({ temperature: 0.2 })
+      expect.objectContaining({ temperature: 0.2 }),
     );
   });
 
@@ -95,8 +95,8 @@ describe("memoryExtractor.extractAndStoreMemories", () => {
             { kind: "preference", content: "喜欢科幻片" },
             { kind: "fact", content: "家住上海" },
           ],
-        })
-      )
+        }),
+      ),
     );
     vi.mocked(memoryService.addMemory).mockResolvedValue({
       id: "550e8400-e29b-41d4-a716-446655440000",
@@ -138,7 +138,7 @@ describe("memoryExtractor.extractAndStoreMemories", () => {
         profileId: PROFILE_ID,
         userMessage: "我喜欢科幻片",
         replyText: "好的",
-      })
+      }),
     ).resolves.toBeUndefined();
 
     expect(memoryService.addMemory).not.toHaveBeenCalled();
@@ -146,7 +146,7 @@ describe("memoryExtractor.extractAndStoreMemories", () => {
 
   it("swallows a database write failure", async () => {
     vi.mocked(llmClient.tryChat).mockResolvedValue(
-      llmResult(JSON.stringify({ memories: [{ kind: "fact", content: "家住上海" }] }))
+      llmResult(JSON.stringify({ memories: [{ kind: "fact", content: "家住上海" }] })),
     );
     vi.mocked(memoryService.addMemory).mockRejectedValue(new Error("db down"));
 
@@ -155,7 +155,7 @@ describe("memoryExtractor.extractAndStoreMemories", () => {
         profileId: PROFILE_ID,
         userMessage: "我家在上海",
         replyText: "好的",
-      })
+      }),
     ).resolves.toBeUndefined();
 
     expect(profileService.mergeLikeGenres).not.toHaveBeenCalled();
@@ -173,8 +173,8 @@ describe("memoryExtractor writeback to likeGenres (FU-18)", () => {
         JSON.stringify({
           genres: ["科幻", "动作"],
           memories: [{ kind: "preference", content: "喜欢科幻片" }],
-        })
-      )
+        }),
+      ),
     );
     vi.mocked(memoryService.addMemory).mockResolvedValue({
       id: "550e8400-e29b-41d4-a716-446655440000",
@@ -194,10 +194,7 @@ describe("memoryExtractor writeback to likeGenres (FU-18)", () => {
     });
 
     expect(memoryService.addMemory).toHaveBeenCalledTimes(1);
-    expect(profileService.mergeLikeGenres).toHaveBeenCalledWith(PROFILE_ID, [
-      "科幻",
-      "动作",
-    ]);
+    expect(profileService.mergeLikeGenres).toHaveBeenCalledWith(PROFILE_ID, ["科幻", "动作"]);
   });
 
   it("does not write back when the turn stored no preference memory", async () => {
@@ -206,8 +203,8 @@ describe("memoryExtractor writeback to likeGenres (FU-18)", () => {
         JSON.stringify({
           genres: ["科幻"],
           memories: [{ kind: "fact", content: "家住上海" }],
-        })
-      )
+        }),
+      ),
     );
     vi.mocked(memoryService.addMemory).mockResolvedValue({
       id: "550e8400-e29b-41d4-a716-446655440000",
@@ -231,9 +228,7 @@ describe("memoryExtractor writeback to likeGenres (FU-18)", () => {
 
   it("does not write back when no genre candidates were produced", async () => {
     vi.mocked(llmClient.tryChat).mockResolvedValue(
-      llmResult(
-        JSON.stringify({ memories: [{ kind: "preference", content: "喜欢科幻片" }] })
-      )
+      llmResult(JSON.stringify({ memories: [{ kind: "preference", content: "喜欢科幻片" }] })),
     );
     vi.mocked(memoryService.addMemory).mockResolvedValue({
       id: "550e8400-e29b-41d4-a716-446655440000",
@@ -260,8 +255,8 @@ describe("memoryExtractor writeback to likeGenres (FU-18)", () => {
         JSON.stringify({
           genres: ["科幻"],
           memories: [{ kind: "preference", content: "喜欢科幻片" }],
-        })
-      )
+        }),
+      ),
     );
     vi.mocked(memoryService.addMemory).mockRejectedValue(new Error("db down"));
 
@@ -270,7 +265,7 @@ describe("memoryExtractor writeback to likeGenres (FU-18)", () => {
         profileId: PROFILE_ID,
         userMessage: "我喜欢科幻片",
         replyText: "好的",
-      })
+      }),
     ).resolves.toBeUndefined();
 
     expect(profileService.mergeLikeGenres).not.toHaveBeenCalled();
@@ -285,8 +280,8 @@ describe("memoryExtractor writeback to likeGenres (FU-18)", () => {
             { kind: "preference", content: "喜欢科幻片" },
             { kind: "fact", content: "家住上海" },
           ],
-        })
-      )
+        }),
+      ),
     );
     vi.mocked(memoryService.addMemory).mockResolvedValue({
       id: "550e8400-e29b-41d4-a716-446655440000",
@@ -304,7 +299,7 @@ describe("memoryExtractor writeback to likeGenres (FU-18)", () => {
         profileId: PROFILE_ID,
         userMessage: "我喜欢科幻片",
         replyText: "好的",
-      })
+      }),
     ).resolves.toBeUndefined();
 
     expect(memoryService.addMemory).toHaveBeenCalledTimes(2);

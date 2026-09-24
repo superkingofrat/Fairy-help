@@ -27,7 +27,7 @@ describe("LoginPage", () => {
     render(
       <MemoryRouter>
         <LoginPage />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     fireEvent.change(screen.getByLabelText("邮箱"), { target: { value: "user@fairy.local" } });
@@ -48,7 +48,7 @@ describe("LoginPage", () => {
     render(
       <MemoryRouter>
         <LoginPage />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     fireEvent.change(screen.getByLabelText("邮箱"), { target: { value: "user@fairy.local" } });

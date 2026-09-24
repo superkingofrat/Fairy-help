@@ -16,6 +16,7 @@ import {
   searchMovies,
   updateMovie,
 } from "../../lib/movieApi";
+import { localizedErrorMessage } from "../../lib/errorMessages";
 import { t, type Messages } from "../../lib/i18n";
 
 interface MovieFormState {
@@ -126,7 +127,7 @@ export function MoviesAdminPage(): JSX.Element {
 
   const isSearchActive = useMemo(
     () => Boolean(keyword.trim() || filterMood || filterScene),
-    [filterMood, filterScene, keyword]
+    [filterMood, filterScene, keyword],
   );
 
   const loadMovies = useCallback(async () => {
@@ -144,7 +145,7 @@ export function MoviesAdminPage(): JSX.Element {
 
       setMovies(result.items);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : t("movies.error.load"));
+      setError(localizedErrorMessage(loadError, t, "movies.error.load"));
       setMovies([]);
     } finally {
       setLoading(false);
@@ -196,7 +197,7 @@ export function MoviesAdminPage(): JSX.Element {
       closeModal();
       await loadMovies();
     } catch (submitError) {
-      setFormError(submitError instanceof Error ? submitError.message : t("movies.error.save"));
+      setFormError(localizedErrorMessage(submitError, t, "movies.error.save"));
     }
   }
 
@@ -212,7 +213,7 @@ export function MoviesAdminPage(): JSX.Element {
       setDeleteTarget(null);
       await loadMovies();
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : t("movies.error.delete"));
+      setError(localizedErrorMessage(deleteError, t, "movies.error.delete"));
     }
   }
 

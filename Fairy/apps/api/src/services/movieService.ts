@@ -1,4 +1,8 @@
-import type { Movie as PrismaMovie, Mood as PrismaMood, Scene as PrismaScene } from "@fairy/database";
+import type {
+  Movie as PrismaMovie,
+  Mood as PrismaMood,
+  Scene as PrismaScene,
+} from "@fairy/database";
 import { prisma } from "@fairy/database";
 import {
   MOODS,
@@ -79,7 +83,7 @@ function toPrismaScenes(scenes: Scene[]): PrismaScene[] {
 function buildPagination(
   page: number,
   limit: number,
-  total: number
+  total: number,
 ): PaginatedMovies["pagination"] {
   return {
     page,
@@ -157,10 +161,7 @@ export async function searchMovies(query: SearchMoviesQuery): Promise<PaginatedM
   };
 }
 
-export async function listMoviesForRecommend(
-  moods: Mood[],
-  scenes: Scene[]
-): Promise<Movie[]> {
+export async function listMoviesForRecommend(moods: Mood[], scenes: Scene[]): Promise<Movie[]> {
   const prismaMoods = toPrismaMoods(moods);
   const prismaScenes = toPrismaScenes(scenes);
   const tagFilters = [
@@ -189,9 +190,7 @@ export async function listMoviesForTitleMatch(): Promise<Pick<Movie, "id" | "tit
   return records;
 }
 
-export async function listMoviesByIds(
-  ids: string[]
-): Promise<Array<Pick<Movie, "id" | "title">>> {
+export async function listMoviesByIds(ids: string[]): Promise<Array<Pick<Movie, "id" | "title">>> {
   const unique = [...new Set(ids.filter((id) => id.length > 0))];
   if (unique.length === 0) {
     return [];
@@ -228,10 +227,7 @@ export async function createMovie(input: CreateMovieInput): Promise<Movie> {
   return toMovie(record);
 }
 
-export async function updateMovie(
-  id: string,
-  input: UpdateMovieInput
-): Promise<Movie | null> {
+export async function updateMovie(id: string, input: UpdateMovieInput): Promise<Movie | null> {
   const existing = await prisma.movie.findUnique({ where: { id } });
   if (!existing) {
     return null;

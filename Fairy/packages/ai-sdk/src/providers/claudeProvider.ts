@@ -49,8 +49,9 @@ export function createClaudeProvider(config: ClaudeConfig): AiProvider {
   const buildSignal = (): { signal: AbortSignal; cleanup: () => void } => {
     const controller = new AbortController();
     const timer = setTimeout(
-      () => controller.abort(new AiProviderError("TIMEOUT", "claude", "Provider request timed out")),
-      config.timeoutMs
+      () =>
+        controller.abort(new AiProviderError("TIMEOUT", "claude", "Provider request timed out")),
+      config.timeoutMs,
     );
     return { signal: controller.signal, cleanup: () => clearTimeout(timer) };
   };
@@ -58,7 +59,7 @@ export function createClaudeProvider(config: ClaudeConfig): AiProvider {
   const postJson = async (
     path: string,
     body: Record<string, unknown>,
-    signal: AbortSignal
+    signal: AbortSignal,
   ): Promise<Response> => {
     const fetchImpl = config.fetchImpl ?? fetch;
     let response: Response;
@@ -80,7 +81,11 @@ export function createClaudeProvider(config: ClaudeConfig): AiProvider {
       if (error instanceof Error && error.name === "AbortError") {
         throw new AiProviderError("TIMEOUT", "claude", "Provider request timed out");
       }
-      throw new AiProviderError("PARSE", "claude", "Provider request failed before a response arrived");
+      throw new AiProviderError(
+        "PARSE",
+        "claude",
+        "Provider request failed before a response arrived",
+      );
     }
 
     if (response.status === 429) {
@@ -114,7 +119,7 @@ export function createClaudeProvider(config: ClaudeConfig): AiProvider {
             ...(system ? { system } : {}),
             messages,
           },
-          signal
+          signal,
         );
 
         let payload: Record<string, unknown>;
@@ -171,7 +176,7 @@ export function createClaudeProvider(config: ClaudeConfig): AiProvider {
             ...(system ? { system } : {}),
             messages,
           },
-          signal
+          signal,
         );
 
         if (!response.body) {
@@ -225,7 +230,7 @@ export function createClaudeProvider(config: ClaudeConfig): AiProvider {
       throw new AiProviderError(
         "EMBED_UNSUPPORTED",
         "claude",
-        "This provider has no embeddings API"
+        "This provider has no embeddings API",
       );
     },
   };

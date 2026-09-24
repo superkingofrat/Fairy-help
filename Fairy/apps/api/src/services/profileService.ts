@@ -52,11 +52,10 @@ export async function listUsersWithProfiles(): Promise<ProfileListItem[]> {
 }
 
 export type CreateProfileResult =
-  | { ok: true; profile: Profile }
-  | { ok: false; code: "USER_NOT_FOUND" | "PROFILE_ALREADY_EXISTS" };
+  { ok: true; profile: Profile } | { ok: false; code: "USER_NOT_FOUND" | "PROFILE_ALREADY_EXISTS" };
 
 export async function createForExistingUser(
-  input: CreateProfileInput
+  input: CreateProfileInput,
 ): Promise<CreateProfileResult> {
   const user = await prisma.user.findUnique({
     where: { id: input.userId },
@@ -96,7 +95,7 @@ export async function createForExistingUser(
 
 export async function updateByUserId(
   userId: string,
-  input: UpdateProfileInput
+  input: UpdateProfileInput,
 ): Promise<Profile | null> {
   try {
     const record = await prisma.profile.update({
@@ -107,9 +106,7 @@ export async function updateByUserId(
         ...(input.styleTags !== undefined ? { styleTags: input.styleTags } : {}),
         ...(input.likeGenres !== undefined ? { likeGenres: input.likeGenres } : {}),
         ...(input.avoidFood !== undefined ? { avoidFood: input.avoidFood } : {}),
-        ...(input.dietPreference !== undefined
-          ? { dietPreference: input.dietPreference }
-          : {}),
+        ...(input.dietPreference !== undefined ? { dietPreference: input.dietPreference } : {}),
         ...(input.travelStyle !== undefined ? { travelStyle: input.travelStyle } : {}),
       },
     });

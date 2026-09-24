@@ -4,7 +4,7 @@ import { getStoreInsightsOverview } from "../services/insightService";
 export async function getInsightsOverviewHandler(
   _req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   try {
     const data = await getStoreInsightsOverview();

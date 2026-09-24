@@ -1,0 +1,20 @@
+# 依赖与构建产物：镜像内会重新 install 与 build，本机 node_modules/dist 不进上下文
+**/node_modules
+**/dist
+**/.turbo
+
+# 版本库、CI 与本地工具链元数据
+.git
+.github
+.trellis
+.vscode
+
+# 密钥与本地配置：只留本地，镜像通过 docker run -e 或编排层注入，不进构建上下文
+**/.env
+**/.env.*
+
+# 文档、日志与覆盖率产物
+docs
+*.md
+coverage
+**/*.log
