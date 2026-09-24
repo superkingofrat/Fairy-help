@@ -120,16 +120,31 @@ describe("trimHistoryToBudget", () => {
     expect(trimHistoryToBudget("用户：hello", hugeMemory)).toBe("");
   });
 
-  it("trims history from the tail when over budget", () => {
-    const result = trimHistoryToBudget(longHistory, shortMemory);
-    // memory is ~20 tokens, budget 4000, so only a fraction of 10k chars history survives
-    expect(result.length).toBeLessThan(longHistory.length);
-    // trimmed result should be non-empty when budget > memory
-    expect(result.length).toBeGreaterThan(0);
+  it("keeps the newest turns and drops the oldest when over budget", () => {
+    const oldest = "用户：" + "旧".repeat(15000);
+    const newest = "用户：最新一轮问库存\nFairy：剩 3 盘";
+    const result = trimHistoryToBudget(`${oldest}\n${newest}`, shortMemory);
+    expect(result).toContain("最新一轮问库存");
+    expect(result).toContain("剩 3 盘");
+    expect(result).not.toContain("旧旧");
   });
 
-  it("keeps history intact when memory block is empty", () => {
-    const result = trimHistoryToBudget(longHistory, "");
+  it("never starts the kept history mid-turn", () => {
+    // 裁剪点必然落在长行中间：结果须从完整的下一行开始
+    const history = "用户：" + "A".repeat(20000) + "\nFairy：" + "B".repeat(200);
+    const result = trimHistoryToBudget(history, "");
+    expect(result).toBe("Fairy：" + "B".repeat(200));
+  });
+
+  it("stays within the token budget after trimming", () => {
+    const result = trimHistoryToBudget(longHistory, shortMemory);
     expect(result.length).toBeLessThan(longHistory.length);
+    expect(Math.ceil(result.length / 3.5)).toBeLessThanOrEqual(4000);
+  });
+
+  it("still bounds a single-line history with no turn boundary", () => {
+    const result = trimHistoryToBudget("x".repeat(30000), "");
+    expect(result.length).toBeGreaterThan(0);
+    expect(Math.ceil(result.length / 3.5)).toBeLessThanOrEqual(4000);
   });
 });

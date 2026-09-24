@@ -2,7 +2,7 @@ import type { MemoryRecord } from "@fairy/shared";
 import { stripControlChars } from "./sanitize";
 
 // FU-14：会话历史与记忆注入的格式化。
-// prompt token 预算：记忆优先级高于历史，超预算时只裁剪历史尾部。
+// prompt token 预算：记忆优先级高于历史，超预算时只裁历史最旧轮次（保留最新轮次）。
 
 const MAX_PROMPT_TOKENS = 4000;
 // 单条不可信原文上限：与请求体 message 上限对齐（纵深防御，历史入库时已被 schema 截断）
@@ -14,7 +14,8 @@ function estimateTokens(text: string): number {
   return Math.ceil(text.length / 3.5);
 }
 
-// 裁剪历史使 prompt 不超出预算：记忆不裁剪，只从历史尾部截断。
+// 裁剪历史使 prompt 不超出预算：记忆不裁剪；历史按「旧→新」排布，
+// 超预算时从头部丢弃最旧轮次，保留与当前轮次最相关的最新轮次。
 export function trimHistoryToBudget(historyText: string, memoryBlock: string): string {
   const memoryTokens = estimateTokens(memoryBlock);
   const budget = MAX_PROMPT_TOKENS - memoryTokens;
@@ -26,24 +27,27 @@ export function trimHistoryToBudget(historyText: string, memoryBlock: string): s
   if (totalTokens <= budget) {
     return historyText;
   }
-  // 二分查找最大不超过 budget 的前缀长度
+  // 二分查找可从头部丢弃的最小字符数（保留的后缀不超过 budget，且尽量长）
   let lo = 0;
   let hi = historyText.length;
   while (lo < hi) {
-    const mid = Math.floor((lo + hi + 1) / 2);
-    if (estimateTokens(historyText.slice(0, mid)) <= budget) {
-      lo = mid;
+    const mid = Math.floor((lo + hi) / 2);
+    if (estimateTokens(historyText.slice(mid)) <= budget) {
+      hi = mid;
     } else {
-      hi = mid - 1;
+      lo = mid + 1;
     }
   }
-  const trimmed = historyText.slice(0, lo);
-  // 保留最后一条完整 turn（避免截断最后一条消息的半句话）
-  const lastNewline = trimmed.lastIndexOf("\n");
-  if (lastNewline > 0) {
-    return trimmed.slice(0, lastNewline);
+  const kept = historyText.slice(lo);
+  // 丢弃点可能落在某条 turn 中间：裁掉不完整的首行，只保留完整 turn
+  const cutInsideTurn = lo > 0 && historyText[lo - 1] !== "\n";
+  if (cutInsideTurn) {
+    const firstNewline = kept.indexOf("\n");
+    if (firstNewline >= 0) {
+      return kept.slice(firstNewline + 1);
+    }
   }
-  return trimmed;
+  return kept;
 }
 
 export interface HistoryTurn {
