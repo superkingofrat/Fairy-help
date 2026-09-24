@@ -1,6 +1,6 @@
 # FU-10 账号体系闭环：注册 / 登录限速 / refresh token
 
-- 状态：approved
+- 状态：implemented（已交付并归档；真机验收与归档记录见 PROJECT_STATUS.md Completed Modules）
 - 日期：2026-09-01
 - 负责人：Flores
 - OpenSpec 提案：[fu-10-account-closure](../../openspec/changes/fu-10-account-closure/)

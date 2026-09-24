@@ -1,6 +1,6 @@
 # FU-13 旅行规划（第一期：对话行程生成）
 
-- 状态：approved（2026-09-01，用户批准，OpenSpec 轨）
+- 状态：implemented（已交付并归档；真机验收与归档记录见 PROJECT_STATUS.md Completed Modules；提案已归档见 `openspec/changes/archive/2026-09-01-travel-planning/`）
 - 日期：2026-09-01
 - 负责人：Flores
 - 前置：ARCHITECTURE.md 已含完整设计蓝图（§4.2 意图枚举 `plan_trip`、`planTripTool`/`amapClient` 职责、§5.x 流程）；API_CONTRACT 已列 `POST /api/trips` 为未来端点

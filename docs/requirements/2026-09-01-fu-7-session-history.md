@@ -1,7 +1,7 @@
 # FU-7 Session 表与对话历史回放
 
 **Date:** 2026-09-01（grill-me 收敛：2026-09-01；批准：2026-09-01）
-**Status:** approved
+**Status:** implemented（已交付并归档；真机验收与归档记录见 PROJECT_STATUS.md Completed Modules）
 **Complexity:** medium（跨 db + shared + api + web，新增公共 API → OpenSpec 轨）
 
 ## Goal

@@ -1,7 +1,7 @@
 # FU-8 一键归还 UI（含 rentals 查询端点）
 
 **Date:** 2026-08-29（grill-me 收敛：2026-09-01；批准：2026-09-01）
-**Status:** approved
+**Status:** implemented（已交付并归档；真机验收与归档记录见 PROJECT_STATUS.md Completed Modules）
 **Complexity:** moderate
 
 ## Goal

@@ -1,7 +1,7 @@
 # FU-2 真实 LLM 替换规则意图与模板回复
 
 **Date:** 2026-08-29
-**Status:** approved
+**Status:** implemented（已交付并归档；真机验收与归档记录见 PROJECT_STATUS.md Completed Modules）
 **Complexity:** complex
 
 ## Goal

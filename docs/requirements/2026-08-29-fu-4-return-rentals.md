@@ -1,7 +1,7 @@
 # FU-4 归还：回补库存与还片意图（聊天文本）
 
 **Date:** 2026-08-29
-**Status:** approved
+**Status:** implemented（已交付并归档；真机验收与归档记录见 PROJECT_STATUS.md Completed Modules）
 **Complexity:** moderate
 
 ## Goal

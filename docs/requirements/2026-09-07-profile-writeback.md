@@ -1,6 +1,6 @@
 # 需求：FU-18 画像反向回写 —— 偏好记忆自动沉淀 likeGenres（记忆中心五期）
 
-> 状态：**approved**（2026-09-07，用户批准，OpenSpec 轨；同日交付并归档，提案见 ../../openspec/changes/archive/2026-09-07-profile-writeback/proposal.md，验收细节见 PROJECT_STATUS）· 日期：2026-09-07 · 负责人：Flores
+> 状态：**implemented**（2026-09-07，用户批准，OpenSpec 轨；同日交付并归档，提案见 ../../openspec/changes/archive/2026-09-07-profile-writeback/proposal.md，验收细节见 PROJECT_STATUS）· 日期：2026-09-07 · 负责人：Flores
 > 轨道：OpenSpec（跨 memory + profile 两模块与 LLM 提示词链路；**无新公共 API 端点、无 DB schema/迁移**——`Profile.likeGenres` 已存在）
 > 前置：FU-14 记忆抽取、FU-15 记忆管理面、FU-16 向量检索、FU-17 自查入口均已交付归档；FU-15 明确把「画像反向回写」列为非目标，本需求承接该缺口。
 

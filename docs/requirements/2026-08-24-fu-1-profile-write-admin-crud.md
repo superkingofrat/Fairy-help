@@ -1,7 +1,7 @@
 # FU-1 画像写接口与管理 CRUD
 
 **Date:** 2026-08-24
-**Status:** approved
+**Status:** implemented（已交付并归档；真机验收与归档记录见 PROJECT_STATUS.md Completed Modules）
 **Complexity:** complex
 
 ## Goal
