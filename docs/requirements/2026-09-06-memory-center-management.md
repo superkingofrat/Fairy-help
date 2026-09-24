@@ -1,6 +1,6 @@
 # 需求：Memory-Center 二期——记忆管理面（admin REST 记忆端点 + 管理页）
 
-> 状态：**approved**（2026-09-06，用户批准，OpenSpec 轨）· 日期：2026-09-06 · 负责人：Flores · 编号：FU-15
+> 状态：**implemented**（2026-09-06，用户批准，OpenSpec 轨；同日交付并归档，提案见 [2026-09-06-memory-center-management](../../openspec/changes/archive/2026-09-06-memory-center-management/proposal.md)，验收细节见 PROJECT_STATUS）· 日期：2026-09-06 · 负责人：Flores · 编号：FU-15
 > 前置：FU-14 已交付（`Memory` 模型 + 每轮 LLM 抽取落库 + 检索注入，见 [2026-09-01-memory-center.md](./2026-09-01-memory-center.md)）。
 
 ## 背景 / 问题

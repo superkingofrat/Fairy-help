@@ -1,9 +1,9 @@
 # FU-11 Store Insights 运营看板（第一期：管理端）
 
-- 状态：approved
+- 状态：implemented（已交付并归档；真机验收与归档记录见 PROJECT_STATUS.md Completed Modules）
 - 日期：2026-09-01
 - 负责人：Flores
-- OpenSpec 提案：[fu-11-store-insights](../../openspec/changes/fu-11-store-insights/)
+- OpenSpec 提案：[fu-11-store-insights](../../openspec/changes/archive/2026-09-01-fu-11-store-insights/)
 
 ## 背景 / 问题
 

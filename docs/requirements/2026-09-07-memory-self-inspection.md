@@ -1,6 +1,6 @@
 # 需求：FU-17 记忆自查入口 —— 会话页「Fairy 记住了什么」面板（记忆中心四期）
 
-> 状态：**approved**（2026-09-07，用户批准，OpenSpec 轨；同日交付并归档，提案见 ../../openspec/changes/archive/2026-09-07-memory-self-inspection/proposal.md，验收细节见 PROJECT_STATUS）· 日期：2026-09-07 · 负责人：Flores
+> 状态：**implemented**（2026-09-07，用户批准，OpenSpec 轨；同日交付并归档，提案见 ../../openspec/changes/archive/2026-09-07-memory-self-inspection/proposal.md，验收细节见 PROJECT_STATUS）· 日期：2026-09-07 · 负责人：Flores
 > 轨道：OpenSpec（新增公共 API 端点 `GET /api/memories/me`——改 `API_CONTRACT.md`；跨 api + web + shared；**无 DB schema/迁移**）
 > 前置：FU-14 记忆中心一期、FU-15 记忆管理面、FU-16 pgvector 向量检索均已交付归档；FU-15 明确把「user-facing self-inspection」列为非目标，本需求承接该缺口。
 

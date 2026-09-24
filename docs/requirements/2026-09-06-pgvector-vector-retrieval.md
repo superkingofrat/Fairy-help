@@ -1,6 +1,6 @@
 # 需求：FU-16 pgvector 记忆向量检索（记忆中心三期）
 
-> 状态：**approved**（2026-09-06，用户批准，OpenSpec 轨；2026-09-06 交付并归档，提案见 [2026-09-06-pgvector-vector-retrieval](../../openspec/changes/archive/2026-09-06-pgvector-vector-retrieval/proposal.md)。注：配 key 后的真实 embed 端到端验收待负责人补跑，见 PROJECT_STATUS Risks）· 日期：2026-09-06 · 负责人：Flores
+> 状态：**implemented**（2026-09-06，用户批准，OpenSpec 轨；2026-09-06 交付并归档，提案见 [2026-09-06-pgvector-vector-retrieval](../../openspec/changes/archive/2026-09-06-pgvector-vector-retrieval/proposal.md)。注：配 key 后的真实 embed 端到端验收待负责人补跑，见 PROJECT_STATUS Risks）· 日期：2026-09-06 · 负责人：Flores
 > 轨道：OpenSpec（跨 db + ai-sdk + api 服务层，改 `ARCHITECTURE.md` 数据流，新增环境变量；无公共 API 契约变更）
 > 前置：FU-14 记忆中心一期（结构化记忆落库与检索注入）、FU-15 记忆管理面（admin REST + 管理页）均已交付归档。
 

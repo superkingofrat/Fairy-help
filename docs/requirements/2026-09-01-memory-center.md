@@ -1,6 +1,6 @@
 # 需求：Memory-Center 记忆中心（第一期：结构化记忆落库与检索注入）
 
-> 状态：**approved**（2026-09-01，用户批准，OpenSpec 轨；2026-09-06 交付并归档）· 日期：2026-09-01 · 负责人：Flores
+> 状态：**implemented**（2026-09-01，用户批准，OpenSpec 轨；2026-09-06 交付并归档）· 日期：2026-09-01 · 负责人：Flores
 > 轨道：OpenSpec（提案已归档，见 `openspec/changes/archive/2026-09-01-memory-center/`）· 关联技术债：`TODO(memory-center)`（`apps/api/src/agent/contextBuilder.ts`，FU-14 已替换完成）。
 
 ## 背景 / 问题

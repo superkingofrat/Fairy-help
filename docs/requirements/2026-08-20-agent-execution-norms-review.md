@@ -1,7 +1,7 @@
 # AI 执行规范与脊柱文档对齐复盘
 
 **Date:** 2026-08-20
-**Status:** approved
+**Status:** implemented（已交付并归档；真机验收与归档记录见 PROJECT_STATUS.md Completed Modules）
 **Complexity:** complex
 
 ## Goal

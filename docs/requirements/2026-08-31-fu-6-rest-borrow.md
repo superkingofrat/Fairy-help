@@ -1,7 +1,7 @@
 # FU-6 REST `POST /api/borrow`
 
 **Date:** 2026-08-31
-**Status:** approved
+**Status:** implemented（已交付并归档；真机验收与归档记录见 PROJECT_STATUS.md Completed Modules）
 **Complexity:** simple
 
 ## Goal
