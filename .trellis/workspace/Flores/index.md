@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 26
-- **Last Active**: 2026-09-23
+- **Total Sessions**: 27
+- **Last Active**: 2026-09-24
 <!-- @@@/auto:current-status -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 27 | 2026-09-24 | 路线图执行：PR 合并门禁落地 + CI 两处工程缺陷修复 + token 预算 P1 修复（裁剪方向偏差）+ 需求 Status 治理 + 两份候选需求登记（journal: `2026-09-24-roadmap-execution.md`） | `1e3078a`, `9da2420`, `ff954d5`, `7e618c5`, `0586726`, `a042494`, `767fb99` | `fix/intent-history-token-budget` + `docs/*` |
 | 26 | 2026-09-23 | 主动运营建议（阈值异常 + 每日经营日报 + 管理端建议流）：OpenSpec 全闭环归档，验收期修复 reasoning 模型预算截断 | `85700c1`, `6caccfd`, `4fc6ad1`, `11ceef1`, `6aa39e7` | `feature/travel-planning-phase-2` |
 | 25 | 2026-09-23 | 旅行规划二期（FU-19）：REST 行程端点复用 planTripTool + /trips 页 + Amap JS 地图叠加，OpenSpec 全闭环归档 | `2a9da18`, `756c52f`, `261ac00`, `4c41058` | `feature/travel-planning-phase-2` |
 | 24 | 2026-09-22 | 部署落地批次（批次 7）：容器化、部署清单、真实库并发集成测试、文档补全 | `40bfd4e`, `f814ea9`, `9bc90a3`, `0c0e3d1`, `005d826`, `e76962e`, `41da6fe`, `ed2a737` | `chore/reliability-fixes` |
