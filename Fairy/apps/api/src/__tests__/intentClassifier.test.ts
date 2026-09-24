@@ -78,6 +78,20 @@ describe("classifyIntent with LLM", () => {
     expect(prompt).not.toContain("对话历史：\n");
   });
 
+  it("bounds the injected history under the token budget, keeping the newest turns", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(
+      llmResult('{"intent":"chitchat","movieTitle":null,"moods":[],"scenes":[]}'),
+    );
+
+    const oldest = "用户：" + "旧".repeat(20000);
+    const newest = "用户：最新一轮在问库存";
+    await classifyIntent({ message: "没什么，随便聊聊", history: `${oldest}\n${newest}` });
+
+    const prompt = vi.mocked(llmClient.tryChat).mock.calls[0][1][1].content;
+    expect(prompt).toContain("最新一轮在问库存");
+    expect(prompt).not.toContain("旧".repeat(100));
+  });
+
   it("resolves a borrow intent by title through title match", async () => {
     vi.mocked(llmClient.tryChat).mockResolvedValue(
       llmResult('{"intent":"borrow","movieTitle":"千与千寻"}'),

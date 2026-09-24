@@ -20,7 +20,7 @@
 
 - `apps/api/src/agent/contextBuilder.ts`：
   - 导出 `estimateTokens(text)`：粗略估算（英文 4 字符/token、中文 1.5 字符/token，或简单 `Math.ceil(text.length / 4)`）
-  - `buildConversationHistory` + `buildMemoryBlock` 组合后超出 `MAX_PROMPT_TOKENS`（默认 4000）时，从历史尾部裁剪
+  - `buildConversationHistory` + `buildMemoryBlock` 组合后超出 `MAX_PROMPT_TOKENS`（默认 4000）时，从历史头部丢弃最旧轮次（2026-09-24 勘误：原稿「从历史尾部裁剪」与下一条「保留最新 N 条」自相矛盾，经 §13.3 流程按下条为准修正）
   - 记忆不裁剪（记忆是主动选择的结果，比历史更重要）；历史裁剪时保留最新 N 条
 - `apps/api/src/agent/stateLoop.ts`：调用 `contextBuilder` 前传入 `MAX_PROMPT_TOKENS` 常量
 - 测试：contextBuilder 超限时历史被裁剪、记忆保留；短上下文不裁剪
