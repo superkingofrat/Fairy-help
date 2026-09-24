@@ -28,6 +28,8 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
+          # defaults.run.working-directory 不作用于 action；缓存的锁文件哈希需显式指向 Fairy/ 子目录
+          cache-dependency-path: Fairy/pnpm-lock.yaml
 
       # 测试全部 mock 外部依赖，无需数据库与 AI 密钥
       - run: pnpm install --frozen-lockfile
