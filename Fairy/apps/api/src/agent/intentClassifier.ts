@@ -9,7 +9,7 @@ import {
 } from "@fairy/shared";
 import * as movieService from "../services/movieService";
 import { sanitizeUserInput, tryChat } from "./llmClient";
-import { wrapUntrustedSpan } from "./contextBuilder";
+import { trimHistoryToBudget, wrapUntrustedSpan } from "./contextBuilder";
 
 export type ChatIntent =
   | { type: "borrow"; movieId: string }
@@ -92,7 +92,11 @@ async function classifyIntentWithLlm(
     return null;
   }
 
-  const historySpan = history ? `${wrapUntrustedSpan("对话历史", history)}\n` : "";
+  // 意图分类与合成路径同样受 token 预算约束：stateLoop 的 synthesize 三路已裁剪历史，
+  // 此处补齐 classifyIntent 的注入路径（记忆未参与意图分类，budget 全额给历史）。
+  const historySpan = history
+    ? `${wrapUntrustedSpan("对话历史", trimHistoryToBudget(history, ""))}\n`
+    : "";
   const result = await tryChat(
     "agent.intent",
     [
