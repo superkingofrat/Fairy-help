@@ -33,6 +33,9 @@ jobs:
 
       # 测试全部 mock 外部依赖，无需数据库与 AI 密钥
       - run: pnpm install --frozen-lockfile
+      # turbo 图的 build 只是 tsc 编译；Prisma client 的模型类型须显式生成，
+      # 否则 typecheck 拿到未生成的 @prisma/client 桩类型（Memory/Movie/Prisma.Sql 全缺）
+      - run: pnpm --filter=@fairy/database generate
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
