@@ -5,6 +5,8 @@ import { chatErrorMessage } from "../../lib/errorMessages";
 import { t } from "../../lib/i18n";
 import { createSession, getSessionMessages, listSessions } from "../../lib/sessionApi";
 import { useChatStore } from "../../stores/chatStore";
+import { FairyAvatar } from "../fairy/FairyAvatar";
+import { useFairyExpression } from "../fairy/useFairyExpression";
 import { MemorySelfPanel } from "./MemorySelfPanel";
 import { MessageStream } from "./MessageStream";
 import { RecommendationCard } from "./RecommendationCard";
@@ -59,10 +61,12 @@ export function ChatPage(): JSX.Element {
   );
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [showMemories, setShowMemories] = useState(false);
+  const [streaming, setStreaming] = useState(false);
 
   const activeRentals = useChatStore((state) => state.activeRentals);
   const refreshRentals = useChatStore((state) => state.refreshRentals);
   const removeActiveRental = useChatStore((state) => state.removeActiveRental);
+  const { expression: fairyExpression, celebrate } = useFairyExpression({ busy, streaming });
 
   useEffect(() => {
     void refreshRentals();
@@ -139,6 +143,7 @@ export function ChatPage(): JSX.Element {
   }): Promise<void> {
     setBusy(true);
     setError(null);
+    setStreaming(false);
     const fairyId = `fairy-${Date.now()}`;
     let fairyText = "";
     let cards: Movie[] = [];
@@ -169,6 +174,7 @@ export function ChatPage(): JSX.Element {
         if (event.event === "text") {
           const data = event.data as { content: string };
           fairyText += data.content;
+          setStreaming(true);
         }
         if (event.event === "recommendation") {
           const data = event.data as { items: Movie[] };
@@ -194,8 +200,9 @@ export function ChatPage(): JSX.Element {
             code: string;
           };
           if (data.success && data.rentalId) {
-            // 借阅成功：刷新活跃租赁列表，确保「我的借阅」条及时更新
+            // 借阅成功：刷新活跃租赁列表，确保「我的借阅」条及时更新；Fairy 短暂开心
             void refreshRentals();
+            celebrate();
           } else {
             // 借阅失败：刷新列表确保 isBorrowed 标记正确，并提示用户
             void refreshRentals();
@@ -236,6 +243,7 @@ export function ChatPage(): JSX.Element {
       setError(chatErrorMessage(caught, t));
     } finally {
       setBusy(false);
+      setStreaming(false);
       void refreshRentals();
     }
   }
@@ -297,7 +305,10 @@ export function ChatPage(): JSX.Element {
       </aside>
       <main className="flex min-w-0 flex-1 flex-col gap-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-800">{t("chat.title")}</h2>
+          <div className="flex items-center gap-3">
+            <FairyAvatar expression={fairyExpression} size="lg" />
+            <h2 className="text-lg font-semibold text-slate-800">{t("chat.title")}</h2>
+          </div>
           <button
             type="button"
             aria-expanded={showMemories}
@@ -341,9 +352,14 @@ export function ChatPage(): JSX.Element {
         <div className="flex flex-col gap-4">
           {messages.map((message) => (
             <div key={message.id} className="rounded-lg bg-white p-4 shadow-sm">
-              <p className="mb-2 text-xs uppercase text-slate-400">
-                {message.role === "user" ? t("chat.you") : t("app.title")}
-              </p>
+              <div className="mb-2 flex items-center gap-2">
+                {message.role === "fairy" ? (
+                  <FairyAvatar expression="idle" size="sm" decorative />
+                ) : null}
+                <p className="text-xs uppercase text-slate-400">
+                  {message.role === "user" ? t("chat.you") : t("app.title")}
+                </p>
+              </div>
               <MessageStream content={message.content} />
               {message.cards.length > 0 ? (
                 <div className="mt-3 grid gap-3">
