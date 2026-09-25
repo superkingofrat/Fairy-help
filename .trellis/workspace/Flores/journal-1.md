@@ -1180,3 +1180,82 @@ Session summary was not supplied.
 - classifyIntent 历史注入绕过 token 预算裁剪（上轮遗留，已登记风险）
 - 存量 dev 库 seed 时验证 user@fairy.local 已迁 role=agent
 - 提交均在本地 chore/reliability-fixes，未推送（需负责人指示）
+
+
+## Session 28: 演示用户种子数据：seed personas 46 名落地与验收
+
+**Date**: 2026-09-24
+**Task**: 演示用户种子数据：seed personas 46 名落地与验收
+**Branch**: `feature/travel-planning-phase-2`
+
+### Summary
+
+Trellis 轨 task 09-24-seed-persona-users 交付：seedData/personas.ts 46 条 + seed.ts 幂等编排，AC-1~AC-5 全过
+
+### Main Changes
+
+- 新增 packages/database/prisma/seedData/personas.ts：46 条 persona（slug/name/occupation/styleTags/likeGenres/avoidFood/dietPreference/travelStyle + 三愿记忆），与素材表同源逐字，头注释含来源/免责/复查口径
+- seed.ts 接入：bcrypt 一次复用 user123456；user email upsert → profile userId upsert → memories (profileId,kind,content) 查重后插；dev 账号与 movies 不变
+- 脊柱同步：PROJECT_STATUS Completed Modules/Next Steps/Last Updated、需求文档 implemented、requirements README 索引
+
+### Git Commits
+
+(No commits - planning session)
+
+### Testing
+
+- [OK] typecheck/lint/test 全过（含 seedGuard 6 例）；NODE_ENV=production 退出码 1；三次 seed 逐 persona 核验零问题、总数零增长；migrate:status 12 迁移无债；soldier11@fairy.local 登录 + profile 真机一致
+- [OK] 发现：dev 库总容 51/49/143 vs 设计 48/47/138，差额为既往验收残留（3 用户/2 档案/5 记忆），persona 增量逐条恰为 +46/+46/+138
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 如需干净演示环境：清理残留或重建库后跑 seed
+- 素材表 Excel 未入库（工作稿）；后续录入需求另出 §15.1 门禁
+
+## Session 29: Fairy 拟人化形象 + 经典台词进推荐链路：实现、真机验收与推送阻塞
+
+### Summary
+
+- 负责人 2026-09-24 批准两份 Trellis 轨候选需求（`fairy-avatar-expressions`、`quote-in-recommendation`）并指示「去网上找一下绝区零 Fairy 的形象」+「FU-16 放后面」。本会话完成：形象调研（fandom/HoYoWiki 被墙，用 biligame ZZZ WIKI + 萌娘百科）→ 需求文档定稿 → 两 task 实现 → 双 dev server 真机验收 → 脊柱同步 → 5 个本地提交。
+- **推送阻塞**：`git ls-remote origin` 两次均失败（Connection reset / 443 超时）——代理（梯子）未开启。origin/PR/CI/合并全部待网络恢复后执行；本地提交 `8262268`(web 头像) `ba40156`(api 台词) `0c96104`(web 卡片) `3447f4d`(docs 脊柱) `995bbe6`(docs PR 待办) 已在分支 `feat/fairy-avatar-expressions`。
+
+### Main Changes
+
+- **Fairy 头像**（仅 apps/web）：`components/fairy/` 新增 `FairyFace.tsx`（纯 SVG 自绘：青绿渐变发/蓝瞳/黑白女仆装/全息光环底座/半透明蝶翼，部件全 `data-part`）、`expressions.ts`（四态 + `deriveFairyExpression` 纯函数）、`useFairyExpression.ts`（celebrate 2s 窗口）、`usePrefersReducedMotion.ts`、`FairyAvatar.css`；`FairyAvatar.tsx` 从静态 emoji 重写为受控组件（role/aria-label i18n、decorative → aria-hidden）；ChatPage 接线（头部 lg 主形象 + Fairy 消息行 sm 装饰头像 + 借阅成功 celebrate）；zh-CN 补 4 键。
+- **台词链路**：`responseSynthesizer.ts` recommend 分支 `MAX_QUOTE_INJECTIONS=3` 注入 `《片名》台词：「…」` 事实行 + REPLY_SYSTEM_PROMPT 引用边界（"可只引用其中一句，不得改写或编造"）；降级模板带首部台词、全无台词时文案与改动前逐字一致；`RecommendationCard.tsx` 渲染台词斜体小字。
+- **验收记录**：`.trellis/tasks/09-25-*/acceptance.md`（两个 task 各一份，含证据表）。
+
+### Git Commits
+
+- `8262268` web: add the self-drawn Fairy avatar with expression switching
+- `ba40156` api: quote movie lines in recommendation replies
+- `0c96104` web: show quotes on recommendation cards
+- `3447f4d` docs: sync the spine for the Fairy avatar and quote features
+- `995bbe6` docs: record the pending pull request for the avatar and quote features
+
+### Testing
+
+- api 407 passed / 1 skipped（真实库门控并发用例）；web 152 passed；api/web/shared typecheck 全过；`pnpm lint` 8/8。
+- 真机（Neon 开发库 + 真实 DeepSeek，双 dev server）：表情链路 thinking(7ms)→speaking(8.1s)→idle(10.5s)、借阅 happy(10.9s)→idle(13.0s，窗口≈2.04s）；`GET /api/movies` 字段集合逐字不变；回复引用台词为零幻觉逐字子串；5 张卡片台词行渲染。
+
+### 踩坑与教训（下份会话直接受益）
+
+1. **IAB 后端的 Playwright click 会持续超时**：`getByRole("button")`/`locator("#chat-input")` 的 click 一律 3s 超时，`fill()` 也不进 React 受控状态（DOM 值设了但 React state 没更新，下一次渲染即被重置，表现为"输入被清空但消息没发出去"）。可用组合：原生 setter + `new Event("input", {bubbles:true})` 设置受控输入 + `btn.click()` 提交；`evaluate` 有 ~3s 上限，长轮询要在外层 JS 循环里逐次快照。
+2. **台词验收口径**：注入指令写了"可只引用其中一句"，真机 LLM 就会引用子串——按"整句包含"写验收脚本必然 0 命中。正确口径 = 引用跨度是库内台词的逐字子串 + 编造跨度为 0。
+3. **vitest jsdom 里读同目录 CSS**：`new URL(rel, import.meta.url)` 以 http://localhost:3000 为基底、`?raw` 导入被 stub 成空串；要用 `readFileSync(join(dirname(fileURLToPath(import.meta.url)), "X.css"))`。
+4. **web 端口**：vite 绑 ::1，`curl 127.0.0.1:5173` 必然失败——探活用 `curl localhost:5173`，否则会误判服务已死而重复启动（多开一个占用 5174 的实例）。
+5. **prettier 对脊柱文档**：`ARCHITECTURE.md`/`PROJECT_STATUS.md` 的表格本就不符合 prettier 对齐风格（HEAD 版即不过 check），且 CI 不跑 format:check——**不要对脊柱文档跑 `prettier --write`**（会把全表重排，diff 噪声淹没内容变更）；只改内容，CRLF 告警用 `--end-of-line auto` 消除。
+6. **并行会话共树**：种子用户数据会话的 `seed.ts`/`seedData/`/workspace journal 留在工作树，提交只 `git add` 自己的路径；两份私有 xlsx 始终不提交。
+
+### Status
+
+[OK] **Implementation + real-machine acceptance completed; push/PR/CI/merge blocked on network (proxy off)**
+
+### Next Steps
+
+- 负责人开启代理后：`git push -u origin feat/fairy-avatar-expressions` → 建 PR（正文引用两份需求文档 + Trellis 轨批准记录）→ CI 绿 → 合并 → 同步 master → `/trellis:finish-work` + 归档两 task
+- FU-16 真实 embed 验收（负责人配 `EMBEDDING_API_KEY` 后）
