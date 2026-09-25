@@ -32,10 +32,18 @@ export interface SynthesisContext {
   memories?: MemoryRecord[];
 }
 
-const REPLY_SYSTEM_PROMPT = `你是 Fairy，绳匠的全能管家，平时打理一家录像带门店，语气温暖自然，用中文回复，一到两句。客户的需求（借还影片、推荐、店况问数、规划行程等）你都能接住：行程已经规划好就直接大方呈现，绝不说"这不是我的专长"，绝不转而推荐影片。你只能使用【事实】中给出的信息；不得编造片名、库存数字或做出无法兑现的承诺；事实为空时自然回应，并引导用户说出心情、场景或想借的影片。`;
+const REPLY_SYSTEM_PROMPT = `你是 Fairy，绳匠的全能管家，平时打理一家录像带门店，语气温暖自然，用中文回复，一到两句。客户的需求（借还影片、推荐、店况问数、规划行程等）你都能接住：行程已经规划好就直接大方呈现，绝不说"这不是我的专长"，绝不转而推荐影片。你只能使用【事实】中给出的信息；不得编造片名、库存数字或做出无法兑现的承诺；事实为空时自然回应，并引导用户说出心情、场景或想借的影片。若【事实】中给出了影片台词，可原样引用其中一部分，不得改写或编造台词。`;
 
 function movieLine(movie: Movie): string {
   return `《${movie.title}》`;
+}
+
+// 台词注入上限：避免长推荐列表把 prompt 撑爆（需求待决问题 1 定稿）
+const MAX_QUOTE_INJECTIONS = 3;
+
+function movieQuote(movie: Movie): string | null {
+  const quote = movie.quote?.trim();
+  return quote ? quote : null;
 }
 
 function profileLine(profile: Profile | null): string {
@@ -316,13 +324,26 @@ export async function synthesize(
     }
 
     const names = observation.movies.map(movieLine).join("、");
-    const template = `为你找到这些可借的片子：${names}。点卡片就能借阅。`;
+    const quotable = observation.movies
+      .map((movie) => ({ movie, quote: movieQuote(movie) }))
+      .filter((entry): entry is { movie: Movie; quote: string } => entry.quote !== null)
+      .slice(0, MAX_QUOTE_INJECTIONS);
+    const template =
+      quotable.length > 0
+        ? `为你找到这些可借的片子：${names}。点卡片就能借阅。「${quotable[0].quote}」——《${quotable[0].movie.title}》`
+        : `为你找到这些可借的片子：${names}。点卡片就能借阅。`;
     const facts = `推荐了以下有库存的影片：${observation.movies
       .map(
         (movie) =>
           `${movie.title}（类型：${movie.genres.join("、") || "未标注"}，可借 ${movie.stock}）`,
       )
-      .join("；")}。`;
+      .join("；")}。${
+      quotable.length > 0
+        ? `台词原文：${quotable
+            .map((entry) => `《${entry.movie.title}》台词：「${entry.quote}」`)
+            .join("；")}。引用台词时请保持原文，可只引用其中一句，不得改写或编造。`
+        : ""
+    }`;
     const text = (await reply(facts)) ?? template;
     return {
       texts: [{ content: text }],
