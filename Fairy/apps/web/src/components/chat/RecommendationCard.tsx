@@ -17,6 +17,7 @@ export function RecommendationCard({
   disabled,
 }: RecommendationCardProps): JSX.Element {
   const borrowed = isBorrowed && onReturn !== undefined;
+  const quote = movie.quote?.trim() || null;
 
   return (
     <article className="rounded border border-slate-200 bg-white p-4">
@@ -24,6 +25,11 @@ export function RecommendationCard({
       <p className="mt-1 text-sm text-slate-600">
         {movie.year} · {movie.mood.join(" / ")} · {t("chat.stock")}: {movie.stock}
       </p>
+      {quote ? (
+        <p className="mt-2 border-l-2 border-indigo-200 pl-2 text-xs italic leading-relaxed text-slate-500">
+          「{quote}」
+        </p>
+      ) : null}
       {borrowed ? (
         <button
           type="button"

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ChatPage } from "../components/chat/ChatPage";
 import { RecommendationCard } from "../components/chat/RecommendationCard";
 import * as chatApi from "../lib/chatApi";
@@ -353,6 +353,154 @@ describe("ChatPage", () => {
   });
 });
 
+describe("ChatPage Fairy expression wiring", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(listRentals).mockResolvedValue([]);
+    vi.mocked(sessionApi.listSessions).mockResolvedValue([]);
+    vi.mocked(sessionApi.createSession).mockResolvedValue(sampleSession);
+    vi.mocked(sessionApi.getSessionMessages).mockResolvedValue([]);
+    vi.mocked(memoryApi.listMyMemories).mockResolvedValue({
+      items: [],
+      pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+    });
+  });
+
+  function typeAndSend(message: string): void {
+    fireEvent.change(screen.getByPlaceholderText("和 Fairy 说点什么吧..."), {
+      target: { value: message },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+  }
+
+  it("shows the header Fairy avatar on idle before any message", async () => {
+    render(<ChatPage />);
+
+    expect(await screen.findByLabelText("Fairy 待机中")).toBeDefined();
+  });
+
+  it("walks thinking → speaking → idle as the stream progresses", async () => {
+    let releaseSession!: () => void;
+    vi.mocked(sessionApi.createSession).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseSession = () => resolve(sampleSession);
+        }),
+    );
+    let releaseStream!: () => void;
+    vi.mocked(chatApi.postChat).mockImplementation(async (_body, onEvent) => {
+      onEvent({ event: "text", data: { content: "你好" } });
+      await new Promise<void>((resolve) => {
+        releaseStream = resolve;
+      });
+      onEvent({ event: "done", data: {} });
+    });
+
+    render(<ChatPage />);
+    typeAndSend("你好呀");
+
+    // 忙碌但还没有首个 token：思考
+    await waitFor(() => expect(screen.getByLabelText("Fairy 思考中")).toBeDefined());
+    releaseSession();
+    // 流式输出中：说话
+    await waitFor(() => expect(screen.getByLabelText("Fairy 正在回答")).toBeDefined());
+    releaseStream();
+    // 流结束：回待机
+    await waitFor(() => expect(screen.getByLabelText("Fairy 待机中")).toBeDefined());
+  });
+
+  it("celebrates briefly after a successful borrow and then returns to idle", async () => {
+    render(<ChatPage />);
+    await screen.findByPlaceholderText("和 Fairy 说点什么吧...");
+
+    vi.useFakeTimers();
+    try {
+      vi.mocked(chatApi.postChat).mockImplementation(async (_body, onEvent) => {
+        onEvent({
+          event: "borrow",
+          data: { success: true, remainingStock: 1, rentalId: "r1", code: "OK" },
+        });
+        onEvent({ event: "text", data: { content: "借好了" } });
+        onEvent({ event: "done", data: {} });
+      });
+
+      typeAndSend("借盗梦空间");
+      await act(async () => {});
+
+      expect(screen.getByLabelText("Fairy 心情很好")).toBeDefined();
+
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+      expect(screen.getByLabelText("Fairy 待机中")).toBeDefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not celebrate when the borrow fails", async () => {
+    vi.mocked(chatApi.postChat).mockImplementation(async (_body, onEvent) => {
+      onEvent({
+        event: "borrow",
+        data: { success: false, remainingStock: 0, rentalId: null, code: "OUT_OF_STOCK" },
+      });
+      onEvent({ event: "text", data: { content: "没库存了" } });
+      onEvent({ event: "done", data: {} });
+    });
+
+    render(<ChatPage />);
+    typeAndSend("借盗梦空间");
+
+    expect(await screen.findByText("该影片暂时缺货。")).toBeDefined();
+    expect(screen.getByLabelText("Fairy 待机中")).toBeDefined();
+  });
+
+  it("renders a decorative avatar next to fairy messages only", async () => {
+    vi.mocked(chatApi.postChat).mockImplementation(async (_body, onEvent) => {
+      onEvent({ event: "text", data: { content: "你好" } });
+      onEvent({ event: "done", data: {} });
+    });
+
+    render(<ChatPage />);
+    typeAndSend("你好呀");
+
+    expect(await screen.findByText("你好")).toBeDefined();
+    const decorative = screen.getAllByTestId("fairy-avatar-decorative");
+    expect(decorative.length).toBe(1);
+    expect(decorative[0].getAttribute("aria-hidden")).toBe("true");
+  });
+});
+
+describe("RecommendationCard quote display", () => {
+  it("shows the classic quote when the movie has one", () => {
+    render(
+      <RecommendationCard
+        movie={{ ...movie, quote: "不要回头，一直向前走。" }}
+        disabled={false}
+        onBorrow={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("「不要回头，一直向前走。」")).toBeDefined();
+  });
+
+  it("renders no quote line when the movie has none", () => {
+    const { container } = render(
+      <RecommendationCard movie={{ ...movie, quote: null }} disabled={false} onBorrow={vi.fn()} />,
+    );
+
+    expect(container.querySelectorAll("p.italic").length).toBe(0);
+  });
+
+  it("treats a blank quote as absent", () => {
+    const { container } = render(
+      <RecommendationCard movie={{ ...movie, quote: "   " }} disabled={false} onBorrow={vi.fn()} />,
+    );
+
+    expect(container.querySelectorAll("p.italic").length).toBe(0);
+  });
+});
+
 describe("RecommendationCard borrow/return toggle", () => {
   it("shows borrow for a movie that is not borrowed", () => {
     const onBorrow = vi.fn();
@@ -361,7 +509,6 @@ describe("RecommendationCard borrow/return toggle", () => {
     fireEvent.click(screen.getByRole("button", { name: "借阅" }));
     expect(onBorrow).toHaveBeenCalledWith(MOVIE_ID);
   });
-
   it("shows return for a borrowed movie and stays enabled at zero stock", () => {
     const onReturn = vi.fn();
     render(
