@@ -1,6 +1,6 @@
 # 需求：经典台词进入推荐链路（Fairy 对话引用台词）
 
-> 状态：**draft**（2026-09-24 grill-me 收敛，待用户批准；Trellis 轨）· 日期：2026-09-24 · 负责人：Flores
+> 状态：**approved**（2026-09-24 用户批准；Trellis 轨。批准前为 draft：2026-09-24 grill-me 收敛）· 日期：2026-09-24 · 负责人：Flores
 > 轨道：Trellis（主体单 `apps/api` 文件 + 可选 `apps/web` 展示；`Movie.quote` 已在 shared 类型与响应中存在，不改 `API_CONTRACT.md` 契约形状）
 > 前置：推荐链路已交付（`recommendMovieTool` + `responseSynthesizer` recommend 分支 + `RecommendationCard`）；`Movie.quote` 字段与管理端编辑已存在
 

@@ -662,6 +662,9 @@ interface AgentState {
 | 主动运营建议调度 = 进程内 setInterval，无外部 cron/queue（2026-09-23-proactive-ops-suggestions） | 触发与生成都在 API 进程内：`startScheduler()` 只挂在 `src/index.ts` server 入口（测试经 `createApp()` 不启动调度），1 分钟 tick 上跑两个判定——阈值周期（默认 15 分钟，启动即跑一次，冷启动不靠等整周期）与本地 08:00 日报（`getHours() >= 8` 且本进程今日未跑过）。不引 node-cron、不依赖系统 cron、不用 pg_cron：门店规模下一个定时轮询的成本远低于新增基础设施的运维面；SIGTERM/SIGINT 链上先 `stop()` 调度再 `server.close()`。**多实例下周期可能重复执行，但 `dedupeKey` 唯一索引保证不产生重复建议**（后到一方 P2002 按已存在跳过）——漏触发可接受，重复不可接受。 |
 | 建议去重以 `dedupeKey` 唯一索引为唯一事实来源，恢复即清理 | `OpsSuggestion.dedupeKey`（`LOW_STOCK:<movieId>` / `BORROW_RATIO:store` / `DORMANT:store` / `DAILY_REPORT:<本地日期>`）带唯一索引：同一异常在恢复前重复检测到只 create 一次（P2002 视为已存在）。阈值回落的建议由当轮周期 `deleteMany` 清理（活跃键集合之外的存量阈值键），异常重现即作为**全新建议**重新落库（新 `createdAt`、未读态）——「补货后再缺货」必须再次提醒，而不是被永久去重吞掉。日报按本地日去重，调度器与手动端点同一入口，天然同日幂等。 |
 | 建议正文 LLM 起草 + 失败降级模板摘要（延续 §0 降级哲学） | `generateSuggestion` 经统一 AI SDK `tryChat("agent.suggestion", …)`（maxTokens 3000 / temperature 0.4）起草，prompt 只含聚合快照 JSON 与影片名；供应商缺失/超时/报错/空输出一律回落到草稿自带的模板摘要正文（`buildThresholdDrafts`/`buildDailyDraft` 生成的 `summary`+`body`），建议照常落库、管理端无感知，任何路径不返回 500、不把 provider 响应负载写进日志（§5）。单行 `summary` 始终取模板措辞，作为去重语义的人工可读标签。**max_tokens 必须容纳 reasoning 消耗**：默认供应商 `deepseek-v4-flash` 是 reasoning 模型，思考与答案共用同一个 completion 预算，800/2000 都会把答案拦腰截断（`finish_reason=length`，content 为空或半句），实调 3000 可稳定收尾；此预算属实现细节而非契约，换非 reasoning 供应商只会更宽松。 |
+| Fairy 形象 = 纯 CSS/SVG 自绘，不提交官方素材（2026-09-25-fairy-avatar-expressions） | 需求定的形象依据（绝区零 Fairy：青绿短发+呆毛、蓝瞳、黑白女仆装+白色头饰、半透明蝶翼、全息光环底座、蓝白主色）以 `apps/web/src/components/fairy/FairyFace.tsx` 单文件 SVG 自绘还原（渐变 `fairy-hair` 青绿、`fairy-eye` 蓝、`fairy-wing`、`fairy-ring-glow`；光环/蝶翼/女裙/围裙/领结/眼睛/嘴/思考点/星芒均带 `data-part` 供测试锁定），**不使用也不提交任何 HoYoverse 原画/建模素材**——IP 风险由自绘消除；若需官方立绘须负责人另行明确指示并自负版权责任。零运行时依赖（无图片请求、无 framer-motion、无 Lottie），动效全部走 `FairyAvatar.css` keyframes。 |
+| 表情状态机在前端由 busy/streaming 纯函数推导（Fairy 头像） | `expressions.ts` 的 `deriveFairyExpression({busy, streaming, celebrating})` 是单一事实来源：celebrating > busy+streaming(speaking) > busy(thinking) > idle——派生而非在 ChatPage 里散落 if。`useFairyExpression` 管理 celebrate 的 2 秒窗口（`FAIRY_HAPPY_DURATION_MS`，setTimeout 卸载即清），happy 是瞬态而非持久状态；借阅成功 SSE 事件触发 celebrate。`prefers-reduced-motion` 由 `usePrefersReducedMotion`（matchMedia + change 监听）降级为 `fairy-avatar--static`（动画类整体不上 SVG，CSS 文件末尾的 reduce 媒体查询兜底双层保障）。头像尺寸 sm/md/lg（32/48/72px）+ `decorative` 模式（`aria-hidden`，用于 Fairy 消息行重复出现的小头像，避免屏幕阅读器重复播报）。 |
+| 台词注入 = 事实块逐行 ≤3 + 引用边界指令 + 降级同律（2026-09-25-quote-in-recommendation） | `responseSynthesizer` recommend 分支按序取前 3 部带 `quote` 影片（`MAX_QUOTE_INJECTIONS=3`，防 prompt 膨胀），以 `` 《片名》台词：「…」 `` 逐行注入【事实】块，`REPLY_SYSTEM_PROMPT` 同步加边界「可原样引用其中一部分，不得改写或编造台词」——防幻觉约束与事实同源注入（§5 可信事实块在不可信跨度之外不变）；`movieQuote()` trim 后空串视同无台词，无台词影片不注入、LLM 不可用时降级模板取第一部带台词影片拼 `…。「quote」——《title》」`、全部无台词时文案与改动前逐字一致（无空引号/空标签）；前端 `RecommendationCard` 渲染台词斜体小字（null/blank 不渲染不占布局）。`Movie.quote` 本就在 `GET /api/movies` 响应形状内——无契约变更、无 shared 改动。 |
 
 ---
 
@@ -671,7 +674,7 @@ interface AgentState {
 apps/web/src/
   components/
     chat/              # ChatPage（含会话侧栏）, MessageStream, RecommendationCard, TripTimeline, TripMap（FU-19 二期：行程地图叠加，TripTimeline 槽位）, MemorySelfPanel（FU-17 自查面板，ChatPage 内开关）
-    fairy/             # FairyAvatar, expressions
+    fairy/             # FairyAvatar（受控组件：expression/size/decorative）, FairyFace（纯 SVG 自绘形象，data-part 部件）, expressions（四态类型 + deriveFairyExpression 纯函数）, useFairyExpression（busy/streaming → 表情 + celebrate 2s 窗口）, usePrefersReducedMotion（reduced-motion 降级）, FairyAvatar.css（尺寸/float/blink/think/speak/flap/twinkle keyframes）
     trips/             # TripsPage（FU-19 二期：/trips 历史行程面——分页列表 + 详情 + 创建表单）
     admin/             # MoviesAdminPage, ProfilesAdminPage, BehaviorPage, InsightsAdminPage（FU-11 运营看板；内联 SuggestionFeed 运营建议流）, MemoryAdminPage（FU-15 记忆管理）
   lib/
@@ -700,7 +703,7 @@ apps/api/src/
     contextBuilder.ts  # FU-7：buildConversationHistory 历史注入；FU-14：buildMemoryBlock 记忆注入
     planner.ts          # FU-12：PlannedCall 新增 { tool: "insight"; topic }
     toolDispatcher.ts   # FU-12：kind "insight" observation + admin 门禁（role 参数）
-    responseSynthesizer.ts  # FU-12：按 topic 构造运营问数【事实】+ 非 admin 拒绝文案；FU-14：记忆注入 prompt
+    responseSynthesizer.ts  # FU-12：按 topic 构造运营问数【事实】+ 非 admin 拒绝文案；FU-14：记忆注入 prompt；2026-09-25-quote-in-recommendation：recommend 分支按 MAX_QUOTE_INJECTIONS=3 注入《片名》台词：「…」事实行 + 引用边界指令、降级模板带首部台词
   memory/
     memoryService.ts     # FU-14：addMemory 落库 + searchMemories 检索（profileId 隔离，限量）；FU-15：listMemories/create/update/delete admin 管理查询；FU-16：searchMemories 混合检索（query→cosine top-N+结构化补齐）、addMemory/createMemory 落库后实时 embed；FU-17：listOwnMemories（profileId 限定自查列表，不带 email）
     memoryExtractor.ts   # FU-14：LLM 抽取（agent.memory source，失败静默）+ 旁路落库入口；FU-18：同 JSON 产顶层 genres（≤3），本轮 ≥1 条 preference 落库且候选非空时旁路调 profileService.mergeLikeGenres（失败静默）

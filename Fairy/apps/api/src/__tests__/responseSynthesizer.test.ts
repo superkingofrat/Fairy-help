@@ -160,6 +160,88 @@ describe("synthesize with LLM reply", () => {
     expect(result.recommendation?.items).toEqual([sampleMovie]);
   });
 
+  it("injects movie quotes verbatim into the recommendation facts, capped at three", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(llmResult("看看这部吧"));
+    const withQuote = (title: string, quote: string): Movie => ({
+      ...sampleMovie,
+      id: `id-${title}`,
+      title,
+      quote,
+    });
+
+    await synthesize(
+      {
+        kind: "recommend",
+        movies: [
+          withQuote("海上钢琴师", "陆上的人喜欢寻根问底，虚度了大好光阴。"),
+          { ...sampleMovie, id: "no-quote", title: "无台词影片", quote: null },
+          withQuote("千与千寻", "不要回头，一直向前走。"),
+          withQuote("星际穿越", "我们仰望星空，也曾自问：人类的归宿在何方？"),
+          withQuote("楚门的世界", "如果不能再见到你，祝你早安、午安、晚安。"),
+        ],
+      },
+      context,
+    );
+
+    const userContent = vi.mocked(llmClient.tryChat).mock.calls[0][1][1].content;
+    expect(userContent).toContain("台词原文");
+    expect(userContent).toContain("《海上钢琴师》台词：「陆上的人喜欢寻根问底，虚度了大好光阴。」");
+    expect(userContent).toContain("《千与千寻》台词：「不要回头，一直向前走。」");
+    expect(userContent).toContain(
+      "《星际穿越》台词：「我们仰望星空，也曾自问：人类的归宿在何方？」",
+    );
+    // 上限 3 部：第四部只进列表不进台词；无台词影片不注入也不留空标签
+    expect(userContent).not.toContain("祝你早安、午安、晚安");
+    expect(userContent).not.toContain("无台词影片台词");
+    // 注入边界指令：可引用、保持原文、不得编造
+    expect(userContent).toContain("不得改写或编造");
+  });
+
+  it("keeps the quote-free facts and template identical to the pre-feature shape", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const result = await synthesize({ kind: "recommend", movies: [sampleMovie] }, context);
+
+    expect(result.texts[0].content).toBe("为你找到这些可借的片子：《星际穿越》。点卡片就能借阅。");
+
+    vi.mocked(llmClient.tryChat).mockResolvedValue(llmResult("好的"));
+    await synthesize({ kind: "recommend", movies: [sampleMovie] }, context);
+
+    const userContent = vi.mocked(llmClient.tryChat).mock.calls[1][1][1].content;
+    expect(userContent).not.toContain("台词");
+    expect(userContent).not.toContain("「");
+  });
+
+  it("treats blank quotes as missing (no stray labels in the degraded template)", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const result = await synthesize(
+      { kind: "recommend", movies: [{ ...sampleMovie, quote: "   " }] },
+      context,
+    );
+
+    expect(result.texts[0].content).toBe("为你找到这些可借的片子：《星际穿越》。点卡片就能借阅。");
+  });
+
+  it("quotes the first quotable movie in the degraded template", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const result = await synthesize(
+      {
+        kind: "recommend",
+        movies: [
+          { ...sampleMovie, id: "no-quote", title: "无台词影片", quote: null },
+          { ...sampleMovie, id: "with-quote", title: "千与千寻", quote: "不要回头，一直向前走。" },
+        ],
+      },
+      context,
+    );
+
+    expect(result.texts[0].content).toBe(
+      "为你找到这些可借的片子：《无台词影片》、《千与千寻》。点卡片就能借阅。「不要回头，一直向前走。」——《千与千寻》",
+    );
+  });
+
   it("falls back to the template for empty recommend results", async () => {
     vi.mocked(llmClient.tryChat).mockResolvedValue(null);
 

@@ -1,0 +1,199 @@
+/* Fairy 拟人化形象：尺寸、表情类与动画。
+   设计特征（青绿短发+呆毛、蓝瞳、女仆头饰与黑白裙装、蝶翼、全息光环底座、蓝白主色）
+   见 docs/requirements/2026-09-24-fairy-avatar-expressions.md「形象设计依据」节。
+   动画为纯 CSS keyframes，零依赖；matchMedia 开关不生效的环境由末尾 media 兜底。 */
+
+.fairy-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.fairy-avatar--sm {
+  width: 32px;
+  height: 32px;
+}
+
+.fairy-avatar--md {
+  width: 48px;
+  height: 48px;
+}
+
+.fairy-avatar--lg {
+  width: 72px;
+  height: 72px;
+}
+
+.fairy-avatar-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* 静态模式（matchMedia 命中）：整体不挂动画类，仅保留表情形状差异 */
+.fairy-avatar--static .fairy-avatar-svg {
+  animation: none;
+}
+
+/* 待机/通用：整体呼吸浮动 */
+.fairy-float {
+  animation: fairy-float 3.6s ease-in-out infinite;
+}
+
+@keyframes fairy-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2.5px);
+  }
+}
+
+/* 全息底座辉光呼吸（所有表情共享，非静态模式） */
+.fairy-ring {
+  animation: fairy-ring-pulse 2.8s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes fairy-ring-pulse {
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* 眨眼：眼睑默认收起（scaleY 0），周期内闭合一帧 */
+.fairy-eyelid {
+  transform: scaleY(0);
+  transform-box: fill-box;
+  transform-origin: top center;
+}
+
+.fairy-blink .fairy-eyelid {
+  animation: fairy-blink 5s infinite;
+}
+
+@keyframes fairy-blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(0);
+  }
+  95% {
+    transform: scaleY(1);
+  }
+}
+
+/* 说话：嘴部开合 */
+.fairy-mouth {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.fairy-speak .fairy-mouth {
+  animation: fairy-speak 0.28s ease-in-out infinite alternate;
+}
+
+@keyframes fairy-speak {
+  from {
+    transform: scaleY(0.55);
+  }
+  to {
+    transform: scaleY(1.15);
+  }
+}
+
+/* 思考：头部微歪 + 头顶全息点点错峰流动 */
+.fairy-head-tilt {
+  transform: rotate(-6deg);
+  transform-box: fill-box;
+  transform-origin: 50% 90%;
+}
+
+.fairy-think-dot {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.fairy-think .fairy-think-dot {
+  animation: fairy-think 1.1s ease-in-out infinite;
+}
+
+.fairy-think .fairy-think-dot:nth-of-type(2) {
+  animation-delay: 0.18s;
+}
+
+.fairy-think .fairy-think-dot:nth-of-type(3) {
+  animation-delay: 0.36s;
+}
+
+@keyframes fairy-think {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-2.5px);
+  }
+}
+
+/* 开心：蝶翼轻扇 + 星光闪烁 */
+.fairy-wing {
+  transform-box: fill-box;
+  transform-origin: top center;
+}
+
+.fairy-happy .fairy-wing {
+  animation: fairy-flap 0.8s ease-in-out infinite;
+}
+
+@keyframes fairy-flap {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(0.82);
+  }
+}
+
+.fairy-sparkle {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.fairy-happy .fairy-sparkle {
+  animation: fairy-twinkle 1s ease-in-out infinite;
+}
+
+@keyframes fairy-twinkle {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* 兜底：系统偏好生效而 JS 开关未触发时，同样停止全部动画 */
+@media (prefers-reduced-motion: reduce) {
+  .fairy-float,
+  .fairy-ring,
+  .fairy-blink .fairy-eyelid,
+  .fairy-speak .fairy-mouth,
+  .fairy-think .fairy-think-dot,
+  .fairy-happy .fairy-wing,
+  .fairy-happy .fairy-sparkle {
+    animation: none;
+  }
+}
