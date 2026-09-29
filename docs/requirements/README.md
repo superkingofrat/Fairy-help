@@ -7,8 +7,8 @@ Status: `draft` = grill-me 收敛完成、待用户批准；`approved` = 需求�
 | Date | Feature | Status | Doc |
 |---|---|---|---|
 | 2026-09-24 | 演示用户种子数据（绝区零角色 → 46 名用户/画像/记忆） | implemented | [2026-09-24-seed-persona-users.md](./2026-09-24-seed-persona-users.md) |
-| 2026-09-24 | 经典台词进入推荐链路（Fairy 对话引用台词） | approved | [2026-09-24-quote-in-recommendation.md](./2026-09-24-quote-in-recommendation.md) |
-| 2026-09-24 | Fairy 拟人化形象：CSS 动画头像与表情切换 | approved | [2026-09-24-fairy-avatar-expressions.md](./2026-09-24-fairy-avatar-expressions.md) |
+| 2026-09-24 | 经典台词进入推荐链路（Fairy 对话引用台词） | implemented | [2026-09-24-quote-in-recommendation.md](./2026-09-24-quote-in-recommendation.md) |
+| 2026-09-24 | Fairy 拟人化形象：CSS 动画头像与表情切换 | implemented | [2026-09-24-fairy-avatar-expressions.md](./2026-09-24-fairy-avatar-expressions.md) |
 | 2026-09-23 | Fairy 主动生成运营建议（主动式运营洞察） | implemented | [2026-09-23-proactive-ops-suggestions.md](./2026-09-23-proactive-ops-suggestions.md) |
 | 2026-09-22 | 旅行规划二期：REST 行程端点 + 历史行程回放 + 高德地图叠加 | implemented | [2026-09-22-travel-planning-phase-2.md](./2026-09-22-travel-planning-phase-2.md) |
 | 2026-09-20 | 注册即建空白画像（新用户画像闭环） | implemented | [2026-09-20-register-create-blank-profile.md](./2026-09-20-register-create-blank-profile.md) |

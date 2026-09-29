@@ -1,6 +1,6 @@
 # 需求：Fairy 拟人化形象 —— CSS 动画头像与表情切换
 
-> 状态：**approved**（2026-09-24 用户批准；Trellis 轨。批准前为 draft：2026-09-24 grill-me 收敛）· 日期：2026-09-24 · 负责人：Flores
+> 状态：**implemented**（2026-09-24 用户批准 → Trellis task `09-25-fairy-avatar-expressions` → 2026-09-25 实现 + 真机验收通过，2026-09-26 经 PR #6/#7 合并 master；记录见 PROJECT_STATUS.md Completed Modules 2026-09-25 条目）· 日期：2026-09-24 · 负责人：Flores
 > 轨道：Trellis（仅 `apps/web` 单包；无新端点、无 schema 变更、不改 `API_CONTRACT.md` 公共契约、不改 `ARCHITECTURE.md` 模块边界——§9 已预先写明 `components/fairy/ # FairyAvatar, expressions`）
 > 前置：无（`components/fairy/FairyAvatar.tsx` 已存在但为静态占位，见背景）
 
