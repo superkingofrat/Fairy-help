@@ -1,5 +1,6 @@
-import { PrismaClient, Mood, Scene } from "@prisma/client";
+import { PrismaClient, MemoryKind, Mood, Scene } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { seedPersonas } from "./seedData/personas";
 
 const prisma = new PrismaClient();
 
@@ -144,6 +145,60 @@ async function main(): Promise<void> {
       travelStyle: null,
     },
   });
+
+  // 演示用户种子数据：绝区零角色（46 名，口径与来源见 personas.ts 头注释）。
+  // bcrypt 只算一次、全员复用同一开发口令；user 按 email upsert，
+  // profile 按 userId upsert，memories 按 (profileId, kind, content) 先查后插保证幂等。
+  const personaPasswordHash = bcrypt.hashSync(DEV_USER_PASSWORD, 10);
+
+  for (const persona of seedPersonas) {
+    const email = `${persona.slug}@fairy.local`;
+
+    const user = await prisma.user.upsert({
+      where: { email },
+      update: {},
+      create: { email, role: "user", passwordHash: personaPasswordHash },
+    });
+
+    await prisma.profile.upsert({
+      where: { userId: user.id },
+      update: {
+        name: persona.name,
+        styleTags: persona.styleTags,
+        likeGenres: persona.likeGenres,
+        avoidFood: persona.avoidFood,
+        dietPreference: persona.dietPreference,
+        travelStyle: persona.travelStyle,
+      },
+      create: {
+        userId: user.id,
+        name: persona.name,
+        avatarUrl: null,
+        styleTags: persona.styleTags,
+        likeGenres: persona.likeGenres,
+        avoidFood: persona.avoidFood,
+        dietPreference: persona.dietPreference,
+        travelStyle: persona.travelStyle,
+      },
+    });
+
+    const memoryEntries: ReadonlyArray<readonly [MemoryKind, string]> = [
+      [MemoryKind.PREFERENCE, persona.memories.preference],
+      [MemoryKind.FACT, persona.memories.fact],
+      [MemoryKind.INTENT, persona.memories.intent],
+    ];
+
+    for (const [kind, content] of memoryEntries) {
+      const existing = await prisma.memory.findFirst({
+        where: { profileId: user.id, kind, content },
+      });
+      if (!existing) {
+        await prisma.memory.create({
+          data: { profileId: user.id, kind, content },
+        });
+      }
+    }
+  }
 
   for (const movie of seedMovies) {
     await prisma.movie.upsert({
