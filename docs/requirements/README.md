@@ -6,6 +6,10 @@ Status: `draft` = grill-me 收敛完成、待用户批准；`approved` = 需求�
 
 | Date | Feature | Status | Doc |
 |---|---|---|---|
+| 2026-10-11 | 行程结果纳入同行人上下文（对话回复可归属偏好 + 回放可见同行人） | implemented（2026-10-11 提案批准 → Apply → 真机验收 AC-1~7 全过 → OpenSpec 归档 `2026-10-11-trip-companion-context`；未提交、未开 PR） | [2026-10-11-trip-companion-context.md](./2026-10-11-trip-companion-context.md) |
+| 2026-10-11 | 影片库影片详情查看（点击卡片打开详情） | implemented（2026-10-11 实现 + 单测 + 真机验收，Trellis task `10-11-movie-detail`；未提交、未开 PR） | [2026-10-11-movie-detail.md](./2026-10-11-movie-detail.md) |
+| 2026-10-10 | 影片库影片卡片封面展示（含 39 张绝区零海报落地） | implemented（2026-10-10 实现 + 单测 + 真机验收，Trellis task `10-10-movie-cover-display`；未提交、未开 PR） | [2026-10-10-movie-cover-display.md](./2026-10-10-movie-cover-display.md) |
+| 2026-10-10 | FU-20 行程规划同行人画像（对话行程纳入同行者人设） | implemented | [2026-10-10-trip-companion-profile.md](./2026-10-10-trip-companion-profile.md) |
 | 2026-09-24 | 演示用户种子数据（绝区零角色 → 46 名用户/画像/记忆） | implemented | [2026-09-24-seed-persona-users.md](./2026-09-24-seed-persona-users.md) |
 | 2026-09-24 | 经典台词进入推荐链路（Fairy 对话引用台词） | implemented | [2026-09-24-quote-in-recommendation.md](./2026-09-24-quote-in-recommendation.md) |
 | 2026-09-24 | Fairy 拟人化形象：CSS 动画头像与表情切换 | implemented | [2026-09-24-fairy-avatar-expressions.md](./2026-09-24-fairy-avatar-expressions.md) |

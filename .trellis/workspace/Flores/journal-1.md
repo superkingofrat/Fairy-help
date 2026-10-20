@@ -1259,3 +1259,489 @@ Trellis 轨 task 09-24-seed-persona-users 交付：seedData/personas.ts 46 条 +
 
 - 负责人开启代理后：`git push -u origin feat/fairy-avatar-expressions` → 建 PR（正文引用两份需求文档 + Trellis 轨批准记录）→ CI 绿 → 合并 → 同步 master → `/trellis:finish-work` + 归档两 task
 - FU-16 真实 embed 验收（负责人配 `EMBEDDING_API_KEY` 后）
+
+
+## Session 29: FU-20 行程规划同行人画像：同行人画像进入行程生成链路（Trellis 轨交付，未提交）
+
+**Date**: 2026-10-10
+**Task**: FU-20 行程规划同行人画像：同行人画像进入行程生成链路（Trellis 轨交付，未提交）
+**Branch**: `docs/sync-requirement-statuses`
+
+### Summary
+
+planTripTool 按 Profile.name 精确命中同行人并把其画像注入行程 prompt；零契约变更、零迁移、仅改 apps/api；真机验收通过。
+
+### Main Changes
+
+- profileService.listCompanionCandidates + planTripTool 同行人解析与 prompt 注入 + TRIP_PLANNED payload 增记 companionName/companionUserId
+
+### Git Commits
+
+(No commits - planning session)
+
+### Testing
+
+- [OK] planTripTool.test.ts +7 例；api 414 通过/1 跳过 + typecheck + lint 全绿；真机莱卡恩原话 payload 带 companionName
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 等负责人指示后提交/开 PR
+
+
+## Session 30: 影片库封面展示 + 绝区零影片数据导入（Trellis 轨交付，未提交）
+
+**Date**: 2026-10-10 / 2026-10-11
+**Task**: 影片库影片卡片封面展示（Trellis task `10-10-movie-cover-display`）+ 39 部绝区零影片导入 dev 库
+**Branch**: `docs/sync-requirement-statuses`
+
+### Summary
+
+封面资产收集 → `apps/web/public/covers/` 静态托管 + `coverUrl` 前导斜杠 + 无封面/onError 纯 CSS 占位降级；随后按负责人指示把 39 部绝区零影片导入 dev 库（seed 同库共存）。零契约变更、零 schema 迁移、零后端改动。
+
+### Main Changes
+
+- `apps/web/public/covers/` 39 张海报 PNG（182×292，约 4.6 MB，BWIKI CC BY-NC-SA 4.0）；`zzzMovies.ts` 的 `coverUrl` 由 `covers/<片名>.png` 改为 `/covers/<片名>.png`
+- `MovieCard.tsx`：封面 `<img loading="lazy" object-cover>`（h-44 置顶）+ alt i18n 含片名；`coverUrl` 为空或 `onError` 降级为纯 CSS 占位（渐变底 + 片名首字、`aria-hidden`、等高不错位）
+- `seed.ts`：影片循环 `[...seedMovies, ...zzzMovies]`（按 title upsert 幂等，沿用 production 拒绝守卫）；导入后 dev 库 47 部 = 39 绝区零 + 8 原有
+- 新建 `seedData/zzzMovies.ts` + `zzzMovies.README.md`（数据来源与字段口径）
+
+### Git Commits
+
+(No commits - awaiting owner instruction)
+
+### Testing
+
+- [OK] web 157 全绿（`MovieCard.test.tsx` 4 例 + `MovieLibraryPage.test.tsx` 补 1 例）+ typecheck + `pnpm lint`
+- [OK] database typecheck + seedGuard 6/6；复跑 seed 零增长（47/39/8、users 51/profiles 49/memories 159/rentals 10）
+- [OK] 真机：39 张封面 `naturalWidth>0` 全部加载、0 破图；第 4 页混排全部卡片等高 385px、媒体区 176px；`GET /api/movies` total=47、39 条 `/covers/...` 形态；39 个 PNG 逐一 HTTP 200
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 等负责人指示后提交/开 PR
+- dev 库验收残留影片 `123` 与 `海蒂和爷爷`（各带 1 笔租赁）删除与否待负责人决定（破坏性操作，牵涉租赁历史）
+- `seedData/covers/` 与 `apps/web/public/covers/` 存在 4.6 MB 重复副本，前者无任何代码引用（仅作需求文档中的复制来源记录），提交前需定去留
+
+
+## Session 31: 影片库影片详情查看（Trellis 轨交付，未提交）
+
+**Date**: 2026-10-11
+**Task**: 影片库影片详情查看（Trellis task `10-11-movie-detail`）
+**Branch**: `docs/sync-requirement-statuses`
+
+### Summary
+
+负责人在影片库点击影片卡片无反应。事实核查：`Movie` DTO 已含全部详情字段、`listMovies` 下发完整对象、`GET /movies/:id` 契约与实现均存在但 web 无消费方——缺口仅在前端界面。以模态框 + 列表数据零请求派生落地，详情内借阅与卡片同状态源。零请求、零路由、零契约/零 schema/零后端改动。
+
+### Main Changes
+
+- 新建 `MovieDetailModal.tsx`（`role="dialog"` + `aria-modal` + i18n aria-label、关闭按钮/遮罩/Esc 三种关闭、封面 onError 降级 CSS 占位、`max-h-[90vh]` 内滚）
+- `MovieLibraryPage.tsx`：`detailMovieId` state + `cardStateFor`；详情影片由当前 `movies` 按 id **派生**（借阅后库存实时更新）
+- `MovieCard.tsx`：可选 `onOpenDetail`，传入时封面+文字信息包真实 `<button>`；借阅按钮为兄弟节点（点借阅结构上不可能打开详情，无需 stopPropagation）
+- 新建 `borrowLabel.ts`（卡片/详情共用文案纯函数；规避 `react-refresh/only-export-components` 在 `--max-warnings 0` 下的 lint 失败，先例 `components/fairy/expressions.ts`）
+- i18n 补 `library.openDetail` + `library.detail.*` 6 键
+
+### Git Commits
+
+(No commits - awaiting owner instruction)
+
+### Testing
+
+- [OK] web 171 全绿（`MovieDetailModal.test.tsx` 10 例 + MovieCard +2 + MovieLibraryPage +2，既有零回归）+ typecheck + `pnpm lint` 8/8
+- [OK] `format:check` 全仓报 CRLF 属 `core.autocrlf=true` 既有环境现象（master 同样失败）；8 个改动文件经 prettier 逐字核对干净（修掉两处格式差异）
+- [OK] 真机（双 dev server + DOM/ARIA/`naturalWidth`）：卡片点击开详情、全字段、封面 182/292、无封面占位、三种关闭、列表状态不丢、详情内借阅 → 卡片+详情 2 个禁用「已借」+ 库存 2/4→1/4 同步；`git status` 核实仅 `apps/web` + 文档/task
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 等负责人指示后提交/开 PR（验收残留 1 笔 ACTIVE 租赁已在事务内删除、库存回补 1→2 并刷新复核）
+
+## Session 32: 行程规划草稿预算修复（P0 缺陷，§15.2）
+
+**Date**: 2026-10-11
+**Task**: 「泉州这趟没能排出来」根因排查与修复
+**Branch**: `docs/sync-requirement-statuses`
+
+### Summary
+
+负责人实测 agent 对泉州行程请求回复「没能把行程排出来…是古城里慢悠悠逛吃，还是去海边吹风」，询问是否为 agent 问题。根因：`planTripTool.draftTrip` 的 `maxTokens: 1200` 撞上 reasoning 模型的预算语义——deepseek-v4-flash 的**思考与正文共用同一个 completion 预算**，2 天行程的 JSON 正文（1300-2000 token）被拦腰截断，三次重试全废后整趟规划失败。消息含「泉州」+「玩」被 `hasDestinationByRules` 命中，故走 `TRIP_DRAFT_FAILED` 失败分支而非 `TRIP_UNRESOLVED` 追问分支；回复中的「古城」「海边」来自 `generateReply` 注入的对话历史，不是模型编造。按 §15.2 P0（阻塞已批准功能的验收）直接修复。
+
+### Main Changes
+
+- `apps/api/src/tools/planTripTool.ts`：`maxTokens: 1200` → `TRIP_DRAFT_MAX_TOKENS = 4000` 具名常量（注释记录实测用量 905/3399/1144 与「3500 仍有一轮连撞两次上限」的证据，说明为何不取 3500、以及「按实际 token 计费、提高上限不增加正常调用成本」）
+- 同文件 `TRIP_SYSTEM_PROMPT`：输出规格收紧为「每个 day 3-5 个步骤（至少 1 个）」「note 不超过 15 字」——原「3-8 个步骤」是正文超长的直接原因
+- `apps/api/src/__tests__/planTripTool.test.ts`：新增 2 例——预算下限断言（`>= 3000`）+ prompt 输出规格断言（含「3-5 个步骤」「不超过 15 字」且不得回退「3-8」）
+- `docs/prompts.md` §4：快照逐字同步（428/428 校验一致）+ 静默降级条目的 maxTokens 改为常量名 + 新增「预算与输出规格是配对约束」条目
+- `ARCHITECTURE.md` §8：新增决策行，固化为可复用约定——凡向 reasoning 模型要结构化长输出，先估正文 token、再定预算、再定输出规格，三者一起评审
+
+### Git Commits
+
+(No commits - awaiting owner instruction)
+
+### Testing
+
+- [OK] api 416 passed / 1 skipped（新增 2 例）+ api typecheck + `pnpm lint` 8/8
+- [OK] `docs/prompts.md` §4 快照与源码逐字一致（CRLF 归一化后 428 chars == 428 chars）
+- [OK] 真机复验：同一条消息实调三轮，4000 下三轮均首次尝试即完整收尾；3500 下一轮连撞两次上限（故定 4000）
+- [OK] DB 侧确认历史失败痕迹：`BehaviorLog` 中 `TRIP_DRAFT_FAILED` / `reason: "llm_draft_failed"` 对应「我周末要和莱卡恩出去泉州玩」
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 同类**第二次**踩坑：2026-09-23 `suggestionService` 已因同类截断修过一次。若后续再接新的结构化长输出调用（如推荐理由批量生成），先套本次固化的「估正文 → 定预算 → 定规格」约定，不要再靠事后调大数字
+- `ChatRequest` 无 `response_format: json_object` 支持，SDK 层无法从协议上根治，只能靠预算兜底；如需根治应作为独立需求提案（OpenSpec 轨）
+- 等负责人指示后提交/开 PR
+
+## Session 33: 行程回复丢失画像定制信息 + 偏好软约束修复（P1，§15.2）
+
+**Date**: 2026-10-11
+**Task**: 负责人反馈「行程回复看起来完全没有使用人物个性进行定制」
+**Branch**: `docs/sync-requirement-statuses`
+
+### Summary
+
+负责人贴出泉州行程回复，指出完全没有体现人物个性。事实核查结论与直觉相反：画像确实用上了——`day.title` 与 `step.note` 才是偏好唯一的落点（「三套备选已确认」来自同行人 travelStyle、「已备注餐具对齐」来自 dietPreference），`TripTimeline` 也一直渲染这两个字段。真正的问题是 `buildTripFacts` 只拼 `step.name` 就交给回复模型，定制信息在进模型前已被丢掉——呈现层丢失，不是生成层失败。另发现 prompt 把偏好写成「参考」导致模型只在 note 里承认偏好却不改选点，以及事实变长后原回复预算 300 会顶格截断。按 §15.2 P1（负责人已确认范围）修复，仅 apps/api + 文档，零契约零 schema。
+
+### Main Changes
+
+- `responseSynthesizer.ts`：`buildTripFacts` 的 `poiLine` 改为带 `「day.title」` 与 `poi（note）`（无 note 时不加括号，保持旧输出逐字兼容）；`facts` 追加指令「完整行程已在下方行程卡片中逐条展示，回复只需概括目的地与天数、点出其中体现偏好的安排，不要逐条罗列全部步骤；不得编造行程中不存在的偏好」；兜底 `template` 同步带 title/note
+- 同文件：新增 `DEFAULT_REPLY_MAX_TOKENS = 300` 与 `TRIP_REPLY_MAX_TOKENS = 600`，`generateReply` 增 `maxTokens` 参数（默认值保持原行为），`reply` helper 透传；只行程分支放宽，其他分支用量画像不变
+- `tools/planTripTool.ts`：`TRIP_SYSTEM_PROMPT` 的「参考…让行程贴合」改为「画像与同行人偏好是约束而非仅供参考…偏好要落实在选点上，note 只写时间/预约/排队等执行信息」
+- `__tests__/responseSynthesizer.test.ts`：新增 3 例（facts 带 title/note 且无空括号、指令含「不罗列/不编造」、行程预算 ≥600 且大于默认分支）+ 新增 `tripWithNotes` fixture（复刻真实泉州行程的两条画像衍生备注）
+- `__tests__/planTripTool.test.ts`：新增 1 例锁「是约束而非仅供参考」「偏好要落实在选点上」且不得回退「参考用户画像的旅行风格」
+- `docs/prompts.md`：§4 快照逐字同步 + 两条新要点（偏好是约束、回复层曾丢定制信息）；§2 补齐漏同步的台词引用末句（2026-09-25 功能遗留漂移）
+- `docs/tools.md`：行程段补约束/预算说明
+- `ARCHITECTURE.md` §8：修正 FU-20 行（偏好须为约束）+ 新增「行程回复须承载定制信息」决策行
+
+### Git Commits
+
+(No commits - awaiting owner instruction)
+
+### Testing
+
+- [OK] api 420 passed / 1 skipped（新增 4 例）+ typecheck + `pnpm lint` 8/8
+- [OK] `docs/prompts.md` 四个快照逐字校验 4/4 一致（CRLF 归一化后比较）
+- [OK] 预算实测：事实带备注后行程回复 137-274 token（13 轮）；300 下 1 轮顶格截断在半句，600 下 12 轮零截断；3 天压力场景 117-170 token
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 等负责人指示后提交/开 PR
+- 二层遗留（需 OpenSpec 轨，本次未做）：同行人画像仍未进回复链路——`tripResultSchema` 无同行人字段，`generateReply` 的 `profileLine` 只注入登录用户本人画像。要根治须改公共契约（chat SSE trip 事件 + tripDetailSchema）
+- `prompts.md` 快照漂移是第二次发现（上次 2026-09-25 台词句漏同步）。建议把「逐字校验四个快照」固化为改动提示词后的必跑步骤
+
+## Session 34: 行程结果纳入同行人上下文 —— 需求登记 + OpenSpec 提案（未写产品代码）
+
+**Date**: 2026-10-11
+**Task**: 负责人「继续」——为第二层（同行人画像进回复链路/行程结果）写 OpenSpec 提案
+**Branch**: `docs/sync-requirement-statuses`
+
+### Summary
+
+Session 33 修复了「行程回复只剩一串地名」的呈现层丢失，但留下**归属**缺口：回复知道「有偏好被落实了」，却不知道那是谁的偏好——`generateReply` 的 `profileLine` 只注入登录用户本人画像，回复里的人名只是模型从用户消息原文读到的，不是结构化事实。根因：同行人只活在 `planTripTool` 局部变量、`TRIP_PLANNED` 日志 payload 与 LLM 草稿里，`tripResultSchema` 无字段、`Trip` 表无列。派生三个一致性问题：REST 创建与对话创建不一致（`POST /api/trips` 复用同链路却丢掉同行人）、历史回放丢失、公共契约缺位。因要改公共契约，按 §15.1 走 OpenSpec 轨：本 session 只做需求文档 + 提案 + 登记，**未写任何产品代码**。
+
+### Main Changes
+
+- `docs/requirements/2026-10-11-trip-companion-context.md`（新建）：背景/问题、目标 5 条、范围、非目标 5 条、受影响模块表、验收标准 7 条、待决问题 3 项（均附推荐默认）
+- `openspec/changes/2026-10-11-trip-companion-context/`（新建 5 件）：`.openspec.yaml`、`proposal.md`、`design.md`、`tasks.md`、`specs/travel-planning/spec.md`（4 条 MODIFIED Requirements + 1 条新增「回复归属」Requirement）
+- `docs/requirements/README.md`：索引置顶一行（状态 draft）
+- `PROJECT_STATUS.md`：Next Steps 置顶一条 + Last Updated 新增一条
+
+### 关键设计定稿（design.md）
+
+1. `companion` 为**可空对象** `{ name, userId }`，不拆两个平级字段——否则会出现「有 name 无 userId」第三态，前端要写三态判断
+2. schema 用 `.nullable().default(null)`：**键缺失与显式 null 等价**。这是必需的兼容层而非语法糖——会话历史里 `trip` 事件是落库的旧 payload，`chatEventSchema`（discriminated union）含 `tripEventSchema`，裸 `.nullable()` 会让存量事件解析失败、旧行程回放直接坏掉。代价：`TripResult` 输出类型要求该键，约 11 处手写 fixture 需补 `companion: null`（typecheck 逐处指出，机械修改）
+3. `Trip` 两列可空、**不加外键**：同行人是规划时快照（画像名可能已改、persona 可能已删），加外键会在「级联删除抹掉历史事实」与「SetNull 静默变空」之间两难；`userId` 只作排查线索，不参与过滤/连接故不加索引
+4. 落库与行程写入**同一事务**（§0 数据一致性优先），不允许「行程在、同行人丢」的中间态；`TRIP_PLANNED` payload 保持不变
+5. 回复归属为**软约束**：「可把具体安排归属于该同行人」+「不得编造其未表达过的偏好」——REPLY_SYSTEM_PROMPT 已要求一到两句，硬性归属会逼出机械重复；末句是 §0 防幻觉落地（同行人偏好来自画像而非其本轮发言）
+6. 回填脚本从 `TRIP_PLANNED` payload 按 `tripId` 定位，只补两列皆空的行（选取条件即幂等保证），对齐 `backfill-memory-embeddings.ts` 先例；只有 name 无 userId 的旧记录跳过并单独计数
+7. SSE/REST 三条消费路径**零接线**：`toolDispatcher` 原样透传 `planTripTool` 的 data，`chat.ts` 原样 `writeSse`，契约一改两条路径同时生效
+
+### Git Commits
+
+(No commits - awaiting owner instruction)
+
+### Testing
+
+- [OK] 事实核查：读 `tripSchemas.ts` / `planTripTool.ts` / `tripService.ts` / `toolDispatcher.ts` / `chat.ts` / `TripTimeline.tsx` / `schema.prisma` / `API_CONTRACT.md` §3.15+§2 / 归档提案结构 / `backfill-memory-embeddings.ts`，提案中的每条代码事实均有出处
+- [OK] 存量 `trip` 事件无 `companion` 键会破坏回放——已通过读 `sessionSchemas.ts`（`chatEventSchema` 含 `tripEventSchema`）确认，并据此定稿 `.default(null)`
+- [N/A] 未运行测试/typecheck/lint：本 session 零产品代码改动（仅文档与 openspec 目录），无验证面
+
+### Status
+
+[OK] **Completed**（提案待负责人批准）
+
+### Next Steps
+
+- 等负责人批准提案；批准前**不写任何产品代码**（§15.1）
+- 批准后按 tasks.md 执行：shared → api → db 迁移+回填 → web → 文档脊柱 → 全量验证 → 真机验收（AC-1~7）→ `openspec archive`
+- 待决问题需负责人确认的推荐默认：Trip 不加外键、通用幂等回填脚本、软约束归属措辞
+- 既有未决事项仍待负责人：仓库根两份 xlsx、`Fairy/docs/functional-testing.md`、`packages/database/prisma/seedData/covers/` 重复目录、dev 库残留影片 `123` 与 `海蒂和爷爷` 删除（破坏性）
+- Session 30-33 的已交付改动仍未提交、未推送、未开 PR（等负责人指示）
+
+## Session 35: 行程结果纳入同行人上下文 —— Apply + 真机验收 + Archive（提案已批准）
+
+**Date**: 2026-10-11
+**Task**: 负责人「批准」OpenSpec 提案 `2026-10-11-trip-companion-context` → 按 tasks.md 执行 Apply → 全量验证 → 真机验收 → `openspec archive`
+**Branch**: `docs/sync-requirement-statuses`
+
+### Summary
+
+Session 34 只交付了需求文档与提案（零产品代码）。本 session 走完 OpenSpec 轨剩余全部环节：18 项 task 全完成、全量验证绿、真机验收 AC-1~AC-7 全过、提案归档。**未提交、未推送、未开 PR**（等负责人指示）。
+
+### Main Changes
+
+- `packages/shared/src/schemas/tripSchemas.ts`：新增 `tripCompanionSchema`（`name`/`userId` 均 min(1)）；`tripResultSchema.companion = tripCompanionSchema.nullable().default(null)`——**键缺失与显式 null 等价**（Session 34 定稿的兼容层）；导出 `TripCompanion` 类型
+- `apps/api/src/tools/planTripTool.ts`：`prisma.trip.create` 的 `data` 增 `companionName`/`companionUserId`（与行程写入同一事务）；返回 `companion: companion ? { name, userId } : null`（复用 FU-20 已算出的局部变量，不重解析）；`TRIP_PLANNED` payload 逐字不变
+- `apps/api/src/services/tripService.ts`：`getTripDetail` 投影 `companion: row.companionName && row.companionUserId ? {…} : null`（两列缺一即 null，不产半截对象）
+- `apps/api/src/agent/responseSynthesizer.ts`：`buildTripFacts` 在 facts 末段（既有「不得编造」句之后）追加软约束归属行；`template` 同步；无同行人时逐字一致
+- `packages/database/prisma/schema.prisma` + 迁移 `20261011212315_add_trip_companion`：`Trip` 增两列可空、无 relation/索引/onDelete（快照语义）
+- `packages/database/src/tripCompanionBackfill.ts`（新建）：`readCompanionFromPayload` 四态判定（companion / name-only / no-companion / malformed）+ `CompanionSnapshot` 类型
+- `scripts/backfill-trip-companions.ts`（新建）+ `packages/database/package.json` 增 `backfill:trip-companions`：分批扫 `TRIP_PLANNED` 且 payload 带 `companionName` 的日志，`updateMany where { id, companionName: null, companionUserId: null }` 原子 CAS 只补空行，逐条失败不中断，`failed/malformed > 0` 退出码 1
+- `apps/web/src/components/chat/TripTimeline.tsx` + `apps/web/src/locales/zh-CN.json`：`chat.trip.companion` = 「与 {name} 同行」，无同行人整节点不渲染
+- 脊柱：`API_CONTRACT.md` §3.15.1/§3.15.3/§3.7、`ARCHITECTURE.md` §5.3/§8/§9、`PROJECT_STATUS.md` 五节、需求文档与 README 索引 → implemented
+- `openspec/changes/2026-10-11-trip-companion-context/` → `openspec/changes/archive/`（18 项 task 全部勾选）
+
+### 关键实现决策（相对提案的落地细节）
+
+1. **`readCompanionFromPayload` 放 `packages/database/src/` 而非脚本内联**——与 `responseSynthesizer`/`sessionService` 等既有模式一致（只导出被 api 消费的符号，脚本不导），并有 6 例单测覆盖四态；脚本本身保持「只跑不导」
+2. **REST 创建路径永远拿不到同行人**：`tripService.composeMessage(destination, days)` 合成 `帮我规划${span}${destination}行程`，无人名 → `findCompanion` 不命中。这是 FU-19 既有设计（提案刻意未扩 REST 请求契约），非缺陷；AC-2 按「对话创建经详情回读到同行人 / REST 创建一致为 null」验收
+3. **兼容性证明只能在 schema 层做**：`getSessionMessages` 对 payload 是 `as ChatMessagePayload | null` 强转（不重新 parse），web `http.request` 同样只 cast——所以 API 与 web 都不解析存量事件。用临时 tsx 脚本对**全部 40 条真实存量 `trip` 事件**跑 `chatEventSchema.safeParse`：38 条无该键 → `companion: null`，2 条带键，零失败
+4. **回填 `noLog` 计数**：`countTripsWithoutRecoverableLog()` 统计两列皆空且无匹配日志的 Trip 行数（dev 库 39 条），让「补不回来」也有数字而非静默
+
+### Git Commits
+
+(No commits - awaiting owner instruction)
+
+### Testing
+
+- [OK] shared 123 / api 430（1 skip 为真实库门控并发用例）/ web 174 / database 12 全绿
+- [OK] shared/api/web/database 四包 typecheck + `pnpm lint` 8/8 + `pnpm run ci` 5/5
+- [OK] prettier：4 个文件（`planTripTool.ts`、`tripSchemas.test.ts`、`tripCompanionBackfill.test.ts`、`backfill-trip-companions.ts`）超 100 列换行，已 `--write` 修正并复检全绿；仓库根 5 份 markdown 被 prettier 标记为 master 上同样存在的既有现象（`.prettierrc` 只在 `Fairy/`，`format:check .` 不覆盖仓库根）
+- [OK] 回填 dev 库实测：首跑 scanned 6 / backfilled 5 / skipped 0 / missingTrip 1 / noLog 39 / failed 0；重跑 backfilled 0 / skipped 5（幂等）；5 行经逐条核验（4× 莱卡恩、1× 薇薇安），无半截填充
+- [OK] 真机验收（双 dev server + 浏览器，`user@fairy.local`，真实 DeepSeek）：
+  - AC-1「…我和莱卡恩两个人去两天」→ SSE `trip` 带 `companion {name,userId}`、回复「你和莱卡恩的节奏刚好」、浏览器对话卡片与 `/trips` 详情均渲染「共 2 天 · 与 莱卡恩 同行」
+  - AC-2 `POST /api/trips`（泉州/2天，消息无人名）→ `companion: null`；对话创建的同一行程经 `GET /api/trips/:id` 回读到同行人、DB 两列非空
+  - AC-3「就我自己」→ `companion: null`、回复无归属、UI 无同行人行
+  - AC-4 回填重跑零变化
+  - AC-5 40 条存量 `trip` 事件解析零失败；浏览器打开 1 天前的小明旧会话，卡片渲染「共 2 天」无同行人行
+  - AC-6/AC-7 由 shared 123 + 全量验证覆盖
+- [OK] 浏览器自动化注意：IAB 后端 Playwright `click()` 对会话侧栏按钮持续超时（`isVisible`/`isEnabled` 均 true），改用 `el.closest("button").click()` 原生 DOM 派发后链路全部正常——自动化工具限制，非产品缺陷（与 2026-09-25 记录同一模式）
+
+### Status
+
+[OK] **Completed**（提案已归档 `openspec/changes/archive/2026-10-11-trip-companion-context/`）
+
+### Next Steps
+
+- 等负责人指示后提交/开 PR（本 session 与前几个 session 的已交付改动均未提交）
+- 回填扫描到的 6 条带 `companionName` 的日志中有 1 条 `tripId` 指向已删 Trip（missingTrip 1），无法回收；不影响功能，仅回填少一行
+- 既有未决事项仍待负责人：仓库根两份 xlsx、`Fairy/docs/functional-testing.md`、`packages/database/prisma/seedData/covers/` 重复目录、dev 库残留影片 `123` 与 `海蒂和爷爷` 删除（破坏性）
+- 真机验收在 dev 库新增 2 条 Trip（泉州 22bb0d1e、杭州 e366cd14）与若干会话/记忆，属正常业务数据未清理
+
+## Session 36: 修复 pnpm 不在 PATH —— PowerShell 无法识别 pnpm 命令
+
+### Summary
+
+负责人在正确的目录 `E:\Fairy-help\Fairy` 下执行 `pnpm dev`，PowerShell 报 `CommandNotFoundException`（"无法将 pnpm 项识别为 cmdlet、函数、脚本文件或可运行程序的名称"）。定位为环境变量问题而非项目问题，经负责人批准后修复。
+
+### Main Changes
+
+- 用户级 PATH（`HKCU\Environment`）追加 `E:\nodejs\node_global`：原 5 项（含 `%PATH%` 用于引入机器级 PATH）→ 6 项，目标项唯一，`ExpandString` 类型与 `%...%` 占位符原样保留
+
+### 关键实现决策
+
+1. **根因**：`~/.npmrc` 设了 `prefix=E:\nodejs\node_global`，`npm i -g` 全部落在该目录（pnpm@11.5.1、@fission-ai/openspec@1.8.0、@mindfoldhq/trellis@0.6.15、codex、cnpm、skills），但该目录从未进入 PATH；Machine 与 User PATH 均只有 `E:\node.js\`（node/npm/npx/corepack）。所以 node 系命令都能用，唯独 pnpm 及同目录工具全部"无法识别"
+2. **先前误判更正**：早前判断"openspec CLI 未安装"是错的——它已安装，只是不在 PATH 上解析不到。这也是当时只能手动 `mv` 归档提案、而非 `openspec archive` 的原因
+3. **写注册表而非 `[Environment]::SetEnvironmentVariable`**：原值是 `REG_EXPAND_SZ`，故用 `RegistryKey.SetValue` 显式指定 `RegistryValueKind.ExpandString`，并以 `DoNotExpandEnvironmentNames` 读原文，避免把 `%JAVA_HOME%`、`%PATH%` 展开成字面量后写死
+4. **PowerShell 脚本传参改用 `-EncodedCommand`**：无 BOM 的 UTF-8 `.ps1` 被 Windows PowerShell 5.1 按 GBK 解析，中文乱码吞掉后续引号导致解析错误；base64(UTF-16LE) 传参彻底绕开编码问题，脚本内容同时改为纯 ASCII
+
+### Git Commits
+
+(No commits - environment-only change)
+
+### Testing
+
+- [OK] 按 Windows 真实合并规则（User PATH 中的 `%PATH%` 展开为 Machine PATH）重建 PATH 后验证：`pnpm` → `E:\nodejs\node_global\pnpm.ps1`，`pnpm -v` = 11.5.1 且退出码 0；openspec / trellis / codex / cnpm 一并解析成功；node / npm / npx / corepack 无回归
+- [OK] `pnpm dev` 干净端口实测：api `Fairy API listening on port 3000`、web `VITE v5.4.21 ready in 365 ms`；`GET /api/trips` → 401（预期未登录）、`/` 与 `/trips` → 200
+- [OK] 收尾可靠：端口 3000/5173 均已释放，残留 node 进程 0（注意 `pnpm dev &` 后 `$!` 拿到的是后台子 shell 的 PID，`kill` 它杀不掉 node 子进程；须按"启动前记录的 node PID 集合"差分清理）
+- [OK] 临时脚本与日志已删除，`.trellis/` 下无残留
+
+### Status
+
+[OK] **Completed**（对已开着的 PowerShell 不生效，需重开终端）
+
+### Next Steps
+
+- 建议在 `AGENTS.md` §9 补一条：pnpm / openspec / trellis / codex / cnpm 装在 `E:\nodejs\node_global`，该目录必须在 PATH 中，否则 PowerShell 报 `CommandNotFoundException`（脊柱文档，待负责人确认后再改）
+- 前几个 session 已交付的改动仍未提交、未开 PR
+
+---
+
+## Session 37: 行程偏好依据可追溯 —— 需求分析 + OpenSpec 提案（未写产品代码）
+
+### Summary
+
+负责人贴出 agent 生成的泉州两天行程回复（同行人莱卡恩），反馈「感觉还是没有个性化定制的感觉」，并要求分析原因。分析后负责人批准撰写 OpenSpec 提案。本会话完成根因定位、提案撰写与脊柱登记；**未写任何产品代码**。附带诊断负责人提出的另两个问题：对话/登录偶发 `Unexpected server error`、以及「行程规划栏为何对非管理账号可见」。
+
+### Main Changes
+
+- 新增 OpenSpec 提案目录 `openspec/changes/2026-10-16-trip-preference-traceability/`：`.openspec.yaml`、`proposal.md`（50 行）、`design.md`（61 行）、`tasks.md`（39 行 / 20 项未勾选任务分 6 组）、`specs/travel-planning/spec.md`（131 行 / 4 Requirements / 22 Scenarios，含 1 条 ADDED + 3 条 MODIFIED）
+- `PROJECT_STATUS.md`：Next Steps 新增 2 条（提案待批准、P1 门禁缺口）、Risks 的 Neon 冷启动条补 2026-10-16 复现记录、Last Updated 新增本条
+
+### 关键实现决策
+
+1. **根因是契约缺陷，不是 prompt 问题**。三条证据：（a）`tripPoiSchema` 无字段承载偏好依据；（b）`note` 自 2026-10-11 起被 prompt 收窄为「只写时间/预约/排队等执行信息」，偏好唯一可能的落点被**主动禁用**；（c）`buildTripFacts` 的同行人归属行是**无条件断言**「其偏好已体现在行程安排中」，恒真进【事实】块。关键洞察：2026-10-11 的两次修复（呈现层带 title/note + prompt 软约束）方向对但都在 prompt 层，而模型「不落实偏好」的根因是契约层没有承载位——所以回复产出「节奏和时段都照着莱卡恩的偏好来安排的」不是模型幻觉，是系统自己要求它这么说的，直接违反 AGENTS §0
+2. **D2 可空 + `.default(null)`，与 `companion` 同款兼容手法**：`preferenceBasis: z.string().nullable().default(null)` 使缺键与显式 null 等价，存量 40 条历史 `trip` 事件与存量 `Trip.itinerary` JSON 零迁移可解析。**否决 `z.string().nullish()`**：缺键会解析为 `undefined` 而非 `null`，`tripResultSchema.safeParse` 输出类型出现 `string | null | undefined`，前端判空要写两处。另确认 `Trip.itinerary` 本就是 Prisma `Json` 列，新增步骤键不需要迁移
+3. **D3 归属行改条件式**：仅当 itinerary 存在至少一个非空 `preferenceBasis` 时才输出断言句，否则只说明同行人是谁、不出现「已体现」。这是 AGENTS §0 在回复层的直接落地——给模型的事实本身不能是幻觉
+4. **D4 `preferenceBasis` 与 `note` 严格分工不合并**：明确不回到 2026-10-11 之前「把偏好写进 note」的老路（实测那时代码只在 note 里承认偏好却不改选点：料理标准极高配两天街头小吃、备注写「已备注餐具对齐」）
+5. **D5 prompt 给可执行规则但不建硬编码映射表**：在 `buildCompanionLine` 之后追加「落实要求」+ 少量通用翻译示例；否决在代码里为每个 persona 写死 POI 清单（画像数据会变，硬编码会立刻过期，且会把「个性化」退化成查表）
+6. **D6 预算风险用「短 + 可空」控住**：`preferenceBasis` 限 20 字且大量 step 为 null，新增正文量级几十到一百多 token；**不预先抬高** `TRIP_DRAFT_MAX_TOKENS`（抬高不增加正常成本，但会掩盖规格问题），改为验收标准里要求实测无截断回归
+7. **缺陷诊断一（对话 500）**：`POST /api/auth/register` 连续 2 次真实 500（`app.ts` 全局错误处理器 `code:"INTERNAL_ERROR"`、`msg:"Unexpected server error"`），随后 5 次、30 次重试全成功；登录、sessions、三轮多轮对话、行程意图、`GET /api/trips` 全链路扫过无异常。代码路径逐处核查无误（`authController` 全 handler try/catch → `next(error)`；`chat.ts` 外层 try → 500、内层 try → 优雅 SSE；`stateLoop` 的 profile/memory 查询均已 `.catch()` 降级）。结论：Risks 已登记的 Neon 冷启动 P1001 **经全局错误处理器暴露成用户可见错误**，且连接串虽已带 `connect_timeout=15&pool_timeout=15` 仍偶发
+8. **缺陷诊断二（行程导航门禁）**：API 侧分级是正确的——创建仅 admin/agent（`toolDispatcher` 在调用 `planTripTool` **之前**返回 `TRIP_FORBIDDEN`，不生成不落库不写日志，并由 `responseSynthesizer` 婉拒为自然语言；`tripController` 对 `POST /api/trips` 403）；读取是 owner-or-admin（`GET /api/trips` 默认返回**调用者自己的**行程，仅带 `?userId=` 查他人才要求 admin；详情 owner-or-admin），即已归档提案 `2026-09-22-travel-planning-phase-2` spec 的 Requirement「Trip history is readable only by its owner or an admin」。页面内创建表单也已按 `canCreate` 收起，普通用户看到 `readonlyHint` 而非表单，UI 上没有通往 403 的路径。缺口在前端呈现层：`App.tsx` 的「行程」导航链接与 `/trips` 路由对所有登录用户渲染（无 role 判断），而同段 admin 五个链接正确判了 `user.role === "admin"`。**真实缺陷是对普通用户永远空转的入口**（`Trip.userId` 恒为创建者，普通用户两条创建路都被堵 → 永远不可能拥有行程 → 空列表），不是权限泄漏。按 §15.2 归为 P1，**须先获负责人确认范围再改**；本提案 Non-Goals 明确不含此项。**（本决策 2026-10-16 当日更正：原写「`GET /api/trips` 仅 admin」「一创建就 403」有误，已按 `tripController.ts:57` 与归档 spec 修正；`/trips` 全站仅导航一个入口，`App.tsx` 之外无引用。）**
+9. **调研期更正**：早前判断「openspec CLI 未安装」是错的（见 Session 36 决策 2），本会话据此直接用 `openspec` 约定的目录结构手写提案文件，并对照已归档提案 `2026-10-11-trip-companion-context/` 验证文件命名与结构一致（`.openspec.yaml` 同为 40 字节）
+
+### Git Commits
+
+(No commits - 提案与文档登记，未写产品代码)
+
+### Testing
+
+- [OK] 提案 5 个文件齐备：`.openspec.yaml`（40 B，与已归档提案同）、`proposal.md`（50 行）、`design.md`（61 行）、`tasks.md`（39 行）、`specs/travel-planning/spec.md`（131 行）
+- [OK] tasks.md 为 20 项未勾选任务分 6 组（shared / prompt+产出 / 回复层去幻觉 / Web / 文档脊柱 / 验证与归档），无已完成项——符合 §15.1「批准前不写产品代码」
+- [OK] design.md 决策编号与 `PROJECT_STATUS.md` 引用一致（落实要求 = D5、条件式归属 = D3、可空兼容 = D2），修正了初稿中 D 编号错配
+- [OK] `PROJECT_STATUS.md` diff 为纯新增（Next Steps + Risks 复现记录 + Last Updated 条目），未改动既有条目的完成状态
+
+### Status
+
+[OK] **提案已写好，待负责人批准**（批准后走 Apply → 真机验收 → `openspec archive`）
+
+### Next Steps
+
+- **负责人批准提案** `openspec/changes/2026-10-16-trip-preference-traceability/` 后才可进入 Apply；tasks.md 第 1 组（shared `preferenceBasis`）为起点
+- Session 36 遗留：`AGENTS.md` §9 补 pnpm/openspec 等在 `E:\nodejs\node_global` 的说明（脊柱文档，待负责人确认）
+- 前几个 session 已交付的改动仍未提交、未开 PR
+
+---
+
+## Session 38: 前端行程导航入口收敛（P1 §15.2，方案 B）
+
+### Summary
+
+负责人问「为什么会有行程规划栏，这个功能应该是只有管理才有的功能，分级是不是乱了」，并在方案 A（导航 + 路由都收敛到 admin/agent）与方案 B（仅藏导航链接、路由留给 owner-scoped 兜底）之间选定 **B**。本会话交付该 P1 修复，并**推翻了 Session 37 决策 8 中的一处错误结论**。
+
+### Main Changes
+
+- `apps/web/src/App.tsx`：「行程」导航链接改为仅对 `admin`/`agent` 渲染；附注释说明「路由仍可达，连路由一并收敛须走 OpenSpec」这一非显然约束
+- `apps/web/src/__tests__/App.test.tsx`：新增 2 例 + 在既有 user/admin 两例补断言；新增 `vi.mock("../lib/tripApi")` 供 `/trips` 路由用例桩掉列表请求
+
+### 关键实现决策
+
+1. **推翻 Session 37 决策 8 的两处错判**（当日自查发现，已回改 `PROJECT_STATUS.md` Next Steps/Last Updated 与本 journal）：①「`GET /api/trips` 仅 admin」错——`tripController.ts:57` 是 `let userId = callerId`，列表默认返回**调用者自己的**行程，只有带 `?userId=` 查他人才要求 admin；这正是已归档提案 `2026-09-22-travel-planning-phase-2` spec 的 Requirement「Trip history is readable only by its owner or an admin」。②「一创建就 403、把用户引导到必然失败的操作上」错——创建表单在 `TripsPage.tsx:31/123` 已按 `canCreate` 收起，普通用户看到 `readonlyHint`，UI 上没有通往 403 的路径。修正后真实缺陷从「权限泄漏」降级为「对普通用户永远空转的入口」
+2. **为什么是空转入口**：`Trip.userId` 恒为创建者（`tripService.createTrip` 与 `planTripTool` 都用调用者 userId），而普通用户两条创建路都被堵（chat：`toolDispatcher` 在调 `planTripTool` 之前返回 `TRIP_FORBIDDEN`；REST：`tripController` 403）→ 永远不可能拥有任何行程 → `/trips` 恒为空列表。不是安全问题，是 UX 死入口
+3. **选 B 不选 A 的理由**：A 会收窄上述已归档 Requirement，按 §13.2 须**另立 OpenSpec 提案**，不该混在 P1 里；且 `RequireAuth` 需从 `role?: "admin"` 扩展为支持 admin-or-agent（动 6 个调用点）。B 是纯前端呈现层，`/trips` 全站仅导航一个入口（`App.tsx` 之外无任何引用），藏掉链接即消除可见路径，纵深防御留在 owner-scoped API 层——那本来就是对的设计
+4. **注释是必要的，不是装饰**：`App.tsx` 里明确写下「路由仍对所有登录用户可达…若要连路由一并收敛，须收窄已归档提案的 owner-read Requirement」。没有这句，下一个读到的人极大概率顺手把路由也门禁掉，从而在不知情的情况下改了一条已归档批准决策
+5. **没有提取 `role === "admin" || role === "agent"` 成共享 helper**：该判断现在有 `App.tsx` 与 `TripsPage.tsx:31` 两处，后端同样在两处（`toolDispatcher` + `tripController`），代码库既定模式就是容忍这种重复；为 P1 新造抽象违反 AGENTS §3「优先复用…而非创建新的抽象」与「保持改动聚焦」。已在汇报中作为可选后续提出
+6. **`pnpm format:check` 全仓 167 文件失败是存量问题，未顺手修**：根因是 `core.autocrlf=true` 使工作副本为 CRLF 而 prettier 默认 `endOfLine: "lf"`；用 `git show HEAD:` 取出的两个文件同样不过，证明与本次改动无关。跑 `prettier --write .` 会重写 167 个文件（含大量与本次无关的），制造巨型无关 diff，违反 §3「避免无关的重构」。改为用 `prettier --end-of-line crlf` 隔离行尾因素后逐文件核对，确认本次两个文件无真实格式违规（`App.test.tsx` 曾有一行超 printWidth 100，已改为多行对象）
+
+### Git Commits
+
+(No commits - P1 修复，未提交)
+
+### Testing
+
+- [OK] `pnpm --filter=@fairy/web test`：**176 passed / 22 files**（原 174，净增 2 例）；新增「agent 角色见行程链接但 admin 链接仍隐藏」「`/trips` 对 user 角色仍可达 + 创建表单仍收起 + 不重定向回首页」
+- [OK] `pnpm --filter=@fairy/web typecheck`：clean
+- [OK] `pnpm lint`：8/8 successful
+- [OK] prettier 合规（隔离行尾因素后逐文件 diff 无差异）
+- [OK] 仅 `apps/web` 两个文件改动：`git diff --stat` 为 App.tsx +11/-3、App.test.tsx +32；零契约、零 schema、零后端、零 i18n 改动
+
+### Status
+
+[OK] **Completed**（方案 B；方案 A 作为待定产品决策登记 Next Steps，若要做须走 OpenSpec）
+
+### Next Steps
+
+- **方案 A 待负责人决定**：若认为普通用户应完全无法到达 `/trips`，须另立 OpenSpec 提案收窄已归档的 owner-read Requirement，并扩展 `RequireAuth` 支持 admin-or-agent
+- 负责人批准行程个性化提案 `2026-10-16-trip-preference-traceability/` 后才可进入 Apply
+- Session 36 遗留：`AGENTS.md` §9 补 pnpm/openspec 等在 `E:\nodejs\node_global` 的说明（脊柱文档，待负责人确认）
+- 前几个 session 已交付的改动仍未提交、未开 PR
+
+---
+
+## Session 39: 行程偏好依据可追溯 —— Apply + 真机验收 + Archive（提案已批准）
+
+### Summary
+
+负责人批准 Session 37 撰写的 OpenSpec 提案 `2026-10-16-trip-preference-traceability`。本会话完成 Apply 全 20 项任务（6 组）、真机验收 AC-1~AC-6、`openspec archive` 归档。交付核心是把 `preferenceBasis` 提为 step 级可空契约字段，使「哪条偏好落实在哪」首次可承载、可核对；同时把回复层的同行人归属断言从无条件改为条件式（消除由我们自己诱导的幻觉）。验收期发现并修复两个**既有缺陷**：草稿 token 预算 4000 对 reasoning 模型仍不足（失败率约 2/3）、`AI_TIMEOUT_MS` 默认 20s 对 reasoning 模型太短（超时伪装成 `PARSE` 响应损坏）。
+
+### Main Changes
+
+- `packages/shared/src/schemas/tripSchemas.ts`：`tripPoiSchema` 新增 `preferenceBasis: z.string().nullable().default(null)`；宽松草稿 schema 侧取 `.nullish()`（漏填与显式 null 等价，存量 `trip` 事件零迁移可解析）
+- `apps/api/src/tools/planTripTool.ts`：`TRIP_DRAFT_MAX_TOKENS` 4000 → **6000**（具名常量）；输出规格「3-5 个步骤」收紧为「3-4 个步骤（至少 1 个）」+「note 不超过 15 字」；同行人偏好行之后追加**落实要求**（`REFLECTION_REQUIREMENT`：每条非空偏好落到具体选点并在对应 step 的 `preferenceBasis` 点名，对不上填 `null` 不得编造）；组 `TripPoi` 时经 `toPreferenceBasis()` 收口（缺失/空串/纯空白一律归 `null`）
+- `apps/api/src/agent/responseSynthesizer.ts`：新增 `buildBasisLine()`（三元而非 `filter`——`filter` 不会把 `preferenceBasis` 收窄成 `string`）；`companionLine` 改为按 `hasBasis` 条件输出两档文案；`facts`/`template` 按「Day N 步骤名：依据」逐条带入
+- `apps/web/src/components/chat/TripTimeline.tsx` + `locales/zh-CN.json`：step 级徽章（i18n key `chat.trip.preferenceBasis`，文案「偏好依据：{basis}」）
+- 脊柱文档：`API_CONTRACT.md`（step 字段）、`ARCHITECTURE.md`（§8 预算决策行 + FU-21 行）、`PROJECT_STATUS.md`（Completed Modules 置顶条目 + Next Steps + Last Updated）、`Fairy/docs/prompts.md`（提示词快照 + 预算/超时两条坑）、`Fairy/docs/tools.md`
+- `openspec/specs/travel-planning/spec.md`：归档时由 CLI 合入（+71/-5，新增 Requirement「Preference attribution is conditional on itinerary evidence」）
+- `openspec archive 2026-10-16-trip-preference-traceability --yes`：提案移入 `openspec/changes/archive/`，`openspec/changes/` 现仅剩 `archive/`
+
+### 关键实现决策
+
+1. **`nullable().default(null)` 而非 `nullish()`（对外契约）**：缺键解析为 `null` 而非 `undefined`，前端判空只有一处；草稿的宽松 schema 反而用 `nullish()`——那里「漏填」是常态，要求等价于显式 null
+2. **草稿侧刻意不锁 20 字上限**：上限只写在 prompt 侧。schema 加 `.max(20)` 会让略长的模型输出把整趟草稿判非法、三次重试后降级成「没能排出行程」——为一个文案字段牺牲整趟规划的可用性不划算（D6：只约束，不抬高预算）
+3. **`toPreferenceBasis()` 收口是必要的，不是防御性冗余**：空串能绕过 shared 的 `.min(1)` 落库，等会话回放/详情解析时才炸，且已查不出是哪一步写坏的
+4. **落实要求的追加范围只到同行人**（Apply 期裁定，design.md D7）：spec 对无同行人情形有一条 MUST——发给草稿模型的 user 消息与偏好注入前逐字一致；本人 `travelStyle` 单独存在时追加会破坏该承诺，故不加。本人风格仍受「偏好要落实在选点上」与该字段契约约束
+5. **prompt 给可执行规则但不建硬编码映射表**（D5）：示例只给通用翻译（注重洁净 → 避开露天摊位、优先可预订或室内餐饮；服务型/先订备选 → 段间留缓冲）。否决在代码里枚举 persona 偏好→POI 的表——画像数据会变，硬编码会立刻过期，且把个性化退化成查表
+6. **预算与输出规格是配对约束，且要随实测二次修正**：6000 = 观测到的最坏 reasoning（约 3800 token）+ 2 天行程正文（约 900-1200 token）+ 余量。按实际 token 计费，抬高上限不增加正常调用成本。`planTripTool.test.ts` 锁 ≥5000 与「每个 day 3-4 个步骤」防回归
+7. **超时与预算是两条独立的坑，且超时更具误导性**：超时被 abort 后抛的是 `AiProviderError("PARSE", …, "Provider returned malformed JSON")`——日志看起来像供应商返回了损坏响应，实为 20s 超时。A/B 对照（FU-21 之前的提示词原样跑 4 轮有 3 轮撞超时）确认这是既有缺陷而非本期引入
+
+### 踩坑与教训
+
+- **Git Bash 的 curl `-d` 会损坏中文 body**：AC-1 第一轮只回了一条 `agent.reply`、没有 `trip` 事件，agent 说消息看起来是乱码。改为 `node -e "fs.writeFileSync(...)"` 写 UTF-8 文件 + `curl --data-binary @file` 后一次通过。验收脚本凡带中文负载的都要走这条
+- **Vite dev server 只听 `[::1]`（IPv6）**：`http://127.0.0.1:5173/` curl exit 7 连接拒绝，`http://localhost:5173/` 正常。GUI 自动化同理，URL 一律用 `localhost`
+- **REST 取历史行程 404 `TRIP_NOT_FOUND`**：想用来验证 AC-5 的两条旧行程属于 user `...0002`，而登录的是 agent `...0001`（读取是 owner-or-admin）。换成 agent 自己的旧行程即通——验收取样前先确认归属
+- **本会话模型不支持图片输入**：截图照常落盘到 `gui-test-screenshots/` 作为交付物，但视觉判读改用 DOM/ARIA 快照（`getByRole` 文本、`isVisible()`、溢出元素计数）作为权威依据，未凭截图下结论
+- **`@fairy/shared` 经 `package.json` 的 `"types": "./dist/index.d.ts"` 解析**：改完 shared 源码必须 `pnpm --filter=@fairy/shared build`，否则依赖方 typecheck 读到旧类型
+
+### Git Commits
+
+(No commits - OpenSpec 轨交付，未提交、未推送、未开 PR)
+
+### Testing
+
+- [OK] `pnpm --filter=@fairy/shared test`：128 passed；`@fairy/api`：437 passed / 1 skipped（真实库并发用例按 `TEST_DATABASE_URL` 门控跳过）；`@fairy/web`：180 passed；`@fairy/database`：12 passed
+- [OK] 四包 typecheck clean；`pnpm lint` 8/8 successful；prettier 隔离行尾因素后逐文件核对无差异；`pnpm run ci` 5/5
+- [OK] `openspec validate --strict` 通过后才归档
+- [OK] **AC-1**：真机（真实 DeepSeek）「我和莱卡恩去泉州玩两天」→ 8/8 步骤带非空 `preferenceBasis`，且选点本身体现偏好（洁癖 → 室内博物馆/展馆；料理标准极高/餐具须对齐 → 四家可订座正餐厅/包间；服务型 → 段间留缓冲）
+- [OK] **AC-2**：回复中每句归属（「场馆都选室内、餐厅挑可订座的正餐厅并要求正式摆台，全程不排赶车衔接」）都能在卡片步骤依据里找到对应
+- [OK] **AC-3**：8 个徽章全部 `visible: true`，1280px 零溢出元素，i18n 文案正确
+- [OK] **AC-4**：无同行人请求 → DB 8/8 `preferenceBasis: null`、`companion: null`，UI 无徽章无同行人行，回复正常
+- [OK] **AC-5**：存量 2026-09-02 北京行程（DB 行无该键）经 REST 解析时契约层补 `null`（10/10），`/trips` 正常渲染、无占位、无报错
+- [OK] **AC-6**：`agent.trip` completionTokens=2871/6000 无截断；`agent.reply` 217/600 以完整句收尾
+
+### Status
+
+[OK] **Completed**（OpenSpec 全闭环：proposal → design → tasks → apply → 真机验收 AC-1~AC-6 → archive）
+
+### Next Steps
+
+- **两个既有缺陷须向负责人报告并定夺**：①`AI_TIMEOUT_MS` 默认 20000ms 对 reasoning 模型太短（本地 `apps/api/.env` 已置 60000，`.env.example` 与 `docs/deployment.md` 登记的默认值是否要改、部署侧是否要统一调，待负责人决定）；②`TRIP_DRAFT_MAX_TOKENS` 4000 → 6000 与步骤规格 3-5 → 3-4 已随本期落地并写进 ARCHITECTURE §8 与 prompts.md
+- 方案 A（`/trips` 路由一并收敛）待负责人决定，若要做须另立 OpenSpec 提案
+- Session 36 遗留：`AGENTS.md` §9 补 pnpm/openspec 等在 `E:\nodejs\node_global` 的说明（脊柱文档，待负责人确认）
+- 前几个 session 已交付的改动仍未提交、未开 PR
