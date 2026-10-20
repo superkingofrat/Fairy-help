@@ -76,9 +76,14 @@ function HeaderNav(): JSX.Element {
           <Link to="/movies" className={linkClass}>
             {t("nav.library")}
           </Link>
-          <Link to="/trips" className={linkClass}>
-            {t("nav.trips")}
-          </Link>
+          {/* 行程入口仅面向顾问/管理员：普通用户无法创建行程（chat dispatch 与 REST 均限
+              admin/agent），其列表恒为空。/trips 路由仍对所有登录用户可达，由 owner-scoped
+              接口兜底；若要连路由一并收敛，须收窄已归档提案的 owner-read Requirement。 */}
+          {user.role === "admin" || user.role === "agent" ? (
+            <Link to="/trips" className={linkClass}>
+              {t("nav.trips")}
+            </Link>
+          ) : null}
           {user.role === "admin" ? (
             <>
               <Link to="/admin/movies" className={linkClass}>

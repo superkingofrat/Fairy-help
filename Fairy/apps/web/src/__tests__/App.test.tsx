@@ -6,10 +6,12 @@ import { MoviesAdminPage } from "../components/admin/MoviesAdminPage";
 import { ensureSessionOnBoot } from "../lib/authApi";
 import * as movieApi from "../lib/movieApi";
 import * as rentalsApi from "../lib/rentalsApi";
+import * as tripApi from "../lib/tripApi";
 import { useAuthStore } from "../stores/authStore";
 
 vi.mock("../lib/movieApi");
 vi.mock("../lib/rentalsApi");
+vi.mock("../lib/tripApi");
 vi.mock("../lib/authApi", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/authApi")>();
   return {
@@ -40,7 +42,40 @@ describe("App", () => {
     expect(await screen.findByText("对话")).toBeDefined();
     expect(screen.getByRole("link", { name: "影片库" })).toBeDefined();
     expect(screen.queryByText("影片管理")).toBeNull();
+    // 行程入口仅面向顾问/管理员；普通用户无法创建行程，列表恒为空
+    expect(screen.queryByRole("link", { name: "行程" })).toBeNull();
     expect(screen.getByText("退出")).toBeDefined();
+  });
+
+  it("shows the trips navigation link for the agent role but not admin links", async () => {
+    useAuthStore.setState({
+      token: "t",
+      user: {
+        id: "00000000-0000-4000-8000-000000000003",
+        email: "agent@fairy.local",
+        role: "agent",
+      },
+    });
+    render(<App />);
+    expect(await screen.findByRole("link", { name: "行程" })).toBeDefined();
+    expect(screen.queryByText("影片管理")).toBeNull();
+  });
+
+  it("keeps /trips reachable for the user role, with the create form still gated", async () => {
+    vi.mocked(tripApi.listTrips).mockResolvedValue({
+      items: [],
+      pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+    });
+    useAuthStore.setState({
+      token: "t",
+      user: { id: "00000000-0000-4000-8000-000000000001", email: "user@fairy.local", role: "user" },
+    });
+    window.history.pushState({}, "", "/trips");
+    render(<App />);
+    // 入口已隐藏但路由仍可达：渲染只读行程页而非重定向回首页
+    expect(await screen.findByText("旅行规划")).toBeDefined();
+    expect(screen.queryByRole("button", { name: "规划行程" })).toBeNull();
+    expect(screen.queryByText(/欢迎使用 Fairy/)).toBeNull();
   });
 
   it("renders the movie library page at /movies", async () => {
@@ -87,6 +122,7 @@ describe("App", () => {
     render(<App />);
     expect(await screen.findByText("影片管理")).toBeDefined();
     expect(screen.getByRole("link", { name: "影片库" })).toBeDefined();
+    expect(screen.getByRole("link", { name: "行程" })).toBeDefined();
     expect(screen.getByText("画像管理")).toBeDefined();
     expect(screen.getByText("行为流水")).toBeDefined();
     expect(screen.getByText("记忆管理")).toBeDefined();
