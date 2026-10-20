@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "前端规范入口，实现前必读"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "MovieCard 组件改动的组件约定"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "前端质量标准与禁止模式"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "strict 类型约定（coverUrl: string | null 分支收窄）"}

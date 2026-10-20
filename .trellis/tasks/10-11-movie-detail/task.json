@@ -1,0 +1,28 @@
+{
+  "id": "movie-detail",
+  "name": "movie-detail",
+  "title": "影片库影片详情查看",
+  "description": "点击影片库卡片打开详情模态框：完整展示影片字段（封面/片名/年份导演/类型/心情/场景/库存/台词/简介），详情内可借阅且与卡片同状态源，按钮/遮罩/Esc 三种关闭。数据取自列表响应，零请求零路由零契约变更。",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": "web",
+  "package": null,
+  "priority": "P2",
+  "creator": "Flores",
+  "assignee": "Flores",
+  "createdAt": "2026-10-11",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "requirement": "docs/requirements/2026-10-11-movie-detail.md"
+  }
+}

@@ -1,6 +1,7 @@
 import { PrismaClient, MemoryKind, Mood, Scene } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { seedPersonas } from "./seedData/personas";
+import { zzzMovies } from "./seedData/zzzMovies";
 
 const prisma = new PrismaClient();
 
@@ -200,7 +201,8 @@ async function main(): Promise<void> {
     }
   }
 
-  for (const movie of seedMovies) {
+  // 现实片单（seedMovies）与绝区零片单（zzzMovies）同库共存：后者带封面，前者留作无封面占位的对照
+  for (const movie of [...seedMovies, ...zzzMovies]) {
     await prisma.movie.upsert({
       where: { title: movie.title },
       update: {
