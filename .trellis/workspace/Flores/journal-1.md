@@ -1745,3 +1745,69 @@ Session 34 只交付了需求文档与提案（零产品代码）。本 session 
 - 方案 A（`/trips` 路由一并收敛）待负责人决定，若要做须另立 OpenSpec 提案
 - Session 36 遗留：`AGENTS.md` §9 补 pnpm/openspec 等在 `E:\nodejs\node_global` 的说明（脊柱文档，待负责人确认）
 - 前几个 session 已交付的改动仍未提交、未开 PR
+
+## Session 40: 十月交付批次收尾 —— 四项工程收尾 + 6 提交落地 + 脊柱断链修复
+
+### Summary
+
+负责人问「项目完成度怎么样，够格写简历么」，评估结论是**代码侧无欠账、卡住的是「东西没出去」**（8 个提交躺在本地，GitHub 上看不到本月任何新工作）。针对评估中列出的五个「会被问住」的问题，负责人批准「全做」四项收尾。本会话完成：① 两个 xlsx 移出仓库根；② Prisma 启动预热（修 Neon 冷启动首请求 500）；③ `docker-compose.yml`；④ README hero + PROJECT_STATUS 完成度摘要表。随后把分支上积压的 6 组提交落地（原计划 7 组，因 FU-20 与 FU-11 在 hunk 层面不可拆分而合并为 1 组，见下），并修复脊柱文档 5 处 openspec 断链。**全部仅本地提交，未推送、未开 PR。**
+
+### Main Changes
+
+- **`Fairy/apps/api/src/dbWarmup.ts`（新增）+ `index.ts`**：`warmUpDatabase({ connect })` 在 `app.listen` 之前 await，默认 3 次尝试、间隔 2s；连接失败不阻断启动（`/health` 仍可用、原因可从日志诊断）。配套 `dbWarmup.test.ts` 7 例
+- **`Fairy/docker-compose.yml`（新增）**：api + web 两服务，含 healthcheck 依赖顺序、`env_file` 注入密钥、注释掉的可选 pgvector `db` 服务。把「分别 build 两个镜像再手工串起来」变成一条 `docker compose up --build`
+- **仓库卫生**：两个 xlsx（`绝区零S级角色配色.xlsx`、`绝区零角色配色用户种子色板.xlsx`）移出仓库根；`packages/database/prisma/seedData/covers/`（4.6 MB 零引用重复副本）删除——`seed.ts` 从不读图片文件，`Movie.coverUrl` 是 `String?` 列而非 blob，图片由 web 静态托管 serve
+- **根 `README.md`**：补 hero 概览；**`PROJECT_STATUS.md`**：补完成度摘要表（18,805 行代码 / 74 个测试文件 / 757 个用例 / 174 次提交 / 7 个 PR）+ Risks 两条追加 + Last Updated + Next Steps 三项收尾
+- **脊柱断链修复（5 处）**：`PROJECT_STATUS.md` 4 处 + `docs/requirements/2026-09-22-travel-planning-phase-2.md` 状态头 1 处，`openspec/changes/<名字>/` 补 `archive/` 段。修后脚本复核活文档全部 50 条 openspec 链接可达
+
+### 关键实现决策
+
+1. **FU-20 与 FU-11 合并为一组提交，是 hunk 层面的客观约束而非偷懒**：`planTripTool.ts` 与 `responseSynthesizer.ts` 里两个需求的改动落在**同一批 diff hunk**（prisma-create 段、result 段、prompt 与 contextLines 段都是混着的）。拆成两组就得构造两个从未真实存在过的中间状态——那是伪造历史，比合并更糟。依赖顺序上 FU-11 的 schema 迁移必须在前（FU-20 的 `planTripTool` 要往 Trip 表写 `companionName`/`companionUserId`），提交链里顺序是对的
+2. **为可拆分性构造并验证了「仅同行人」中间态**：shared 123 / api 437+1skip / web 176，typecheck + lint + prettier 全绿后才作为提交 3 的落点，提交 4 再从 `/tmp/fu21-backup/` 还原 FU-21 全量。中间态本身不进历史，只用于证明「这组改动能独立成立」
+3. **`TRIP_DRAFT_MAX_TOKENS` 的三段历史要连着读**：1200（原版，截断 2 天行程 JSON 正文）→ 4000（FU-11，实测用量 905/3399/1144，3500 仍有一轮连撞两次上限）→ 6000（FU-21，reasoning 吃掉约 3800 token 后正文只剩 303 字，失败率约 2/3）。`DEFAULT_REPLY_MAX_TOKENS=300` / `TRIP_REPLY_MAX_TOKENS=600` 是 FU-11 的，必须留在同行人那组提交里
+4. **`preferenceBasis` 用 `.nullable().default(null)` 而非 `nullish()`（对外契约）**：缺键解析为 `null` 而非 `undefined`，前端判空只有一处；40 条存量 `trip` 事件与 legacy `Trip.itinerary` JSON 因此零迁移可解析
+5. **journal 里的历史叙事不改**：`.trellis/workspace/Flores/journal-1.md` 与 `2026-09-23-travel-planning-phase-2.md` 中 6 处 `openspec/changes/<名字>/` 是**当时为真**的记录（提案建在该路径、后来移入 archive，其中一行还明确写了「→ `openspec/changes/archive/`」）。改它们等于篡改过程记录，只修活文档（PROJECT_STATUS 与需求文档状态头）
+
+### 踩坑与教训
+
+- **`sed -i 'N,Md'` 配过期行号会切错区域**：连续两次删除时，第二次的行号是按删除前算的，第一次删除已让后续行上移，结果把「drops the attribution claim」测试的中段切掉、残骸与下一个测试粘连。**教训：多段删除一律用 Edit 工具按内容匹配，不要用 sed 按行号**；已经切坏的文件从备份 `cp` 回退重做，不要在坏文件上继续补
+- **`sed` 会连 describe 的收尾 `});` 一起删掉**：`TripTimeline.test.tsx` 删 130-161 行时把文件末尾的 `});` 带走了。**教训：按行号删测试块后必须核对 describe/收尾括号配平**
+- **还原 FU-21 全量后 typecheck 报 10 个 `TS2741`/`TS2322`**：7 个测试文件里 sed 剥掉的 `preferenceBasis: null` 不在备份范围内。用 node 脚本按「`note:` 行下一行是 `location:`」的模式重新插回 10 个键。**教训：备份清单要先清点「哪些文件会被改」再动手，不能只备份「看起来重要的」**
+- **`git show HEAD:file | prettier --stdin-filepath` 不是可靠的 prettier 判定**：它把实际会失败的文件报成通过。**权威做法是把 HEAD 版本写成真实临时文件再跑 prettier**。据此确认 5 个根文档在 HEAD 就已不符合 prettier——因为 prettier 配置在 `Fairy/.prettierrc`，而 `pnpm format:check` 从 `Fairy/` 跑，根本不检查仓库根。这是既有状态，强行格式化会产生巨量无关 diff，故不动
+- **`git status --porcelain --cached` 不是合法参数**，用 `git diff --cached --stat`
+- **Neon 冷启动的根因仍在**：启动预热只把等待从「第一个用户请求」挪到「启动期」，Prisma 默认 5s `connect_timeout` 短于 Neon 唤醒延迟这个事实没变。彻底消除需换常驻计算或自建 Postgres
+
+### Git Commits
+
+```
+4a28528 docs: sync spine for the October deliveries        (19 files, +1240/-23)
+88a5680 web: hide trips nav for non-advisor roles          ( 2 files,   +44/-3)
+74cad7b trip: make preference attribution traceable        (28 files,  +950/-32)
+6f35390 agent: personalize trip planning with companion profiles (26 files, +1272/-27)
+ac5df97 db: add trip companion snapshot columns            ( 6 files,  +349)
+e0833e4 store: add movie covers and detail modal           (63 files, +1683/-15)
+```
+
+分支 `docs/sync-requirement-statuses` 现领先 `origin` 8 个提交（本次 6 个 + 分支原有的 seed/docs/merge 3 个中的 2 个提交与 1 个 merge）。**未推送、未开 PR。**
+
+### Testing
+
+- [OK] `pnpm run ci` 8/8 successful
+- [OK] `@fairy/shared` 128 passed；`@fairy/api` 444 passed / 1 skipped（真实库并发用例按 `TEST_DATABASE_URL` 门控跳过）；`@fairy/web` 180 passed；`@fairy/database` 12 passed
+- [OK] 四包 typecheck clean；`pnpm lint` 8/8
+- [OK] 中间态（仅同行人）独立验证：shared 123 / api 437+1skip / web 176 全绿
+- [OK] 脊柱链接脚本复核：活文档 50 条 openspec 引用全部可达，0 断链
+- [OK] `dbWarmup` 7 例（成功首试 / 重试后成功 / 三次全败不抛 / 间隔递增 / connect 抛错被吞 / 日志可诊断）
+- [N/A] `docker compose up --build` **未实际运行**（本机无 Docker），compose 与两个 Dockerfile 仅静态核对
+- [N/A] FU-16 真实 embed 端到端验收**未跑**（缺 `EMBEDDING_API_KEY`）
+
+### Status
+
+[OK] **Completed**（四项收尾 + 6 提交落地 + 断链修复；全部本地，未推送）
+
+### Next Steps
+
+- **推送 + 开 PR 是唯一真正阻塞「项目存在」的一步**，待负责人授权。建议先 `git branch -m feat/october-deliveries`——现分支名 `docs/sync-requirement-statuses` 与内容（影片封面、同行人画像、偏好依据、导航收敛）不符，简历上点开观感差
+- **待负责人决定（各约 5 分钟）**：①`AI_TIMEOUT_MS` 默认 20000ms 对 reasoning 模型太短（超时伪装成 `PARSE`），本地已置 60000，抬默认值会影响全部供应商调用且 `docs/deployment.md` 推荐值需同步；②dev 库残留影片 `123` 与 `海蒂和爷爷` 清理（破坏性，各带 1 笔租赁记录）；③行程路由 Option A 是否走 OpenSpec（收窄已归档提案的 owner-read Requirement）
+- **待环境/key**：docker compose 实际构建冒烟；FU-16 真实 embed 验收
+- **技术债（可排后）**：`behavior_logs`/`rentals` 无保留策略；根文档 CRLF 与 prettier 配置范围冲突（prettier 配置在 `Fairy/`，不检查仓库根）

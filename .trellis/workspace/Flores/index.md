@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 39
-- **Last Active**: 2026-10-16
+- **Total Sessions**: 40
+- **Last Active**: 2026-10-20
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1500 | Active |
+| `journal-1.md` | ~1810 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 40 | 2026-10-20 | 十月交付批次收尾：四项工程收尾（xlsx 移出仓库根 / Prisma 启动预热修 Neon 冷启动首请求 500 / docker-compose / README hero + PROJECT_STATUS 摘要表）+ 分支积压 6 组提交落地 + 脊柱 5 处 openspec 断链修复；原计划 7 组因 FU-20 与 FU-11 共享 diff hunk 不可拆分而合并为 1 组（已构造并验证「仅同行人」中间态证明可独立成立）；踩坑：sed 按行号多段删除切错区域、`git show HEAD:file | prettier --stdin-filepath` 判定不可靠、根文档在 HEAD 即不符合 prettier（配置在 Fairy/ 不检查仓库根）（未推送、未开 PR） | `e0833e4`, `ac5df97`, `6f35390`, `74cad7b`, `88a5680`, `4a28528` | `docs/sync-requirement-statuses` |
 | 39 | 2026-10-16 | 行程偏好依据可追溯：Apply 全 20 项任务（shared 可空 preferenceBasis + prompt 落实要求 + 回复层条件式归属去幻觉 + Web 徽章）+ 真机验收 AC-1~AC-6 全过 + OpenSpec 归档；验收期发现两个既有缺陷（草稿预算 4000 不足失败率 2/3 → 6000 + 步骤 3-4；AI_TIMEOUT_MS 默认 20s 对 reasoning 模型太短且超时伪装成 PARSE）（未提交） | - | `docs/sync-requirement-statuses` |
 | 38 | 2026-10-16 | 前端行程导航入口收敛（P1 §15.2，方案 B）：「行程」链接改为仅 admin/agent 渲染，/trips 路由保持可达由 owner-scoped 接口兜底；选 B 是因 A 会收窄已归档提案的 owner-read Requirement 须走 OpenSpec；并纠正 Session 37 两处错判（GET /api/trips 非 admin-only、创建表单已收起无 403 路径）（未提交） | - | `docs/sync-requirement-statuses` |
 | 37 | 2026-10-16 | 行程偏好依据可追溯：根因定位为契约缺陷（偏好只进 prompt 不进契约 + 无条件归属断言违反 §0）+ OpenSpec 提案（可空 `preferenceBasis`、条件式归属、落实要求，待批准，未写产品代码）；附带诊断对话 500 = Neon 冷启动偶发、行程导航门禁缺口 = P1 待确认 | - | `docs/sync-requirement-statuses` |
