@@ -307,7 +307,7 @@ Authorization: Bearer <jwt>
 
 `borrow.code` 成功为 `OK`；失败为 `OUT_OF_STOCK`、`ALREADY_BORROWED`、`MOVIE_NOT_FOUND`。`return.code` 成功为 `OK`；失败为 `RENTAL_NOT_FOUND`。
 
-`trip` 事件仅在行程规划成功时发出，`data` 为完整 `TripResult`（`tripId`、`destination`、`days`、`itinerary`——按天分组的 POI 步骤，每步含 `time`/`name`/`category`/`note`/`location`/`validated`、`route`——相邻已校验 POI 间的路线 `from`/`to`/`distanceMeters`/`durationSeconds`，无校验时为 `null`、`validated`）。行程规划对 `admin` 与 `agent` 两种角色开放（按 token 中的 `role` 判定；种子账号 `user@fairy.local` 为 agent，新注册用户默认为 `user`）：其他身份请求时**不调用规划工具、不落库、不发出事件**，回复婉拒文本并引导推荐影片。目的地无法从消息确定时**不落库、不发出事件**，只返回追问文本；高德不可用（`AMAP_SERVER_KEY` 缺失/超时/报错）时 POI 标 `validated: false`、`route: null`，仍返回行程，且不暴露密钥、原始响应或堆栈（FU-13）。
+`trip` 事件仅在行程规划成功时发出，`data` 为完整 `TripResult`（`tripId`、`destination`、`days`、`itinerary`——按天分组的 POI 步骤，每步含 `time`/`name`/`category`/`note`/`preferenceBasis`/`location`/`validated`、`route`——相邻已校验 POI 间的路线 `from`/`to`/`distanceMeters`/`durationSeconds`，无校验时为 `null`、`validated`、`companion`——同行人快照 `{ name, userId }`，消息未命中已注册人设名时为 `null`）。`preferenceBasis`（FU-21）为该步骤落实了哪条画像偏好、因此选/避开了什么，对应不上时为 `null`，存量负载缺该键同样按 `null` 处理。行程规划对 `admin` 与 `agent` 两种角色开放（按 token 中的 `role` 判定；种子账号 `user@fairy.local` 为 agent，新注册用户默认为 `user`）：其他身份请求时**不调用规划工具、不落库、不发出事件**，回复婉拒文本并引导推荐影片。目的地无法从消息确定时**不落库、不发出事件**，只返回追问文本；高德不可用（`AMAP_SERVER_KEY` 缺失/超时/报错）时 POI 标 `validated: false`、`route: null`，仍返回行程，且不暴露密钥、原始响应或堆栈（FU-13）。
 
 意图顺序：合法 `movieId` → 手打「借」+ 唯一片名 → 手打「还」+ 唯一片名 → 消息含子串 mood/scene → 引导语（不调工具）。LLM 路径（FU-2 起）按结构化意图输出，规则链为降级路径；归还仅在用户明确表达归还影片时触发（「还」有 hái/huán 歧义）。规则层语境修正（2026-09-22）：消息含影片名词（片子/影片/电影/短片/纪录片/碟片/录像带）时旅行词只是题材修饰，「有没有旅行为主题的片子」不触发行程意图，交 LLM 判定；「借」请求携带心情/场景词（如「想借个治愈的片子」）时回落 `recommend`，不再作为无片名的借阅追问。
 
@@ -985,6 +985,7 @@ admin 硬删一条记忆（`Memory` 无外键引用，物理删除即可）。�
             "name": "西湖",
             "category": "景点",
             "note": null,
+            "preferenceBasis": null,
             "location": { "lng": 120.15, "lat": 30.25 },
             "validated": true
           }
@@ -994,13 +995,18 @@ admin 硬删一条记忆（`Memory` 无外键引用，物理删除即可）。�
     "route": [
       { "from": "西湖", "to": "灵隐寺", "distanceMeters": 8000, "durationSeconds": 1200 }
     ],
-    "validated": true
+    "validated": true,
+    "companion": null
   },
   "msg": "行程已创建"
 }
 ```
 
 `location` 为 `{ lng, lat }` 或 `null`（无高德 key 或 POI 未命中时为 `null`）；`route` 无已校验 POI 对时为 `null`；`validated` 表示是否存在经高德核实的 POI。
+
+`preferenceBasis`（FU-21）为该步骤落实了哪条画像偏好、因此选/避开了什么（如「洁癖 → 避开露天摊位」），`string` 或 `null`。**对应不上时必须为 `null`，不得为填字段而编造**；`note` 仍只写时间/预约/排队等执行信息，不承载偏好理由。存量历史行程的步骤缺该键，按 `null` 处理（与 FU-20 `companion` 同一兼容路径，**无需迁移**——`Trip.itinerary` 是 JSON 列）。调用方按「有 / 无」两态处理即可。
+
+`companion` 为同行人快照 `{ name, userId }` 或 `null`（FU-20）：`name` 是规划时消息里命中的已注册人设名，`userId` 是其画像 id。快照而非引用——画像名可能已改、人设可能已删，行程留住的是「当时和谁一起去」这个事实。无同行人时恒为 `null`；存量历史行程（迁移前创建）回填后同样为 `null` 或完整对象，不会出现半截值。
 
 #### 错误响应
 
@@ -1056,6 +1062,8 @@ admin 硬删一条记忆（`Memory` 无外键引用，物理删除即可）。�
 **GET** `/api/trips/:id`
 
 `data` 为行程详情（`TripResult` + `createdAt`）。仅属主或 `admin` 可读；**他人行程与不存在的 id 同返 404**，不泄漏存在性。
+
+字段与 §3.15.1 创建响应一致：`itinerary` / `route` / `validated` / `companion` / `preferenceBasis`。`companion` 是落库时写入的两列（`companionName`、`companionUserId`，无外键的快照）投影出的 `{ name, userId }`；**两列缺一即 `null`**，调用方只需按「有 / 无」两态处理，无需判断半截对象。`preferenceBasis` 同样按两态处理：非空即该步骤的偏好依据，`null` 或缺键即无依据（存量行程）。
 
 #### 错误响应
 

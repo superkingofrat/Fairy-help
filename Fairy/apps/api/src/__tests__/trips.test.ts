@@ -26,6 +26,7 @@ const tripResultFixture = {
           category: "景点",
           time: "09:00",
           note: null,
+          preferenceBasis: null,
           location: { lng: 120.15, lat: 30.25 },
           validated: true,
         },

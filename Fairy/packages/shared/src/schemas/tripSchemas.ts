@@ -8,6 +8,12 @@ export const tripPoiSchema = z.object({
   category: z.string(),
   time: z.string(),
   note: z.string().nullable(),
+  // 偏好依据：该选点落实了哪条画像偏好、因此选/避开了什么。个性化从"看不见"变"看得见"的落点，
+  // 也是回复层敢把安排归属给同行人的唯一凭据（否则归属就是幻觉，违反 AGENTS §0）。
+  // 与 note 严格分工：note 只写时间/预约/排队等执行信息，依据只写"哪条偏好 → 因此选/避开了什么"。
+  // 兼容手法与 companion 相同——键缺失与显式 null 等价，否则存量 trip 事件与存量 Trip.itinerary
+  // JSON 回放会因缺键解析失败。空串走 .min(1) 拒绝：对应不上时必须填 null，不能填空串占位。
+  preferenceBasis: z.string().min(1).nullable().default(null),
   location: z
     .object({
       lng: z.number(),

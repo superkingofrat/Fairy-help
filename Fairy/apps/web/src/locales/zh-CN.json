@@ -78,6 +78,7 @@
   "chat.trip.validated": "地点已核实",
   "chat.trip.unvalidated": "未验证",
   "chat.trip.stepUnverified": "未核实",
+  "chat.trip.preferenceBasis": "偏好依据：{basis}",
   "chat.trip.companion": "与 {name} 同行",
   "chat.trip.route": "驾车路线",
   "chat.trip.routeSummary": "全程约 {km} 公里，车程约 {min} 分钟",

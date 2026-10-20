@@ -110,6 +110,63 @@ describe("tripPoiSchema", () => {
   });
 });
 
+describe("tripPoiSchema preferenceBasis", () => {
+  const basePoi = {
+    name: "西湖",
+    category: "景点",
+    time: "09:00",
+    note: null,
+    location: null,
+    validated: true,
+  };
+
+  it("accepts a non-empty basis and an explicit null", () => {
+    expect(
+      tripPoiSchema.safeParse({ ...basePoi, preferenceBasis: "洁癖 → 避开露天摊位" }).success,
+    ).toBe(true);
+    expect(tripPoiSchema.safeParse({ ...basePoi, preferenceBasis: null }).success).toBe(true);
+  });
+
+  it("treats an absent key as null so stored history still replays", () => {
+    const parsed = tripPoiSchema.safeParse(basePoi);
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data.preferenceBasis).toBe(null);
+  });
+
+  it("rejects a non-string and an empty basis", () => {
+    expect(tripPoiSchema.safeParse({ ...basePoi, preferenceBasis: 7 }).success).toBe(false);
+    expect(tripPoiSchema.safeParse({ ...basePoi, preferenceBasis: "" }).success).toBe(false);
+  });
+
+  it("carries the basis through the result, event and detail schemas", () => {
+    const withBasis = {
+      ...tripResultFixture,
+      itinerary: tripResultFixture.itinerary.map((day) => ({
+        ...day,
+        steps: day.steps.map((step) => ({ ...step, preferenceBasis: "服务型 → 段间留缓冲" })),
+      })),
+    };
+    const event = { type: "trip", trip: withBasis };
+    expect(tripResultSchema.safeParse(withBasis).success).toBe(true);
+    expect(tripEventSchema.safeParse(event).success).toBe(true);
+    expect(chatEventSchema.safeParse(event).success).toBe(true);
+    expect(
+      tripDetailSchema.safeParse({ ...withBasis, createdAt: "2026-10-16T10:00:00.000Z" }).success,
+    ).toBe(true);
+  });
+
+  it("keeps a stored trip event without the basis key parseable", () => {
+    const stored = { type: "trip", trip: tripResultFixture };
+    const parsed = chatEventSchema.safeParse(stored);
+    expect(parsed.success).toBe(true);
+    expect(
+      parsed.success &&
+        parsed.data.type === "trip" &&
+        parsed.data.trip.itinerary[0].steps[0].preferenceBasis,
+    ).toBe(null);
+  });
+});
+
 describe("itineraryDaySchema / routeLegSchema", () => {
   it("requires day >= 1 and at least one step", () => {
     expect(itineraryDaySchema.safeParse({ day: 0, title: "x", steps: [] }).success).toBe(false);

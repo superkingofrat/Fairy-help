@@ -101,6 +101,7 @@ describe("dispatch trip tool (FU-13)", () => {
             name: "西湖",
             category: "景点",
             note: null,
+            preferenceBasis: null,
             location: { lng: 120.15, lat: 30.25 },
             validated: true,
           },

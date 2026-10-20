@@ -35,6 +35,7 @@ const tripDetail: TripDetail = {
           name: "西湖",
           category: "景点",
           note: null,
+          preferenceBasis: null,
           location: null,
           validated: true,
         },

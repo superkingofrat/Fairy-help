@@ -555,6 +555,7 @@ describe("synthesize trip planning (FU-13)", () => {
             name: "西湖",
             category: "景点",
             note: null,
+            preferenceBasis: null,
             location: { lng: 120.15, lat: 30.25 },
             validated: true,
           },
@@ -563,6 +564,7 @@ describe("synthesize trip planning (FU-13)", () => {
             name: "河坊街",
             category: "美食",
             note: null,
+            preferenceBasis: null,
             location: { lng: 120.17, lat: 30.24 },
             validated: true,
           },
@@ -590,6 +592,7 @@ describe("synthesize trip planning (FU-13)", () => {
             name: "斯丹姜母鸭",
             category: "美食",
             note: "已备注餐具对齐",
+            preferenceBasis: null,
             location: null,
             validated: true,
           },
@@ -598,6 +601,40 @@ describe("synthesize trip planning (FU-13)", () => {
             name: "泉州悦泉行馆",
             category: "住宿",
             note: "三套备选已确认",
+            preferenceBasis: null,
+            location: null,
+            validated: true,
+          },
+        ],
+      },
+    ],
+  };
+
+  // FU-21：选点真的对应上了画像偏好——依据落在 step 上，回复才敢把安排归属给同行人。
+  // 与 tripWithNotes 的唯一差别就在 preferenceBasis：那边有备注、无依据（备注只写执行信息，
+  // 不构成「偏好已落实」的证据），这正是泉州实测里幻觉的那一态。
+  const tripWithBasis: TripResult = {
+    ...tripWithNotes,
+    itinerary: [
+      {
+        day: 1,
+        title: "古城漫步·开元西街的从容开场",
+        steps: [
+          {
+            time: "12:30",
+            name: "斯丹姜母鸭",
+            category: "美食",
+            note: "已备注餐具对齐",
+            preferenceBasis: "料理标准极高 → 改选可订座的餐厅",
+            location: null,
+            validated: true,
+          },
+          {
+            time: "17:00",
+            name: "泉州悦泉行馆",
+            category: "住宿",
+            note: "三套备选已确认",
+            preferenceBasis: "洁癖 → 优先可预订的室内行馆",
             location: null,
             validated: true,
           },
@@ -687,7 +724,7 @@ describe("synthesize trip planning (FU-13)", () => {
     });
 
     const tripWithCompanion: TripResult = {
-      ...tripWithNotes,
+      ...tripWithBasis,
       companion: { name: "莱卡恩", userId: "00000000-0000-4000-8000-0000000000c1" },
     };
 
@@ -699,10 +736,49 @@ describe("synthesize trip planning (FU-13)", () => {
     const facts = vi.mocked(llmClient.tryChat).mock.calls[0][1][1].content;
     // 回复里的人名此前只是模型从用户消息原文读到的；事实点名后，「按莱卡恩的习惯订了包间」才站得住
     expect(facts).toContain("同行人：莱卡恩。");
-    expect(facts).toContain("其偏好已体现在行程安排中");
+    // FU-21：归属断言以依据为前提——有依据才说「已体现在行程安排中」
     expect(facts).toContain("回复可把具体安排归属于该同行人");
     // 同行人的偏好来自其画像而非本轮发言，越界即 §0 防幻觉要堵的编造
     expect(facts).toContain("不得编造其未表达过的偏好");
+    // 依据逐条进【事实】并带 day/step 名，回复才能说「按什么偏好订的」而不是复读断言
+    expect(facts).toContain("偏好依据：Day 1 斯丹姜母鸭：料理标准极高 → 改选可订座的餐厅；");
+    expect(facts).toContain("Day 1 泉州悦泉行馆：洁癖 → 优先可预订的室内行馆。");
+  });
+
+  it("drops the attribution claim when no step carries a basis", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue({
+      text: "行程排好啦。",
+      usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
+      model: "test-model",
+      provider: "deepseek",
+    });
+
+    const tripWithCompanion: TripResult = {
+      ...tripWithNotes,
+      companion: { name: "莱卡恩", userId: "00000000-0000-4000-8000-0000000000c1" },
+    };
+
+    await synthesize(
+      { kind: "trip", success: true, unresolved: false, trip: tripWithCompanion, code: "OK" },
+      { message: "我和莱卡恩去泉州玩", profile: null },
+    );
+
+    const facts = vi.mocked(llmClient.tryChat).mock.calls[0][1][1].content;
+    // 有备注、无依据：备注只写执行信息，不构成偏好已落实的证据，归属断言必须消失
+    expect(facts).toContain("同行人：莱卡恩。");
+    expect(facts).not.toContain("已体现在行程安排中");
+    expect(facts).not.toContain("回复可把具体安排归属于该同行人");
+    expect(facts).not.toContain("偏好依据");
+
+    // 无 AI key 的兜底模板同样不得出现该断言——那条路用户直接看到
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+    const fallback = await synthesize(
+      { kind: "trip", success: true, unresolved: false, trip: tripWithCompanion, code: "OK" },
+      { message: "我和莱卡恩去泉州玩", profile: null },
+    );
+    expect(fallback.texts[0].content).toContain("同行人：莱卡恩。");
+    expect(fallback.texts[0].content).not.toContain("已体现在行程安排中");
+    expect(fallback.texts[0].content).not.toContain("偏好依据");
   });
 
   it("keeps the facts and template byte-identical when there is no companion", async () => {

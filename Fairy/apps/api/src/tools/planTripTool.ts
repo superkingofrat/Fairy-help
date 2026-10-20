@@ -12,19 +12,41 @@ import * as amapClient from "../services/amapClient";
 // 高德缺失/失败时降级：POI 标 validated=false、route=null，仍返回草稿（防幻觉由校验兜底，非阻塞）。
 
 const TRIP_SYSTEM_PROMPT = `你是 Fairy 的旅行规划模块。只输出一个 JSON 对象，不要输出任何解释或代码块标记。
-JSON 格式：{"destination":string|null,"itinerary":[{"day":1,"title":string,"steps":[{"time":"HH:mm","poi":string,"category":"景点|美食|住宿|交通|购物|其他","note":string|null}]}]}
+JSON 格式：{"destination":string|null,"itinerary":[{"day":1,"title":string,"steps":[{"time":"HH:mm","poi":string,"category":"景点|美食|住宿|交通|购物|其他","note":string|null,"preferenceBasis":string|null}]}]}
 规则：
 - destination 是用户想去的目的地（城市或地区名）；消息中无法确定时填 null
 - 根据消息里的时长/天数推断行程天数（默认 2 天），itinerary 长度等于天数
-- 每个 day 至少 1 个步骤，建议 3-5 个；poi 写具体可检索的地点名（如「西湖」「灵隐寺」）
-- 参考用户画像的旅行风格与同行人偏好（如有），让行程贴合风格
-- note 为可选的一句说明；时间用 "HH:mm" 格式`;
+- 每个 day 3-4 个步骤（至少 1 个）；poi 写具体可检索的地点名（如「西湖」「灵隐寺」）
+- 画像与同行人偏好是约束而非仅供参考：忌口/高标准餐饮就避开路边摊改选可订座的餐厅，注重洁净就避开露天摊位，节奏按旅行风格定；偏好要落实在选点上，note 只写时间/预约/排队等执行信息
+- preferenceBasis 只在真能对应到某条画像/同行人偏好时填写，写「哪条偏好 → 因此选/避开了什么」，不超过 20 字；对应不上必须填 null，不得为了填字段而编造依据
+- note 为可选的短说明，不超过 15 字；时间用 "HH:mm" 格式`;
+
+// 落实要求：把「偏好要落实在选点上」从一句软约束变成有出口、可验收的要求——每条非空偏好都要在
+// 某个 step 的 preferenceBasis 里点名，且选点本身要能体现。只给通用翻译示例，不在代码里枚举
+// persona 偏好→POI 的硬编码表（画像数据会变，硬编码会立刻过期，且会把个性化退化成查表）。
+//
+// 只在真的注入了同行人偏好时才追加：spec（travel-planning「Chat trip planning intent…」）对
+// 无同行人的情形有一条 MUST——发给草稿模型的 user 消息要与偏好注入前逐字一致。本人 travelStyle
+// 单独存在时追加这行会破坏该承诺，且 spec 的 MUST 本身也只要求「同行人匹配时」产出依据；
+// 本人风格仍受 system prompt 里「偏好要落实在选点上」与 preferenceBasis 契约约束，不会退化成软参考。
+const REFLECTION_REQUIREMENT =
+  "落实要求：上面每条偏好都要落到具体选点上，并在对应 step 的 preferenceBasis 里点名是哪条偏好、" +
+  "因此选或避开了什么。例如注重洁净/洁癖 → 避开露天摊位、优先可预订或室内餐饮；" +
+  "服务型/先订备选方案 → 段与段之间留缓冲、不安排需要赶车的衔接。对应不上的 step 必须填 null。";
 
 // 草稿预算必须同时容纳「思考」与「正文」：默认供应商 deepseek-v4-flash 是 reasoning 模型，
-// 两者共用同一个 completion 预算。历史：1200 会把 2 天行程的 JSON 正文（实测 905/3399/1144
-// token）拦腰截断，3500 仍有一轮连撞两次上限，故取 4000。按实际 token 计费，提高上限不增加
-// 正常调用成本，只是不再被卡死。
-const TRIP_DRAFT_MAX_TOKENS = 4000;
+// 两者共用同一个 completion 预算。历史：1200 会把 2 天行程的 JSON 拦腰截断（2026-10-11 提到 4000）。
+// 2026-10-16 FU-21 实测 4000 已不够：同一句「我和莱卡恩去泉州两天」连调三次，两次顶格
+// （completion=4000）——一次 reasoning 独自吃掉约 3800 token、正文只写出 303 字就被截断，
+// 另一次 reasoning 吃满 4000、content 直接为空（finish_reason=length）；只有第三次（2555）
+// 完整收尾。即失败率约 2/3，行程规划对用户基本不可用。按实际 token 计费，提高上限不增加
+// 正常调用成本，只是不再被卡死。6000 = 观测到的最坏 reasoning（约 3800）+ 2 天行程正文
+// （约 900-1200 token）+ 余量。同一条教训 2026-09-23 运营建议正文、2026-10-11 行程草稿各踩过一次。
+//
+// 另注意：预算不是本路径唯一的坑。AI_TIMEOUT_MS 默认 20000ms 对 reasoning 模型同样太短——
+// 实测同一次草稿请求 raw 耗时 11-25s，超过 20s 即被 abort 成 PARSE「Provider returned
+// malformed JSON」（与预算无关，是超时）。本地 .env 已置 60000；部署侧见 docs/deployment.md。
+const TRIP_DRAFT_MAX_TOKENS = 6000;
 
 const tripDraftSchema = z.object({
   destination: z.string().min(1).nullish(),
@@ -40,6 +62,8 @@ const tripDraftSchema = z.object({
               poi: z.string().min(1),
               category: z.string(),
               note: z.string().nullish(),
+              // 草稿侧宽松（nullish）：模型漏填与显式 null 等价，交给下面统一规整
+              preferenceBasis: z.string().nullish(),
             }),
           )
           .min(1),
@@ -141,6 +165,8 @@ async function draftTrip(
   const companionLine = companion ? buildCompanionLine(companion) : "";
   if (companionLine) {
     contextLines.push(companionLine);
+    // 落实要求紧贴同行人偏好行：没有可落实的偏好时不追加，无同行人的 user 消息因此逐字不变
+    contextLines.push(REFLECTION_REQUIREMENT);
   }
   const messages = [
     { role: "system" as const, content: TRIP_SYSTEM_PROMPT },
@@ -161,6 +187,13 @@ async function draftTrip(
     }
   }
   return null;
+}
+
+// 草稿里的依据规整为 TripPoi 形状：缺失、空串、纯空白一律归 null。空串若直接落库会绕过 shared
+// 的 .min(1)，等会话回放/详情解析时才炸，那时已经查不出是哪一步写坏的，故在此一次性收口。
+function toPreferenceBasis(raw: string | null | undefined): string | null {
+  const trimmed = raw?.trim();
+  return trimmed ? trimmed : null;
 }
 
 export async function planTripTool(input: {
@@ -232,6 +265,7 @@ export async function planTripTool(input: {
           category: step.category,
           time: step.time,
           note: step.note ?? null,
+          preferenceBasis: toPreferenceBasis(step.preferenceBasis),
           location: { lng: found.location.lng, lat: found.location.lat },
           validated: true,
         });
@@ -241,6 +275,7 @@ export async function planTripTool(input: {
           category: step.category,
           time: step.time,
           note: step.note ?? null,
+          preferenceBasis: toPreferenceBasis(step.preferenceBasis),
           location: null,
           validated: false,
         });

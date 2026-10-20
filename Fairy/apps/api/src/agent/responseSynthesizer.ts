@@ -189,18 +189,42 @@ function buildTripFacts(trip: TripResult): { facts: string; template: string } {
     .join("；");
   const validatedLine = trip.validated ? "" : "（POI 未经验证，仅供参考）";
   const routeLine = routeSummary(trip.route);
+  // FU-21：偏好依据。逐条带进【事实】，回复才能说「按什么偏好订的」而不是复读一句断言；
+  // 带 day 与 step 名，依据才能落到具体安排上（否则又是一句无从核对的空话）。
+  const basisLine = buildBasisLine(trip);
+  const hasBasis = basisLine.length > 0;
   // 同行人归属：事实里点名该同行人，回复才能把「体现偏好的安排」归到具体的人（而不是模型从
   // 用户消息原文猜的名字）。软约束——REPLY_SYSTEM_PROMPT 要求一到两句，硬性归属会逼出机械
   // 重复；末句是 AGENTS §0 防幻觉落地：同行人的偏好来自其画像，不是他本轮说过的话。
+  //
+  // 「已体现在行程安排中」是有依据时才敢下的断言。FU-21 之前这句无条件输出：行程里一个依据
+  // 都没有时，它仍会原样进【事实】，模型据此产出「节奏和时段都照着莱卡恩的偏好来安排的」，
+  // 而那些安排全是普适旅游常识，与「洁癖/料理标准极高」零关系——幻觉由我们自己诱导。
+  // 现在没有依据就只说明与谁同行，不断言已体现。
   const companionLine = trip.companion
-    ? `同行人：${trip.companion.name}。其偏好已体现在行程安排中，回复可把具体安排归属于该同行人；不得编造其未表达过的偏好。`
+    ? hasBasis
+      ? `同行人：${trip.companion.name}。其偏好已体现在行程安排中（依据见「偏好依据」），回复可把具体安排归属于该同行人；不得编造其未表达过的偏好。`
+      : `同行人：${trip.companion.name}。行程中暂无与该同行人偏好对应的具体安排，回复只可说明与谁同行，不得声称其偏好已体现在行程中。`
     : "";
   return {
     // 完整行程已由 trip SSE 事件在下方卡片逐条渲染，回复只负责概括并点出体现偏好的安排；
     // 不限制的话模型会逐条罗列，既冗长又把偏好淹没在地名里。
-    facts: `行程规划成功：目的地 ${trip.destination}，${dayCount} 天。${poiLine}${validatedLine}${routeLine}完整行程已在下方行程卡片中逐条展示，回复只需概括目的地与天数、点出其中体现偏好的安排，不要逐条罗列全部步骤；不得编造行程中不存在的偏好。${companionLine}`,
-    template: `给你规划了「${trip.destination}」${dayCount} 天的行程：${poiLine}。${validatedLine}${companionLine}`,
+    facts: `行程规划成功：目的地 ${trip.destination}，${dayCount} 天。${poiLine}${validatedLine}${routeLine}完整行程已在下方行程卡片中逐条展示，回复只需概括目的地与天数、点出其中体现偏好的安排，不要逐条罗列全部步骤；不得编造行程中不存在的偏好。${companionLine}${basisLine}`,
+    template: `给你规划了「${trip.destination}」${dayCount} 天的行程：${poiLine}。${validatedLine}${companionLine}${basisLine}`,
   };
+}
+
+// FU-21：把非空 preferenceBasis 逐条摊开。没有任何依据时返回空串——调用方据此关掉归属断言，
+// 也让 facts/template 与没有该字段时逐字一致（不新增空壳行）。
+function buildBasisLine(trip: TripResult): string {
+  // 三元而非 filter：filter 不会把 step.preferenceBasis 收窄成 string，模板串里会留下
+  // string | null（运行时虽被过滤掉，类型上却能把 null 拼进文案）
+  const entries = trip.itinerary.flatMap((day) =>
+    day.steps.flatMap((step) =>
+      step.preferenceBasis ? [`Day ${day.day} ${step.name}：${step.preferenceBasis}`] : [],
+    ),
+  );
+  return entries.length > 0 ? `偏好依据：${entries.join("；")}。` : "";
 }
 
 function routeSummary(route: RouteLeg[] | null): string {
