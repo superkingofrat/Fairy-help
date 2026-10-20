@@ -94,6 +94,7 @@ const tripResult: TripResult = {
   ],
   route: null,
   validated: true,
+  companion: null,
 };
 
 afterEach(() => {

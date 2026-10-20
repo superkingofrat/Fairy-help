@@ -31,6 +31,11 @@ export function TripTimeline({ trip }: TripTimelineProps): JSX.Element {
       </div>
       <p className="mt-1 text-xs text-sky-700">
         {t("chat.trip.days").replace("{n}", String(trip.days))}
+        {/* FU-20：同行人是行程事实的一部分（快照），与天数同行展示；无同行人时整节点不渲染，
+            回放存量行程（companion 为 null）与改动前逐字一致 */}
+        {trip.companion
+          ? ` · ${t("chat.trip.companion").replace("{name}", trip.companion.name)}`
+          : ""}
       </p>
       <ol className="mt-3 flex flex-col gap-3">
         {trip.itinerary.map((day) => (

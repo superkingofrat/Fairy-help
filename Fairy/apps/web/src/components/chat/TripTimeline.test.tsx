@@ -33,6 +33,7 @@ const tripResult: TripResult = {
   ],
   route: [{ from: "西湖", to: "河坊街", distanceMeters: 2100, durationSeconds: 480 }],
   validated: true,
+  companion: null,
 };
 
 describe("TripTimeline", () => {
@@ -81,6 +82,28 @@ describe("TripTimeline", () => {
     expect(screen.getByText("未验证")).toBeDefined();
     expect(screen.getAllByText("未核实")).toHaveLength(1);
     expect(screen.queryByText(/驾车路线/)).toBeNull();
+  });
+
+  // FU-20：同行人快照来自行程事实（两列投影），不是从用户消息里猜的名字
+  it("names the companion next to the day count when the trip has one", () => {
+    render(
+      <TripTimeline
+        trip={{
+          ...tripResult,
+          companion: { name: "莱卡恩", userId: "00000000-0000-4000-8000-0000000000c1" },
+        }}
+      />,
+    );
+
+    expect(screen.getByText(/与 莱卡恩 同行/)).toBeDefined();
+    expect(screen.getByText(/共 1 天 · 与 莱卡恩 同行/)).toBeDefined();
+  });
+
+  it("renders no companion line when the trip has none", () => {
+    render(<TripTimeline trip={tripResult} />);
+
+    expect(screen.getByText(/共 1 天/)).toBeDefined();
+    expect(screen.queryByText(/同行/)).toBeNull();
   });
 
   // FU-19 二期：地图槽位随卡片渲染；TripMap 内部按 key/坐标/加载失败静默降级

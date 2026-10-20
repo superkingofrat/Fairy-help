@@ -41,6 +41,14 @@ function movieLine(movie: Movie): string {
 // 台词注入上限：避免长推荐列表把 prompt 撑爆（需求待决问题 1 定稿）
 const MAX_QUOTE_INJECTIONS = 3;
 
+// 通用回复预算：对话式回复「一到两句」足够。默认供应商是 reasoning 模型，思考与正文
+// 共用这一个 completion 预算，故不能贴着典型用量设（同 ARCHITECTURE §8 约定）。
+const DEFAULT_REPLY_MAX_TOKENS = 300;
+// 行程回复要概括「目的地+天数+体现偏好的安排+路线」，实测 137-274 token（2 天行程、
+// 事实含 day.title 与 step.note，13 轮实调）；300 下曾有一轮顶格截断在半句，故单独放宽，
+// 600 下 12 轮零截断。只放宽行程分支，不动其他分支的用量画像。
+const TRIP_REPLY_MAX_TOKENS = 600;
+
 function movieQuote(movie: Movie): string | null {
   const quote = movie.quote?.trim();
   return quote ? quote : null;
@@ -166,16 +174,32 @@ function buildInsightFacts(
 }
 
 // FU-13：旅行规划——从 TripResult 构造【事实】与兜底模板。
+// day.title 与 step.note 是画像偏好真正的落点（同行人偏好、行程质感都写在这里），
+// 早先只拼 step.name，定制信息在进模型前就被丢掉，用户看到的就只剩一串通用地名。
 function buildTripFacts(trip: TripResult): { facts: string; template: string } {
   const dayCount = trip.itinerary.length;
   const poiLine = trip.itinerary
-    .map((day) => `Day ${day.day} ${day.steps.map((step) => step.name).join("→")}`)
+    .map((day) => {
+      const title = day.title ? `「${day.title}」` : "";
+      const steps = day.steps
+        .map((step) => (step.note ? `${step.name}（${step.note}）` : step.name))
+        .join("→");
+      return `Day ${day.day}${title} ${steps}`;
+    })
     .join("；");
   const validatedLine = trip.validated ? "" : "（POI 未经验证，仅供参考）";
   const routeLine = routeSummary(trip.route);
+  // 同行人归属：事实里点名该同行人，回复才能把「体现偏好的安排」归到具体的人（而不是模型从
+  // 用户消息原文猜的名字）。软约束——REPLY_SYSTEM_PROMPT 要求一到两句，硬性归属会逼出机械
+  // 重复；末句是 AGENTS §0 防幻觉落地：同行人的偏好来自其画像，不是他本轮说过的话。
+  const companionLine = trip.companion
+    ? `同行人：${trip.companion.name}。其偏好已体现在行程安排中，回复可把具体安排归属于该同行人；不得编造其未表达过的偏好。`
+    : "";
   return {
-    facts: `行程规划成功：目的地 ${trip.destination}，${dayCount} 天。${poiLine}${validatedLine}${routeLine}`,
-    template: `给你规划了「${trip.destination}」${dayCount} 天的行程：${poiLine}。${validatedLine}`,
+    // 完整行程已由 trip SSE 事件在下方卡片逐条渲染，回复只负责概括并点出体现偏好的安排；
+    // 不限制的话模型会逐条罗列，既冗长又把偏好淹没在地名里。
+    facts: `行程规划成功：目的地 ${trip.destination}，${dayCount} 天。${poiLine}${validatedLine}${routeLine}完整行程已在下方行程卡片中逐条展示，回复只需概括目的地与天数、点出其中体现偏好的安排，不要逐条罗列全部步骤；不得编造行程中不存在的偏好。${companionLine}`,
+    template: `给你规划了「${trip.destination}」${dayCount} 天的行程：${poiLine}。${validatedLine}${companionLine}`,
   };
 }
 
@@ -191,6 +215,7 @@ function routeSummary(route: RouteLeg[] | null): string {
 async function generateReply(
   context: SynthesisContext,
   facts: string,
+  maxTokens: number = DEFAULT_REPLY_MAX_TOKENS,
   onDelta?: (delta: string) => void,
 ): Promise<string | null> {
   const message = sanitizeUserInput(context.message);
@@ -211,7 +236,7 @@ async function generateReply(
     .filter((part) => part.length > 0)
     .join("\n");
 
-  const options = { maxTokens: 300, temperature: 0.5 };
+  const options = { maxTokens, temperature: 0.5 };
   const result = onDelta
     ? await tryChat(
         "agent.reply",
@@ -241,8 +266,10 @@ export async function synthesize(
   onDelta?: (delta: string) => void,
 ): Promise<SynthesizedResponse> {
   // 统一出口：带 onDelta 时走 provider.stream() 增量输出，否则保持一次性 chat()
-  const reply = (facts: string): Promise<string | null> =>
-    onDelta ? generateReply(context, facts, onDelta) : generateReply(context, facts);
+  const reply = (facts: string, maxTokens?: number): Promise<string | null> =>
+    onDelta
+      ? generateReply(context, facts, maxTokens, onDelta)
+      : generateReply(context, facts, maxTokens);
 
   if (observation.kind === "insight") {
     if (observation.forbidden) {
@@ -312,7 +339,7 @@ export async function synthesize(
       return { texts: [{ content: text }] };
     }
     const { facts, template } = buildTripFacts(observation.trip);
-    const text = (await reply(facts)) ?? template;
+    const text = (await reply(facts, TRIP_REPLY_MAX_TOKENS)) ?? template;
     return { texts: [{ content: text }], trip: { trip: observation.trip } };
   }
 

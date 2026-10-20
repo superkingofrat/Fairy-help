@@ -30,6 +30,14 @@ export const routeLegSchema = z.object({
   durationSeconds: z.number().nullable(),
 });
 
+// 同行人快照：规划时命中的那个同行人（FU-20 解析）。它是**快照**而非引用——名字可能已改、
+// 画像可能已删，故 Trip 侧只存两列可空值、不加外键。与用户消息里出现的人名无关：回复只有拿到
+// 这个结构化事实，才能把「体现偏好的安排」归属到具体的人（而不是模型从原文猜的名字）。
+export const tripCompanionSchema = z.object({
+  name: z.string().min(1),
+  userId: z.string().min(1),
+});
+
 export const tripResultSchema = z.object({
   tripId: z.string().uuid(),
   destination: z.string(),
@@ -37,6 +45,9 @@ export const tripResultSchema = z.object({
   itinerary: z.array(itineraryDaySchema),
   route: z.array(routeLegSchema).nullable(),
   validated: z.boolean(),
+  // 键缺失与显式 null 等价（default），否则会话历史里落库的旧 trip 事件（chatEventSchema 的
+  // discriminated union 成员）会因缺键解析失败，旧行程回放直接坏掉。
+  companion: tripCompanionSchema.nullable().default(null),
 });
 
 export const tripEventSchema = z.object({
@@ -93,4 +104,5 @@ export type TripPoi = z.infer<typeof tripPoiSchema>;
 export type ItineraryDay = z.infer<typeof itineraryDaySchema>;
 export type RouteLeg = z.infer<typeof routeLegSchema>;
 export type TripResult = z.infer<typeof tripResultSchema>;
+export type TripCompanion = z.infer<typeof tripCompanionSchema>;
 export type TripEvent = z.infer<typeof tripEventSchema>;

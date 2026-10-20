@@ -653,6 +653,7 @@ describe("POST /api/chat", () => {
       ],
       route: null,
       validated: true,
+      companion: null,
     };
     vi.mocked(planTripTool.planTripTool).mockResolvedValue({
       success: true,

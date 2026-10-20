@@ -109,6 +109,7 @@ describe("dispatch trip tool (FU-13)", () => {
     ],
     route: null,
     validated: true,
+    companion: null,
   };
 
   it("maps a successful trip plan and forwards the user message", async () => {

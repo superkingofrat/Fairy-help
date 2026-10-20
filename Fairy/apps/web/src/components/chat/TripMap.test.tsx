@@ -55,6 +55,7 @@ const tripWithRoute: TripResult = {
   ],
   route: [{ from: "西湖", to: "灵隐寺", distanceMeters: 8000, durationSeconds: 1200 }],
   validated: true,
+  companion: null,
 };
 
 const tripWithoutRoute: TripResult = { ...tripWithRoute, route: null };

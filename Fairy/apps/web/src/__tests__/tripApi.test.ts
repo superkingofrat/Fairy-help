@@ -48,6 +48,7 @@ const tripResult: TripResult = {
   ],
   route: null,
   validated: true,
+  companion: null,
 };
 
 const feed: TripListFeed = {

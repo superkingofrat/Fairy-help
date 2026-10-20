@@ -571,6 +571,39 @@ describe("synthesize trip planning (FU-13)", () => {
     ],
     route: [{ from: "西湖", to: "河坊街", distanceMeters: 2100, durationSeconds: 480 }],
     validated: true,
+    companion: null,
+  };
+
+  // 画像偏好的落点只在 day.title / step.note 里（同行人偏好、行程质感），
+  // 复刻真实泉州行程中由莱卡恩画像衍生的两条备注
+  const tripWithNotes: TripResult = {
+    ...tripResult,
+    destination: "泉州",
+    days: 2,
+    itinerary: [
+      {
+        day: 1,
+        title: "古城漫步·开元西街的从容开场",
+        steps: [
+          {
+            time: "12:30",
+            name: "斯丹姜母鸭",
+            category: "美食",
+            note: "已备注餐具对齐",
+            location: null,
+            validated: true,
+          },
+          {
+            time: "17:00",
+            name: "泉州悦泉行馆",
+            category: "住宿",
+            note: "三套备选已确认",
+            location: null,
+            validated: true,
+          },
+        ],
+      },
+    ],
   };
 
   it("returns the itinerary summary text and a trip SSE payload", async () => {
@@ -584,6 +617,119 @@ describe("synthesize trip planning (FU-13)", () => {
     expect(result.texts[0].content).toContain("杭州");
     expect(result.texts[0].content).toContain("西湖→河坊街");
     expect(result.trip).toEqual({ trip: tripResult });
+  });
+
+  it("keeps the day titles and step notes in the facts handed to the reply model", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const result = await synthesize(
+      { kind: "trip", success: true, unresolved: false, trip: tripWithNotes, code: "OK" },
+      { message: "我和莱卡恩去泉州玩", profile: null },
+    );
+
+    // title/note 是同行人偏好唯一的落点；早先只拼 step.name，定制信息在进回复模型前就丢了
+    expect(result.texts[0].content).toContain("「古城漫步·开元西街的从容开场」");
+    expect(result.texts[0].content).toContain("斯丹姜母鸭（已备注餐具对齐）");
+    expect(result.texts[0].content).toContain("泉州悦泉行馆（三套备选已确认）");
+    // 无备注的步骤不得出现空括号
+    expect(result.texts[0].content).not.toContain("（）");
+  });
+
+  it("tells the reply model to summarize and surface the preference-driven choices", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue({
+      text: "行程排好啦。",
+      usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
+      model: "test-model",
+      provider: "deepseek",
+    });
+
+    await synthesize(
+      { kind: "trip", success: true, unresolved: false, trip: tripWithNotes, code: "OK" },
+      { message: "我和莱卡恩去泉州玩", profile: null },
+    );
+
+    const facts = vi.mocked(llmClient.tryChat).mock.calls[0][1][1].content;
+    // 完整行程在卡片里逐条渲染，回复只概括；不限制的话模型会逐条罗列，把偏好淹在地名里
+    expect(facts).toContain("不要逐条罗列全部步骤");
+    expect(facts).toContain("不得编造行程中不存在的偏好");
+  });
+
+  it("budgets the trip reply above the default so the summary is not truncated", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue({
+      text: "行程排好啦。",
+      usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
+      model: "test-model",
+      provider: "deepseek",
+    });
+
+    await synthesize(
+      { kind: "trip", success: true, unresolved: false, trip: tripWithNotes, code: "OK" },
+      { message: "我和莱卡恩去泉州玩", profile: null },
+    );
+    const tripBudget = vi.mocked(llmClient.tryChat).mock.calls[0][2]?.maxTokens;
+
+    vi.mocked(llmClient.tryChat).mockClear();
+    await synthesize({ kind: "none", reason: "chitchat" }, { message: "你好呀", profile: null });
+    const defaultBudget = vi.mocked(llmClient.tryChat).mock.calls[0][2]?.maxTokens;
+
+    // 事实带上 title/note 后行程回复实测 137-274 token，300 会偶发顶格截断（同草稿 1200 一类）；
+    // 只放宽行程分支，其他分支用量画像不变
+    expect(tripBudget).toBeGreaterThanOrEqual(600);
+    expect(defaultBudget).toBeLessThan(tripBudget ?? 0);
+  });
+
+  it("names the companion in the facts so the reply can attribute arrangements to them", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue({
+      text: "行程排好啦。",
+      usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
+      model: "test-model",
+      provider: "deepseek",
+    });
+
+    const tripWithCompanion: TripResult = {
+      ...tripWithNotes,
+      companion: { name: "莱卡恩", userId: "00000000-0000-4000-8000-0000000000c1" },
+    };
+
+    await synthesize(
+      { kind: "trip", success: true, unresolved: false, trip: tripWithCompanion, code: "OK" },
+      { message: "我和莱卡恩去泉州玩", profile: null },
+    );
+
+    const facts = vi.mocked(llmClient.tryChat).mock.calls[0][1][1].content;
+    // 回复里的人名此前只是模型从用户消息原文读到的；事实点名后，「按莱卡恩的习惯订了包间」才站得住
+    expect(facts).toContain("同行人：莱卡恩。");
+    expect(facts).toContain("其偏好已体现在行程安排中");
+    expect(facts).toContain("回复可把具体安排归属于该同行人");
+    // 同行人的偏好来自其画像而非本轮发言，越界即 §0 防幻觉要堵的编造
+    expect(facts).toContain("不得编造其未表达过的偏好");
+  });
+
+  it("keeps the facts and template byte-identical when there is no companion", async () => {
+    vi.mocked(llmClient.tryChat).mockResolvedValue(null);
+
+    const withoutCompanion = await synthesize(
+      { kind: "trip", success: true, unresolved: false, trip: tripWithNotes, code: "OK" },
+      { message: "帮我规划去泉州玩", profile: null },
+    );
+
+    vi.mocked(llmClient.tryChat).mockClear();
+    vi.mocked(llmClient.tryChat).mockResolvedValue({
+      text: "行程排好啦。",
+      usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
+      model: "test-model",
+      provider: "deepseek",
+    });
+    await synthesize(
+      { kind: "trip", success: true, unresolved: false, trip: tripWithNotes, code: "OK" },
+      { message: "帮我规划去泉州玩", profile: null },
+    );
+    const facts = vi.mocked(llmClient.tryChat).mock.calls[0][1][1].content;
+
+    // 无同行人：不出现归属行，模板与改动前逐字一致（不得有「同行人：null」之类的空壳）
+    expect(facts).not.toContain("同行人");
+    expect(withoutCompanion.texts[0].content).not.toContain("同行人");
+    expect(withoutCompanion.texts[0].content).toContain("给你规划了「泉州」1 天的行程");
   });
 
   it("marks an unvalidated itinerary as reference-only in the template", async () => {
