@@ -27,7 +27,11 @@ const DEFAULT_BASE_URLS: Record<AiProviderName, string> = {
   claude: "https://api.anthropic.com",
 };
 
-const DEFAULT_TIMEOUT_MS = 20000;
+// 默认超时必须容纳 reasoning 模型的「思考」耗时：默认供应商 deepseek-v4-flash 的思考与答案
+// 共用同一次请求，实测单次行程草稿 raw 耗时 11-25s。20000ms 会把其中一部分 abort 掉，而
+// abort 抛的是 TIMEOUT、经上层归一后呈现为 PARSE「Provider returned malformed JSON」——
+// 日志看起来像供应商返回了损坏响应，实为超时，极具误导性。60000 与本地实测可用值一致。
+const DEFAULT_TIMEOUT_MS = 60000;
 
 // FU-16：独立可选 embed 配置——与 AI_PROVIDER 解耦（DeepSeek/Claude 无 embeddings API，
 // 但默认 chat 供应商是 deepseek 时仍可经 OpenAI embed）。缺 key 时 createEmbeddingProvider 返回 null（降级信号）。

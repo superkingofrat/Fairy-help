@@ -130,13 +130,14 @@ JSON 格式：{"destination":string|null,"itinerary":[{"day":1,"title":string,"s
   「预算 6000 + 每天 3-4 步 + note ≤ 15 字」：6000 = 观测到的最坏 reasoning（约 3800）+ 2 天
   行程正文（约 900-1200 token）+ 余量。按实际 token 计费，提高上限不增加正常调用成本；
   `planTripTool.test.ts` 锁预算下限（≥5000）与输出规格防回归。
-- **`AI_TIMEOUT_MS` 默认 20s 对 reasoning 模型同样太短（2026-10-16 发现）**：超时与预算是
-  两条独立的坑。实测同一次草稿请求 raw 耗时 11-25s，超过默认 20000ms 即被 abort，报
-  `PARSE`「Provider returned malformed JSON」（看起来像响应损坏，实为超时）。A/B 对照确认这是
-  **既有缺陷而非 FU-21 引入**：把 FU-21 之前的提示词原样跑 4 轮，3 轮撞 20s 超时；新提示词
-  4 轮撞 2 轮。本地 `apps/api/.env` 已置 `AI_TIMEOUT_MS=60000`；该变量早已登记在
-  `.env.example` 与 `docs/deployment.md`（默认 20000），部署侧需按 reasoning 模型的实测延迟
-  调整，否则线上行程规划同样会间歇性失败。
+- **`AI_TIMEOUT_MS` 默认值曾对 reasoning 模型太短（2026-10-16 发现，2026-10-20 已修）**：超时与
+  预算是两条独立的坑。实测同一次草稿请求 raw 耗时 11-25s，原默认 20000ms 会把其中一部分
+  abort，报 `PARSE`「Provider returned malformed JSON」（看起来像响应损坏，实为超时）。A/B 对照
+  确认这是**既有缺陷而非 FU-21 引入**：把 FU-21 之前的提示词原样跑 4 轮，3 轮撞 20s 超时；新
+  提示词 4 轮撞 2 轮。**2026-10-20 已把 `DEFAULT_TIMEOUT_MS` 从 20000 抬到 60000**（`packages/ai-sdk/src/factory.ts`，
+  与本地实测可用值一致），`docs/deployment.md` 的推荐值同步；`factory.test.ts` 用假定时器锁
+  「未设 `AI_TIMEOUT_MS` 时 59999ms 不 abort、60000ms 才 abort」防回归。显式设 `AI_TIMEOUT_MS`
+  仍优先生效。
 - **画像偏好是约束而非参考（2026-10-11 修复）**：原规则写「参考用户画像的旅行风格与同行人
   偏好（如有），让行程贴合」——措辞太软，实测模型只在 `note` 里承认偏好却不改选点：泉州行程
   中同行人画像「料理标准极高，餐具必须对齐」配了两天街头小吃（水门国仔面线糊、泉州牛肉羹），

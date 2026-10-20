@@ -43,9 +43,10 @@ const REFLECTION_REQUIREMENT =
 // 正常调用成本，只是不再被卡死。6000 = 观测到的最坏 reasoning（约 3800）+ 2 天行程正文
 // （约 900-1200 token）+ 余量。同一条教训 2026-09-23 运营建议正文、2026-10-11 行程草稿各踩过一次。
 //
-// 另注意：预算不是本路径唯一的坑。AI_TIMEOUT_MS 默认 20000ms 对 reasoning 模型同样太短——
-// 实测同一次草稿请求 raw 耗时 11-25s，超过 20s 即被 abort 成 PARSE「Provider returned
-// malformed JSON」（与预算无关，是超时）。本地 .env 已置 60000；部署侧见 docs/deployment.md。
+// 另注意：预算不是本路径唯一的坑。AI_TIMEOUT_MS 默认值曾为 20000ms，对 reasoning 模型同样
+// 太短——实测同一次草稿请求 raw 耗时 11-25s，超过 20s 即被 abort 成 PARSE「Provider returned
+// malformed JSON」（与预算无关，是超时）。2026-10-20 已把 DEFAULT_TIMEOUT_MS 抬到 60000
+// （packages/ai-sdk/src/factory.ts），显式设 AI_TIMEOUT_MS 仍优先生效。
 const TRIP_DRAFT_MAX_TOKENS = 6000;
 
 const tripDraftSchema = z.object({

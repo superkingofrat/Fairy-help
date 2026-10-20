@@ -1807,7 +1807,8 @@ e0833e4 store: add movie covers and detail modal           (63 files, +1683/-15)
 
 ### Next Steps
 
-- **推送 + 开 PR 是唯一真正阻塞「项目存在」的一步**，待负责人授权。建议先 `git branch -m feat/october-deliveries`——现分支名 `docs/sync-requirement-statuses` 与内容（影片封面、同行人画像、偏好依据、导航收敛）不符，简历上点开观感差
-- **待负责人决定（各约 5 分钟）**：①`AI_TIMEOUT_MS` 默认 20000ms 对 reasoning 模型太短（超时伪装成 `PARSE`），本地已置 60000，抬默认值会影响全部供应商调用且 `docs/deployment.md` 推荐值需同步；②dev 库残留影片 `123` 与 `海蒂和爷爷` 清理（破坏性，各带 1 笔租赁记录）；③行程路由 Option A 是否走 OpenSpec（收窄已归档提案的 owner-read Requirement）
+- **推送 + 开 PR 是唯一真正阻塞「项目存在」的一步**，待负责人授权。建议先 `git branch -m feat/october-deliveries`——现分支名 `docs/sync-requirement-statuses` 与内容（影片封面、同行人画像、偏好依据、导航收敛）不符，简历上点开 PR 看到标题叫「同步需求状态」、内容却是行程功能，观感很差
+- **`AI_TIMEOUT_MS` 默认值已由负责人批准并落地**（20000 → 60000）：`DEFAULT_TIMEOUT_MS` 抬到与本地实测可用值一致；新增 2 个假定时器测试锁「未设该变量时 59999ms 不 abort、60000ms 才 abort」+ 显式覆盖仍生效，并已验证把常量改回 20000 该用例即失败。同步 `docs/deployment.md`、`Fairy/docs/prompts.md`、`.env.example`、`planTripTool.ts` 注释、`ARCHITECTURE.md` §8、PROJECT_STATUS 三处
+- **待负责人决定（各约 5 分钟）**：①dev 库残留影片 `123` 与 `海蒂和爷爷` 清理（破坏性，各带 1 笔租赁记录）；②行程路由 Option A 是否走 OpenSpec（收窄已归档提案的 owner-read Requirement）；③远端陈旧分支清理（`main` 与 `master` 完全分叉 + 8 个已合并分支）
 - **待环境/key**：docker compose 实际构建冒烟；FU-16 真实 embed 验收
 - **技术债（可排后）**：`behavior_logs`/`rentals` 无保留策略；根文档 CRLF 与 prettier 配置范围冲突（prettier 配置在 `Fairy/`，不检查仓库根）
