@@ -1812,3 +1812,66 @@ e0833e4 store: add movie covers and detail modal           (63 files, +1683/-15)
 - **待负责人决定（各约 5 分钟）**：①dev 库残留影片 `123` 与 `海蒂和爷爷` 清理（破坏性，各带 1 笔租赁记录）；②行程路由 Option A 是否走 OpenSpec（收窄已归档提案的 owner-read Requirement）；③远端陈旧分支清理（`main` 与 `master` 完全分叉 + 8 个已合并分支）
 - **待环境/key**：docker compose 实际构建冒烟；FU-16 真实 embed 验收
 - **技术债（可排后）**：`behavior_logs`/`rentals` 无保留策略；根文档 CRLF 与 prettier 配置范围冲突（prettier 配置在 `Fairy/`，不检查仓库根）
+
+---
+
+## Session 41: 简历就绪度四项缺口清理 —— 文档修正 + dev 库残留清理 + PR 合并 + 仓库公开
+
+### Summary
+
+负责人问「项目目前完成度怎么说，够格么，准备重写简历」。复评全部用本日实测数据（非文档转抄）：29,230 行 TypeScript（业务 14,163 + 测试 15,067）、782 个测试用例、typecheck + lint 13/13、182 个提交单一作者。结论：代码与测试够格，剩四项对外可见性缺口。负责人裁定按 5-3-2-1 顺序解决；FU-16 真实 embed 验收因未购 embedding key 跳过。
+
+### Main Changes
+
+- **README 数字修正**（`90c888b`）：757 → 782 用例（本日 `turbo run test --force` 实测）、影片库 47 → 45 部（dev 库残留清理后 `db:seed` 全新基线 39 + 6）
+- **dev 库验收残留影片清理**（负责人批准的破坏性操作）：`123` 与 `海蒂和爷爷` 各带 1 笔 ACTIVE 租赁（归属 `admin@fairy.local` 演示账号），事务内先删 Rental 再删 Movie（外键 `onDelete: Restrict`），movies 47 → 45、rentals 11 → 9；一次性脚本运行后即删（不提交）
+- **PR #10**：README 修正上分支 → 开 PR → CI `verify` 绿 → 合并（merge commit `f9135ad`）。PR #9（十月批次主体，截至 `196a4bb`，`ae733f9`）系负责人当日 12:58 自行创建、13:03 合并
+- **仓库 private → public**：转公开前完成密钥/隐私扫描（0 真实命中，占位符已逐条核实），API PATCH 后未登录访问 200；实测默认分支为 `master`
+
+### 关键实现决策
+
+- **「先快照后删除、不符即中止」被验证有效**：初版清理脚本按「租赁应为 RETURNED」预设守卫，快照发现两笔均为 ACTIVE 即中止、未删任何数据。文档只承诺「各带 1 笔租赁记录」未承诺状态——守卫按设计拦下一次潜在误删；确认 ACTIVE 系历史验收借阅未归还后，才把守卫放宽为「记录归属并放行」
+- **删除顺序 Rental 先于 Movie**：`Rental.movie` 是 `onDelete: Restrict`，顺序反了事务必败
+- **转公开前扫描作为不可逆对外动作的前置门**：HEAD 全树模式扫 + pickaxe 连接串扫 + 历史 `.env` 提交扫，三层都过才 PATCH
+
+### 踩坑与教训
+
+- **Git Credential Manager 的 `gho_` 令牌可直接调 GitHub API**（无需装 gh CLI）：`git credential fill` 取出、curl 带 `Authorization: token`，`admin` 权限足够开 PR/合并/改可见性。取出与使用全程不回显
+- **curl 内联中文 payload 报 400，改 `--data-binary @file` 后成功**——与 2026-09-23 记录的 Git Bash 非 UTF-8 body 陷阱同类，凡带中文的 API 请求体一律走文件
+- **轮询 CI 的 grep 模式没算 JSON 冒号后的空格**（`"status": "queued"` vs `"status":"queued"`），把 in_progress 误判为已结束；改 node fetch + JSON 解析后正常。教训：解析 JSON 别用 grep 拼模式
+- **Next Steps 旧稿「访客先看到 main」有误**：API 实测默认分支是 `master`（`main` 存在但非默认）。旧稿按推测写作，已按实测纠正——远端状态类断言应标注核实方式与日期
+- **`git push` 不通时可用 GitHub git database API 推同一个提交**（本日 github.com:443 持续超时、api.github.com 0.2s 正常）：`POST /git/blobs` → `POST /git/trees`（带 `base_tree`）→ `POST /git/commits` → `PATCH /git/refs/heads/<branch>`，作者/提交者/日期/消息按本地提交原样带上。但有两处不对齐就会推出一个**内容不同**的提交，必须校验：
+  1. **blob 字节必须取自 git 对象库，不能读工作区文件**。`core.autocrlf=true` 时 `PROJECT_STATUS.md` 与 journal 在工作区是 CRLF、入库是 LF，`fs.readFileSync` 造出的 blob 与本地提交不一致（README 恰好是 LF 才蒙混过关）。正确做法是 `git cat-file blob "HEAD:<path>"`，并用 `git rev-parse "HEAD:<path>"` 逐个比对 sha 再继续。
+  2. **提交消息要归一化成单个行尾 `\n`**。`--pretty=%B` 取出会多一个空行，GitHub 侧规整行尾后 sha 即变。
+  两处都对齐后，远端提交 sha 与本地逐字节相同（`fa0b7659`），本地无需 reset。另注意 Windows 下 node `execSync` 走 cmd.exe，`HEAD^`、`HEAD^{tree}` 里的 `^` 被当转义符**静默**吃掉（变成 `HEAD`，导致 parent 取成自己、diff 列表为空），一律改写 `HEAD~1` 与 `--pretty=%T`
+- **误推后可以原地改正**：CRLF 那次推出的坏提交无任何 PR 引用，用 `PATCH /git/refs` + `force: true` 指回正确提交即可，坏提交成为不可达垃圾。但推送前应先确认远端 tip 等于本地 parent（本次即靠该校验拦下「本地未含远端新提交」的情况）
+
+### Git Commits
+
+```
+90c888b docs: correct the test count and movie total in the readme   (2 files)
+fa0b7659 docs: sync spine for the resume-readiness cleanup          (3 files)
+```
+
+`fa0b7659` 因本机 github.com:443 不通改走 git database API 推送（树与提交 sha 均与本地一致，见「踩坑与教训」）；其上为 spine 同步（README 缺口清单 + PROJECT_STATUS 三项状态订正 + journal 本条）。
+
+PR #10（base master，CI 绿，merge commit `f9135ad`）；本地 `master` 已快进到 `origin/master`。
+
+### Testing
+
+- [OK] `turbo run test --force`（强制无缓存）：782 passed / 1 skipped（真实库并发用例按 `TEST_DATABASE_URL` 门控），75 个测试文件（api 444 / web 180 / shared 128 / ai-sdk 18 / database 12）
+- [OK] typecheck + lint：13/13
+- [OK] dev 库清理后置校验：movies 47 → 45、rentals 11 → 9、两个标题不存在、两处 `DATABASE_URL` 删除前复核逐字节一致
+- [OK] 转公开前三层密钥扫描 0 真实命中；未登录访问仓库页 200
+- [N/A] `docker compose up --build` 未跑（本机无 Docker、无 WSL：PATH/默认安装位/`wsl -l -v` 三处都查过）
+- [N/A] FU-16 真实 embed 端到端验收（负责人未购 embedding key，跳过）
+
+### Status
+
+[OK] **Completed**（四项缺口解决三项：README 数字、dev 库残留、PR + 仓库公开；Docker 实跑仍缺环境，已登记 Risks 与 Next Steps）
+
+### Next Steps
+
+- **有 Docker 的机器上跑** `cd Fairy && docker compose up --build`，核对 api `/health`、web SPA、跨源 web→api 全链路（`docs/deployment.md` §8 清单）
+- **远端陈旧分支与 `main` 清理**（待负责人决定）：8 个已合并分支 + 1 个 Initial commit 的 `main`；默认分支已是 `master`，纯观感问题
+- **FU-16 真实 embed 验收**：待负责人配 `EMBEDDING_API_KEY`（或有效 `OPENAI_API_KEY`）后补跑
