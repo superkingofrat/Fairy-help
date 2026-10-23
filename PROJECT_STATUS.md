@@ -119,16 +119,15 @@
 
 ## In Progress（进行中）
 
-- （待负责人，非开发项）FU-16 真实 embed 端到端验收：配置 `EMBEDDING_API_KEY` 后跑通真实 embed 落库 / 语义相似召回 / 回填幂等，见 Risks。2026-09-23 复跑确认：缺 key 时写入链路与检索降级行为符合设计（记忆照常落库、结构化兜底可用、无用户可见错误），精确阻塞点已登记 Risks。**2026-09-24 负责人指示排后**（"FU-16 放后面"：两个已批准需求交付后再处理，见 Next Steps）。**2026-09-25 更新：两个已批准需求（Fairy 拟人化形象、经典台词进推荐链路）已交付并移入 Completed Modules，FU-16 重新成为队列首位（仍待负责人配 key，见 Next Steps）。**
-- **（待负责人决定，非开发项）dev 库验收残留影片清理**：`123`（`director="123"`、`year=2000`、`stock=0/1`，历史验收键入残留，已还其 `coverUrl` 为 null）与 `海蒂和爷爷`（与 `海蒂` 题材重复，均为 2015 年）各带 1 笔租赁记录，删除影片属破坏性操作且会牵涉租赁历史，未自行处置；如确认是残留可由负责人决定删除或保留作对照，见 Last Updated 2026-10-11 条。
+- （待负责人，非开发项）FU-16 真实 embed 端到端验收：配置 `EMBEDDING_API_KEY` 后跑通真实 embed 落库 / 语义相似召回 / 回填幂等，见 Risks。2026-09-23 复跑确认：缺 key 时写入链路与检索降级行为符合设计（记忆照常落库、结构化兜底可用、无用户可见错误），精确阻塞点已登记 Risks。**2026-09-24 负责人指示排后**（"FU-16 放后面"：两个已批准需求交付后再处理，见 Next Steps）。**2026-09-25 更新：两个已批准需求（Fairy 拟人化形象、经典台词进推荐链路）已交付并移入 Completed Modules，FU-16 重新成为队列首位（仍待负责人配 key，见 Next Steps）**。**2026-10-23 更新：负责人未购 embedding key，该项跳过（代码与 mock 覆盖已就绪，不影响简历就绪度结论）。**
 
 ---
 
 ## Next Steps（下一步）
 
-- **（2026-10-20 新增，待环境）docker compose 实际构建冒烟**：在有 Docker 的环境跑 `docker compose up --build`（api `/health` + web SPA + 跨源 web→api 全链路）——本机无 Docker，compose 文件与两个 Dockerfile 均只做过静态核对，见 Risks。
-- **（2026-10-20 新增，待负责人授权）推送 + 开 PR**：分支 `feat/october-deliveries` 已推送（领先 `origin` 9 个提交），等开 PR。**这是唯一真正阻塞「项目对外可见」的一步**。建 PR 链接：https://github.com/superkingofrat/Fairy-help/pull/new/feat/october-deliveries
-- **（2026-10-20 新增，待负责人决定）远端陈旧分支清理**：`main` 与 `master` 完全分叉（`main` 只有 1 个 Initial commit，`master` 有 171 个提交是它没有的），简历上点进仓库会先看到 `main`；另有 8 个已合并的陈旧分支（`feat/fairy-avatar-expressions`、`feat/seed-persona-users`、`feature/travel-planning-phase-2`、`fix/intent-history-token-budget`、`docs/refresh-requirement-statuses`、`docs/requirement-candidates-round-1`、`docs/session-journal-2026-09-24`）。删除均属破坏性操作，未自行处置。
+- **（2026-10-20 新增，待环境）docker compose 实际构建冒烟**：在有 Docker 的环境跑 `docker compose up --build`（api `/health` + web SPA + 跨源 web→api 全链路）——本机无 Docker，compose 文件与两个 Dockerfile 均只做过静态核对，见 Risks。**2026-10-23 复核：本机仍未安装 Docker 与 WSL**（`docker` 不在 PATH、默认安装位无 Docker Desktop、`wsl -l -v` 无发行版），阻塞性质不变；这是简历就绪度复评中唯一仍未消除的工程项，需换到有 Docker 的机器执行。
+- **（2026-10-20 新增，2026-10-23 已交付）推送 + 开 PR**：PR #9（负责人当日 12:58 创建、13:03 合并，十月批次主体截至 `196a4bb`，merge commit `ae733f9`）+ PR #10（README 数字修正 `90c888b`，CI 绿后合并，merge commit `f9135ad`）均已合并 `master`。**「项目对外可见」的阻塞已解除**：仓库已于同日转公开（见 Last Updated 2026-10-23 条 ④）。
+- **（2026-10-20 新增，待负责人决定）远端陈旧分支清理**：`main` 与 `master` 完全分叉（`main` 只有 1 个 Initial commit，`master` 有 171 个提交是它没有的）；另有 8 个已合并的陈旧分支（`feat/fairy-avatar-expressions`、`feat/seed-persona-users`、`feature/travel-planning-phase-2`、`fix/intent-history-token-budget`、`docs/refresh-requirement-statuses`、`docs/requirement-candidates-round-1`、`docs/session-journal-2026-09-24`）。删除均属破坏性操作，未自行处置。**2026-10-23 经 GitHub API 核实：默认分支为 `master`**（`main` 虽存在但非默认），访客进入仓库看到的是 `master`——本条旧稿「简历上点进仓库会先看到 `main`」的判断有误，已纠正；`main` 与 8 个陈旧分支仍建议清理（观感与导航成本），删除动作本身仍待负责人决定。
 - **（已交付 2026-10-16，P1 §15.2，方案 B）前端行程导航入口收敛**：负责人问「为什么会有行程规划栏，这个功能应该是只有管理才有的功能，分级是不是乱了」。核查结论是**分级没乱，API 侧全部正确**——创建仅 admin/agent（`toolDispatcher` 在调用 `planTripTool` **之前**就返回 `TRIP_FORBIDDEN`，不生成不落库不写日志，并由 `responseSynthesizer` 婉拒为自然语言；`tripController` 对 `POST /api/trips` 返回 403）；读取是 owner-or-admin（`GET /api/trips` 默认返回**调用者自己的**行程，仅带 `?userId=` 查他人才要求 admin；详情 owner-or-admin），即已归档提案 [`2026-09-22-travel-planning-phase-2`](openspec/changes/archive/2026-09-22-travel-planning-phase-2/) spec 的 Requirement「Trip history is readable only by its owner or an admin」；页面内创建表单也已按 `TripsPage` 的 `canCreate` 收起，普通用户看到 `readonlyHint` 而非表单，UI 上没有通往 403 的路径。**真实缺陷因此不是权限泄漏，而是一个对普通用户永远空转的入口**：`Trip.userId` 恒为创建者（`tripService.createTrip` 与 `planTripTool` 都用调用者 userId），而普通用户两条创建路都被堵，故永远不可能拥有任何行程，`/trips` 对他们永远是空列表。**修复采用方案 B（仅藏入口，不动路由）**：`App.tsx` 的「行程」导航链接改为仅对 `admin`/`agent` 渲染，`/trips` 路由保持对所有登录用户可达、由 owner-scoped 接口兜底。选择 B 而非 A 的理由：A 会收窄上述已归档 Requirement，按 §13.2 须另立 OpenSpec 提案，不该混在 P1 里；且 `/trips` 全站仅导航一个入口（`App.tsx` 之外无任何引用），藏掉链接即消除可见路径。改动仅 `apps/web`：`App.tsx` 一处条件渲染 + 注释说明「路由仍可达」这一非显然约束（防后人顺手把路由也门禁掉），`App.test.tsx` 新增 2 例（agent 角色见链接而 admin 链接仍隐藏、`/trips` 对 user 角色仍可达且创建表单仍收起）并在既有 user/admin 两例补断言；web 176 测试全绿（原 174）+ typecheck + `pnpm lint` 8/8。**未提交、未开 PR。**
 - **（待负责人决定，若要做须走 OpenSpec 轨）行程路由是否连同收敛到 admin/agent**：方案 B 只隐藏了导航入口，`/trips` 路由本身仍对所有登录用户开放（由 owner-scoped 接口兜底，普通用户看到的是空列表 + 只读提示，不泄漏数据）。若负责人认为普通用户应完全无法到达该页，即方案 A，则须收窄已归档提案 [`2026-09-22-travel-planning-phase-2`](openspec/changes/archive/2026-09-22-travel-planning-phase-2/) 的 Requirement「Trip history is readable only by its owner or an admin」，按 §13.2 **另立 OpenSpec 提案**而非直接改代码；同时 `RequireAuth` 需从 `role?: "admin"` 扩展为支持 admin-or-agent（动 6 个调用点）。本条与行程个性化提案相互独立。
 - **（已交付 2026-10-16，OpenSpec 轨）行程偏好依据可追溯**：提案 [`openspec/changes/archive/2026-10-16-trip-preference-traceability/`](openspec/changes/archive/2026-10-16-trip-preference-traceability/) 已实现并真机验收 AC-1~AC-6 全过，详见 Completed Modules 顶部条目（`tripPoiSchema` 增可空 `preferenceBasis`、`.nullable().default(null)` 使键缺失与显式 null 等价、prompt 追加「落实要求」与 20 字口径、归属行改条件式、`facts`/`template` 带依据、`TripTimeline` 渲染依据徽标；shared 128 / api 437 / web 180 / database 12 全绿；**验收期顺带发现两个既有缺陷**——`AI_TIMEOUT_MS` 默认 20s 对 reasoning 模型太短（**2026-10-20 已修**：`DEFAULT_TIMEOUT_MS` 20000 → 60000，`docs/deployment.md` 推荐值同步，`factory.test.ts` 假定时器锁默认值防回归）、`TRIP_DRAFT_MAX_TOKENS` 4000 被 reasoning 吃满致失败率约 2/3，后者已按 D6 抬至 6000 并把每天步数收紧为 3-4；未提交、未开 PR）。
@@ -158,7 +157,7 @@
 - **洞察窗口依赖服务器时区** — 运营洞察的趋势/活跃窗口按服务器本地日期分桶，起点为真本地午夜（`new Date(y, m, d)`）。部署必须显式设置 `TZ=Asia/Shanghai`（容器与 CI 同设）；若运行在 UTC 环境，窗口边界整体前移 8 小时、首日 00:00–08:00 数据缺失，且看板无任何报错提示。
 - **behavior_logs / rentals 无保留策略** — 行为日志每轮对话只增不减；洞察已按 30 天窗口控制查询成本（`recommendCount`/mood/scene），但表本身无清理或归档策略，长期仍会拖累写入与备份。须在落地前排定保留期（登记于整改批次，随 FU 排期）。
 - **（已解决 2026-09-24）intentClassifier 的历史注入不走 token 预算裁剪** — `stateLoop` 只对 synthesize 路径调 `trimHistoryToBudget`，`classifyIntent` 拿的是原始历史文本（现已经消毒 + 每条 ≤2000 字的换行折叠）。最近 10 条历史的极端情况下意图分类 prompt 仍可达 ~20k 字符（约 6k tokens 粗估），每轮固定发生，属成本关注而非正确性问题；缓解候选：意图分类也套同一预算裁剪（下批 P1 或随批次 6 处理）。**已消除**：分类路径同套 `trimHistoryToBudget`（意图分类不注入记忆，budget 全额给历史），见 2026-09-24 条目；同次复核发现并修正了裁剪方向偏差（原实现保留最旧轮次，与需求文档相反，已改为保留最新）。
-- **Docker 镜像未经实际构建验证（交付环境无 Docker）** — 批次 7 的 Dockerfile/.dockerignore/nginx 配置按仓库事实（manifest 路径、workspace 成员、脚本名、`@prisma/client` 经 `@fairy/database` 再导出）静态核对并通过 typecheck/lint/format，但 `docker build` 未在有 Docker 的环境跑过；首次部署前应在有 Docker 的环境实际构建两个镜像并冒烟 `/health` 与 web SPA（清单见 `docs/deployment.md` §8）。**2026-10-20 补 `Fairy/docker-compose.yml`**（api + web 两服务，含 healthcheck 依赖顺序、`env_file` 注入密钥、注释掉的可选 pgvector `db` 服务），把「分别 build 两个镜像再手工串起来」变成一条 `docker compose up --build`；但本机仍无 Docker，**compose 本身也尚未实际运行过**，风险性质不变（从「没有编排」变成「编排未验证」）。
+- **Docker 镜像未经实际构建验证（交付环境无 Docker）** — 批次 7 的 Dockerfile/.dockerignore/nginx 配置按仓库事实（manifest 路径、workspace 成员、脚本名、`@prisma/client` 经 `@fairy/database` 再导出）静态核对并通过 typecheck/lint/format，但 `docker build` 未在有 Docker 的环境跑过；首次部署前应在有 Docker 的环境实际构建两个镜像并冒烟 `/health` 与 web SPA（清单见 `docs/deployment.md` §8）。**2026-10-20 补 `Fairy/docker-compose.yml`**（api + web 两服务，含 healthcheck 依赖顺序、`env_file` 注入密钥、注释掉的可选 pgvector `db` 服务），把「分别 build 两个镜像再手工串起来」变成一条 `docker compose up --build`；但本机仍无 Docker，**compose 本身也尚未实际运行过**，风险性质不变（从「没有编排」变成「编排未验证」）。**2026-10-23 复核**：本机 `docker` 不在 PATH、默认安装位无 Docker Desktop、`wsl -l -v` 无发行版——实跑验证仍缺环境，是简历就绪度复评后唯一未消除的工程项（其余三项：README 数字、dev 库残留、PR/仓库可见性均已解决）。
 
 ### 近期关键决策
 
@@ -200,6 +199,18 @@
 ---
 
 ## Last Updated（最近更新）
+
+**2026-10-23（五）· 五笔** — **简历就绪度复评（负责人问「项目目前完成度怎么说，够格么，准备重写简历」）+ 按 5-3-2-1 顺序解决四项工程缺口（FU-16 因未购 embedding key 跳过）**：
+
+① **复评硬数据（本日实测，非文档转抄）**：29,230 行 TypeScript（业务 14,163 + 测试 15,067）；782 个测试用例（`turbo run test --force` 强制无缓存：api 444 passed / 1 skipped 真实库门控、web 180、shared 128、ai-sdk 18、database 12，共 75 个测试文件）；typecheck + lint 13/13；182 个提交全部归属同一作者（`rat` / `superkingofrat`，同一邮箱）；14 个迁移。结论与 2026-10-20 评审一致并更新：**代码与测试够格，剩四项对外可见性缺口**——README 数字漂移、dev 库验收残留、Docker 未实跑、PR 未开且仓库私有。
+
+② **README 数字修正 + PR #10**（`90c888b docs: correct the test count and movie total in the readme`）：757 → 782 用例、影片库 47 → 45 部；推送 `feat/october-deliveries` 后开 [PR #10](https://github.com/superkingofrat/Fairy-help/pull/10)，CI `verify` 绿，merge commit `f9135ad`。**注**：负责人已于当日 12:58 自行创建并合并 [PR #9](https://github.com/superkingofrat/Fairy-help/pull/9)（十月批次主体，截至 `196a4bb`，merge commit `ae733f9`），故 #10 实际只含 README 修正，已在 #10 补说明评论。
+
+③ **dev 库验收残留影片清理（负责人批准，破坏性操作，见 ② In Progress 移除项）**：`123`（`director="123"`、`year=2000`、`stock=0/1`）与 `海蒂和爷爷`（与《海蒂》题材重复）各带 1 笔 **ACTIVE** 租赁，归属均为 `admin@fairy.local` 演示账号。一次性脚本（运行后即删，不提交）先快照核对再事务内删除——Rental 必须先于 Movie（`Rental.movie` 外键 `onDelete: Restrict`）：movies 47 → 45、rentals 11 → 9，后置校验通过；`db:seed` 全新克隆基线为 39 + 6 = 45 部。**踩坑**：初版脚本按「租赁应为 RETURNED」预设守卫，快照发现两笔均为 ACTIVE 即中止、未删任何数据——文档只承诺「各带 1 笔租赁记录」未承诺状态，「先快照后删除、不符即中止」按设计拦下一次潜在误删；确认 ACTIVE 系历史验收借阅未归还的残留后放行。两处 `DATABASE_URL` 删除前复核逐字节一致（AGENTS §9/§15.4）。
+
+④ **仓库公开（private → public）**：转公开前完成密钥/隐私扫描——HEAD 全树扫 `sk-`/`ghp_`/`gho_`/`AIza`/`sk-ant-`/私钥头 0 真实命中（唯一命中项是文档在*描述*历史扫描的文字）；pickaxe 扫 `postgresql://`/`postgres://` 全部为占位符（`.env.example` 的 `user:password@localhost`、seedGuard fixture 的 `127.0.0.1:1`）；历史上从未提交 `.env`（0 个）。GitHub API PATCH `private:false` 后未登录访问仓库页 200、`visibility: public`、**默认分支 `master`**（同时纠正 Next Steps 中「访客先看到 main」的旧判断）。
+
+⑤ **脊柱同步**：本文档 In Progress（移除 dev 库残留条目、FU-16 补「未购 key 跳过」注记）、Next Steps（PR 条目置已交付、docker 条目补 2026-10-23 复核、陈旧分支条目纠正默认分支事实）、Risks（Docker 条目补复核）、本条目；README「已知缺口」去掉已完成的种子数据提交；Trellis journal 补 Session 41。
 
 **2026-10-20（二）· 一笔** — **简历就绪度评审 + 五项「会被问住」问题的一次性处理 + 6 组提交落地（已本地提交，未推送、未开 PR）**：
 
