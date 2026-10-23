@@ -14,7 +14,7 @@
 - 后端：Node.js + Express（SSE 流式对话）
 - 数据库：PostgreSQL + Prisma（开发库为 Neon，含 pgvector 向量检索）
 - AI：`@fairy/ai-sdk` 统一封装 DeepSeek（默认）/ OpenAI / Claude，聊天与 embedding 解耦
-- 测试：Vitest（757 个用例，全 mock，CI 无需密钥与数据库）；真实库并发测试以 `TEST_DATABASE_URL` 门控
+- 测试：Vitest（782 个用例，全 mock，CI 无需密钥与数据库）；真实库并发测试以 `TEST_DATABASE_URL` 门控
 - 工程：pnpm workspace + Turborepo，GitHub Actions（lint → typecheck → test）
 
 ## 仓库结构
@@ -72,7 +72,7 @@ cd Fairy && docker compose up --build   # api :3000、web :8080
 
 联调必须双进程同时运行；改过 `.env` 或 Prisma schema 后重启 API 并重新 `generate`。完整排障见 [Fairy/README.md](Fairy/README.md) 与 [AGENTS.md](AGENTS.md) §9。
 
-**不配任何 AI 密钥也能完整跑通**（2026-10-20 实测：注册 / 登录 / 影片库 47 部 / 对话全部通过，对话走规则降级仍返回真实推荐并带台词注入，日志零密钥泄露）。Agent 自动降级为规则/模板回复，全部管理功能可用。配好 `DEEPSEEK_API_KEY`（或 OpenAI/Claude）即获得真实对话、记忆抽取与推荐。
+**不配任何 AI 密钥也能完整跑通**（2026-10-20 实测：注册 / 登录 / 影片库 45 部 / 对话全部通过，对话走规则降级仍返回真实推荐并带台词注入，日志零密钥泄露）。Agent 自动降级为规则/模板回复，全部管理功能可用。配好 `DEEPSEEK_API_KEY`（或 OpenAI/Claude）即获得真实对话、记忆抽取与推荐。
 
 ## 已交付能力（截至 2026-10-20）
 
