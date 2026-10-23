@@ -1840,12 +1840,20 @@ e0833e4 store: add movie covers and detail modal           (63 files, +1683/-15)
 - **curl 内联中文 payload 报 400，改 `--data-binary @file` 后成功**——与 2026-09-23 记录的 Git Bash 非 UTF-8 body 陷阱同类，凡带中文的 API 请求体一律走文件
 - **轮询 CI 的 grep 模式没算 JSON 冒号后的空格**（`"status": "queued"` vs `"status":"queued"`），把 in_progress 误判为已结束；改 node fetch + JSON 解析后正常。教训：解析 JSON 别用 grep 拼模式
 - **Next Steps 旧稿「访客先看到 main」有误**：API 实测默认分支是 `master`（`main` 存在但非默认）。旧稿按推测写作，已按实测纠正——远端状态类断言应标注核实方式与日期
+- **`git push` 不通时可用 GitHub git database API 推同一个提交**（本日 github.com:443 持续超时、api.github.com 0.2s 正常）：`POST /git/blobs` → `POST /git/trees`（带 `base_tree`）→ `POST /git/commits` → `PATCH /git/refs/heads/<branch>`，作者/提交者/日期/消息按本地提交原样带上。但有两处不对齐就会推出一个**内容不同**的提交，必须校验：
+  1. **blob 字节必须取自 git 对象库，不能读工作区文件**。`core.autocrlf=true` 时 `PROJECT_STATUS.md` 与 journal 在工作区是 CRLF、入库是 LF，`fs.readFileSync` 造出的 blob 与本地提交不一致（README 恰好是 LF 才蒙混过关）。正确做法是 `git cat-file blob "HEAD:<path>"`，并用 `git rev-parse "HEAD:<path>"` 逐个比对 sha 再继续。
+  2. **提交消息要归一化成单个行尾 `\n`**。`--pretty=%B` 取出会多一个空行，GitHub 侧规整行尾后 sha 即变。
+  两处都对齐后，远端提交 sha 与本地逐字节相同（`fa0b7659`），本地无需 reset。另注意 Windows 下 node `execSync` 走 cmd.exe，`HEAD^`、`HEAD^{tree}` 里的 `^` 被当转义符**静默**吃掉（变成 `HEAD`，导致 parent 取成自己、diff 列表为空），一律改写 `HEAD~1` 与 `--pretty=%T`
+- **误推后可以原地改正**：CRLF 那次推出的坏提交无任何 PR 引用，用 `PATCH /git/refs` + `force: true` 指回正确提交即可，坏提交成为不可达垃圾。但推送前应先确认远端 tip 等于本地 parent（本次即靠该校验拦下「本地未含远端新提交」的情况）
 
 ### Git Commits
 
 ```
 90c888b docs: correct the test count and movie total in the readme   (2 files)
+fa0b7659 docs: sync spine for the resume-readiness cleanup          (3 files)
 ```
+
+`fa0b7659` 因本机 github.com:443 不通改走 git database API 推送（树与提交 sha 均与本地一致，见「踩坑与教训」）；其上为 spine 同步（README 缺口清单 + PROJECT_STATUS 三项状态订正 + journal 本条）。
 
 PR #10（base master，CI 绿，merge commit `f9135ad`）；本地 `master` 已快进到 `origin/master`。
 
