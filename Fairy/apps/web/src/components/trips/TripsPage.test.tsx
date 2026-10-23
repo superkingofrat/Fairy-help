@@ -35,6 +35,7 @@ const tripDetail: TripDetail = {
           name: "西湖",
           category: "景点",
           note: null,
+          preferenceBasis: null,
           location: null,
           validated: true,
         },
@@ -44,6 +45,7 @@ const tripDetail: TripDetail = {
   route: null,
   validated: true,
   createdAt: "2026-09-20T10:00:00.000Z",
+  companion: null,
 };
 
 function feed(items: TripListItem[], totalPages = 1): TripListFeed {
@@ -117,6 +119,21 @@ describe("TripsPage", () => {
     await waitFor(() => expect(tripApi.getTrip).toHaveBeenCalledWith(TRIP_ID));
     expect(await screen.findByText(/行程规划 · 杭州/)).toBeDefined();
     expect(screen.getByText("西湖")).toBeDefined();
+  });
+
+  // FU-20：详情页复用对话页的 TripTimeline，同行人快照随之自动出现在这里
+  it("shows the persisted companion on the detail card", async () => {
+    setRole("admin");
+    vi.mocked(tripApi.listTrips).mockResolvedValue(feed([tripItem]));
+    vi.mocked(tripApi.getTrip).mockResolvedValue({
+      ...tripDetail,
+      companion: { name: "莱卡恩", userId: "794861b0-0699-4807-a660-6fe7e78852f0" },
+    });
+
+    render(<TripsPage />);
+    fireEvent.click(await screen.findByText("杭州"));
+
+    expect(await screen.findByText(/共 2 天 · 与 莱卡恩 同行/)).toBeDefined();
   });
 
   it("hides trip existence with the same message for missing and forbidden details", async () => {

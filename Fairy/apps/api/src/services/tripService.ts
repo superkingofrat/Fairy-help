@@ -82,6 +82,12 @@ export async function getTripDetail(
     route: row.route ?? null,
     validated: hasValidatedStep(row.itinerary),
     createdAt: row.createdAt.toISOString(),
+    // 两列缺一即按无同行人（回填可能只补上一列，或本期前创建的行程本就无同行人）——
+    // 契约层只见到完整对象或 null，前端两态判断即可。
+    companion:
+      row.companionName && row.companionUserId
+        ? { name: row.companionName, userId: row.companionUserId }
+        : null,
   });
   if (!parsed.success) {
     return null;

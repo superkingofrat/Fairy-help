@@ -193,6 +193,11 @@ model Trip {
   user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+  // FU-20 同行人快照：规划时命中的同行人（姓名 + 画像 id）。**刻意不加外键**——同行人是快照而非
+  // 引用：画像名可能已改、persona 可能已删，行程要留住「当时和谁一起去」这个事实；加外键只会在
+  // 级联删除抹掉历史与 SetNull 静默变空之间二选一。userId 不参与过滤/连接，故不加索引。
+  companionName    String?
+  companionUserId  String?
 
   @@index([userId, createdAt])
   @@map("trips")

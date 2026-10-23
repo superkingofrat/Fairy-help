@@ -21,6 +21,7 @@
     "seed": "tsx prisma/seed.ts",
     "db:seed": "tsx prisma/seed.ts",
     "backfill:embeddings": "tsx ../../scripts/backfill-memory-embeddings.ts",
+    "backfill:trip-companions": "tsx ../../scripts/backfill-trip-companions.ts",
     "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests"

@@ -92,6 +92,69 @@ describe("createAiProvider factory", () => {
     const body = JSON.parse(fetchImpl.mock.calls[0][1].body as string);
     expect(body.model).toBe("my-model");
   });
+
+  // 默认超时必须容纳 reasoning 模型的思考耗时（实测单次行程草稿 raw 11-25s）。
+  // 20000ms 会把其中一部分 abort 成误导性的 PARSE「响应损坏」，故默认抬到 60000。
+  it("defaults the request timeout to 60s when AI_TIMEOUT_MS is unset", async () => {
+    vi.useFakeTimers();
+    try {
+      // 永不 resolve 的 fetch：只能被 abort 打断，否则测试挂死
+      const fetchImpl = vi.fn().mockImplementation(
+        (_url: string, init: { signal: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            init.signal.addEventListener("abort", () => reject(init.signal.reason));
+          }),
+      );
+      const provider = createAiProvider({
+        env: { DEEPSEEK_API_KEY: "sk-ds" },
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      });
+
+      const pending = provider.chat({ messages });
+      const rejection = pending.catch((error: unknown) => error);
+
+      // 59999ms 处仍未超时——若默认值被改回 20000，这里会提前 abort
+      await vi.advanceTimersByTimeAsync(59_999);
+      expect(await Promise.race([rejection, Promise.resolve("still-pending")])).toBe(
+        "still-pending",
+      );
+
+      await vi.advanceTimersByTimeAsync(1);
+      const error = await rejection;
+      expect(error).toBeInstanceOf(AiProviderError);
+      expect((error as AiProviderError).code).toBe("TIMEOUT");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("still honours an explicit AI_TIMEOUT_MS override", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchImpl = vi.fn().mockImplementation(
+        (_url: string, init: { signal: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            init.signal.addEventListener("abort", () => reject(init.signal.reason));
+          }),
+      );
+      const provider = createAiProvider({
+        env: { ...deepseekEnv },
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      });
+
+      const rejection = provider.chat({ messages }).catch((error: unknown) => error);
+
+      await vi.advanceTimersByTimeAsync(4_999);
+      expect(await Promise.race([rejection, Promise.resolve("still-pending")])).toBe(
+        "still-pending",
+      );
+
+      await vi.advanceTimersByTimeAsync(1);
+      expect((await rejection) as AiProviderError).toMatchObject({ code: "TIMEOUT" });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe("openai-compatible chat (deepseek)", () => {

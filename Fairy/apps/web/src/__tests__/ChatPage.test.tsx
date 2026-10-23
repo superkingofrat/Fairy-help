@@ -86,6 +86,7 @@ const tripResult: TripResult = {
           name: "西湖",
           category: "景点",
           note: null,
+          preferenceBasis: null,
           location: { lng: 120.15, lat: 30.25 },
           validated: true,
         },
@@ -94,6 +95,7 @@ const tripResult: TripResult = {
   ],
   route: null,
   validated: true,
+  companion: null,
 };
 
 afterEach(() => {
@@ -320,6 +322,43 @@ describe("ChatPage", () => {
     expect(await screen.findByText(/行程规划/)).toBeDefined();
     expect(screen.getByText("西湖")).toBeDefined();
     expect(screen.getAllByText(/杭州/).length).toBeGreaterThan(0);
+  });
+
+  // FU-21：存量负载——FU-21 之前落库的 itinerary 步骤没有 preferenceBasis 键。
+  // 客户端按 ChatEvent 手写类型收下这种形状，组件必须当作「无依据」渲染，不能崩在 undefined 上。
+  it("replays a legacy stored trip payload that has no preferenceBasis key", async () => {
+    const legacyTrip: TripResult = {
+      ...tripResult,
+      itinerary: tripResult.itinerary.map((day) => ({
+        day: day.day,
+        title: day.title,
+        steps: day.steps.map((step) => ({
+          name: step.name,
+          category: step.category,
+          time: step.time,
+          note: step.note,
+          location: step.location,
+          validated: step.validated,
+        })),
+      })),
+    } as TripResult;
+
+    localStorage.setItem(SESSION_STORAGE_KEY, SESSION_ID);
+    vi.mocked(sessionApi.listSessions).mockResolvedValue([sampleSession]);
+    vi.mocked(sessionApi.getSessionMessages).mockResolvedValue([
+      {
+        ...assistantDto,
+        content: "给你规划了「杭州」1 天的行程",
+        payload: { events: [{ type: "trip", trip: legacyTrip }] },
+      },
+    ]);
+
+    render(<ChatPage />);
+
+    expect(await screen.findByText(/行程规划/)).toBeDefined();
+    expect(screen.getByText("西湖")).toBeDefined();
+    // 缺键按无依据处理：不渲染依据文本，也不出现「偏好依据：undefined」之类的占位
+    expect(screen.queryByText(/偏好依据/)).toBeNull();
   });
 
   it("renders a trip card from a live trip SSE event (FU-13)", async () => {

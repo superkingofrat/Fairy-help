@@ -26,6 +26,7 @@ const tripResultFixture = {
           category: "景点",
           time: "09:00",
           note: null,
+          preferenceBasis: null,
           location: { lng: 120.15, lat: 30.25 },
           validated: true,
         },
@@ -34,6 +35,7 @@ const tripResultFixture = {
   ],
   route: null,
   validated: true,
+  companion: null,
 };
 
 const tripDetailFixture: TripDetail = {
@@ -75,6 +77,27 @@ describe("POST /api/trips", () => {
 
     expect(response.status).toBe(201);
     expect(tripService.createTrip).toHaveBeenCalledWith(DEV_ADMIN_ID, { destination: "杭州" });
+  });
+
+  it("returns the companion snapshot the planning pipeline resolved", async () => {
+    vi.mocked(tripService.createTrip).mockResolvedValue({
+      ok: true,
+      trip: {
+        ...tripResultFixture,
+        companion: { name: "莱卡恩", userId: "00000000-0000-4000-8000-0000000000c1" },
+      },
+    });
+
+    const response = await request(app)
+      .post("/api/trips")
+      .set("Authorization", authHeader("agent"))
+      .send({ destination: "泉州", days: 2 });
+
+    expect(response.status).toBe(201);
+    expect(response.body.data.companion).toEqual({
+      name: "莱卡恩",
+      userId: "00000000-0000-4000-8000-0000000000c1",
+    });
   });
 
   it("rejects the user role with 403 before any planning happens", async () => {
@@ -244,6 +267,26 @@ describe("GET /api/trips/:id", () => {
     expect(response.body.data).toMatchObject({
       tripId: TRIP_ID,
       createdAt: "2026-09-22T10:00:00.000Z",
+    });
+  });
+
+  it("returns the persisted companion snapshot on the detail", async () => {
+    vi.mocked(tripService.getTripDetail).mockResolvedValue({
+      trip: {
+        ...tripDetailFixture,
+        companion: { name: "莱卡恩", userId: "00000000-0000-4000-8000-0000000000c1" },
+      },
+      ownerId: DEV_USER_ID,
+    });
+
+    const response = await request(app)
+      .get(`/api/trips/${TRIP_ID}`)
+      .set("Authorization", authHeader("agent"));
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.companion).toEqual({
+      name: "莱卡恩",
+      userId: "00000000-0000-4000-8000-0000000000c1",
     });
   });
 

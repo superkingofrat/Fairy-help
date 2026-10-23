@@ -8,6 +8,12 @@ export const tripPoiSchema = z.object({
   category: z.string(),
   time: z.string(),
   note: z.string().nullable(),
+  // 偏好依据：该选点落实了哪条画像偏好、因此选/避开了什么。个性化从"看不见"变"看得见"的落点，
+  // 也是回复层敢把安排归属给同行人的唯一凭据（否则归属就是幻觉，违反 AGENTS §0）。
+  // 与 note 严格分工：note 只写时间/预约/排队等执行信息，依据只写"哪条偏好 → 因此选/避开了什么"。
+  // 兼容手法与 companion 相同——键缺失与显式 null 等价，否则存量 trip 事件与存量 Trip.itinerary
+  // JSON 回放会因缺键解析失败。空串走 .min(1) 拒绝：对应不上时必须填 null，不能填空串占位。
+  preferenceBasis: z.string().min(1).nullable().default(null),
   location: z
     .object({
       lng: z.number(),
@@ -30,6 +36,14 @@ export const routeLegSchema = z.object({
   durationSeconds: z.number().nullable(),
 });
 
+// 同行人快照：规划时命中的那个同行人（FU-20 解析）。它是**快照**而非引用——名字可能已改、
+// 画像可能已删，故 Trip 侧只存两列可空值、不加外键。与用户消息里出现的人名无关：回复只有拿到
+// 这个结构化事实，才能把「体现偏好的安排」归属到具体的人（而不是模型从原文猜的名字）。
+export const tripCompanionSchema = z.object({
+  name: z.string().min(1),
+  userId: z.string().min(1),
+});
+
 export const tripResultSchema = z.object({
   tripId: z.string().uuid(),
   destination: z.string(),
@@ -37,6 +51,9 @@ export const tripResultSchema = z.object({
   itinerary: z.array(itineraryDaySchema),
   route: z.array(routeLegSchema).nullable(),
   validated: z.boolean(),
+  // 键缺失与显式 null 等价（default），否则会话历史里落库的旧 trip 事件（chatEventSchema 的
+  // discriminated union 成员）会因缺键解析失败，旧行程回放直接坏掉。
+  companion: tripCompanionSchema.nullable().default(null),
 });
 
 export const tripEventSchema = z.object({
@@ -93,4 +110,5 @@ export type TripPoi = z.infer<typeof tripPoiSchema>;
 export type ItineraryDay = z.infer<typeof itineraryDaySchema>;
 export type RouteLeg = z.infer<typeof routeLegSchema>;
 export type TripResult = z.infer<typeof tripResultSchema>;
+export type TripCompanion = z.infer<typeof tripCompanionSchema>;
 export type TripEvent = z.infer<typeof tripEventSchema>;

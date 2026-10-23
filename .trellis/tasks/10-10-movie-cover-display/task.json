@@ -1,0 +1,28 @@
+{
+  "id": "movie-cover-display",
+  "name": "movie-cover-display",
+  "title": "影片库影片卡片封面展示",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": "web",
+  "package": null,
+  "priority": "P2",
+  "creator": "Flores",
+  "assignee": "Flores",
+  "createdAt": "2026-10-10",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "description": "在影片库 MovieCard 展示封面（coverUrl 渲染 + 无封面 CSS 占位 + onError 降级），39 张绝区零海报落地 apps/web/public/covers/"
+  }
+}

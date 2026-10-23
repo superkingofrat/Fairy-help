@@ -6,6 +6,7 @@ import { t } from "../../lib/i18n";
 import { borrowMovie, fetchMovies, searchMovies } from "../../lib/movieApi";
 import { listRentals } from "../../lib/rentalsApi";
 import { MovieCard, type CardStatus } from "./MovieCard";
+import { MovieDetailModal } from "./MovieDetailModal";
 
 const PAGE_SIZE = 12;
 
@@ -16,6 +17,14 @@ interface CardState {
 
 function toggleItem(list: string[], item: string): string[] {
   return list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
+}
+
+function cardStateFor(
+  cards: Record<string, CardState>,
+  borrowedIds: Set<string>,
+  movieId: string,
+): CardState {
+  return cards[movieId] ?? { status: borrowedIds.has(movieId) ? "borrowed" : "idle" };
 }
 
 export function MovieLibraryPage(): JSX.Element {
@@ -33,6 +42,7 @@ export function MovieLibraryPage(): JSX.Element {
   const [keyword, setKeyword] = useState("");
   const [borrowedIds, setBorrowedIds] = useState<Set<string>>(new Set());
   const [cards, setCards] = useState<Record<string, CardState>>({});
+  const [detailMovieId, setDetailMovieId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [hint, setHint] = useState<string | null>(null);
@@ -128,6 +138,16 @@ export function MovieLibraryPage(): JSX.Element {
     setPage(1);
   };
 
+  const closeDetail = useCallback(() => {
+    setDetailMovieId(null);
+  }, []);
+
+  // 详情影片从当前列表派生（而非存整份对象）：借阅后列表刷新，库存等字段随之更新
+  const detailMovie = detailMovieId
+    ? (movies.find((movie) => movie.id === detailMovieId) ?? null)
+    : null;
+  const detailState = detailMovie ? cardStateFor(cards, borrowedIds, detailMovie.id) : null;
+
   const chipClass = (active: boolean): string =>
     active
       ? "rounded-full bg-indigo-600 px-3 py-1 text-sm text-white"
@@ -219,9 +239,7 @@ export function MovieLibraryPage(): JSX.Element {
         <>
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {movies.map((movie) => {
-              const state: CardState = cards[movie.id] ?? {
-                status: borrowedIds.has(movie.id) ? "borrowed" : "idle",
-              };
+              const state: CardState = cardStateFor(cards, borrowedIds, movie.id);
               return (
                 <MovieCard
                   key={movie.id}
@@ -229,6 +247,7 @@ export function MovieLibraryPage(): JSX.Element {
                   status={state.status}
                   errorMsg={state.errorMsg}
                   onBorrow={handleBorrow}
+                  onOpenDetail={(opened) => setDetailMovieId(opened.id)}
                 />
               );
             })}
@@ -258,6 +277,16 @@ export function MovieLibraryPage(): JSX.Element {
           </div>
         </>
       )}
+
+      {detailMovie && detailState ? (
+        <MovieDetailModal
+          movie={detailMovie}
+          status={detailState.status}
+          errorMsg={detailState.errorMsg}
+          onBorrow={handleBorrow}
+          onClose={closeDetail}
+        />
+      ) : null}
     </main>
   );
 }

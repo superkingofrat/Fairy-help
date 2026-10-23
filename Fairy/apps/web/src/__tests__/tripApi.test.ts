@@ -26,6 +26,7 @@ const tripResult: TripResult = {
           name: "西湖",
           category: "景点",
           note: null,
+          preferenceBasis: null,
           location: { lng: 120.15, lat: 30.25 },
           validated: true,
         },
@@ -40,6 +41,7 @@ const tripResult: TripResult = {
           name: "灵隐寺",
           category: "景点",
           note: null,
+          preferenceBasis: null,
           location: null,
           validated: false,
         },
@@ -48,6 +50,7 @@ const tripResult: TripResult = {
   ],
   route: null,
   validated: true,
+  companion: null,
 };
 
 const feed: TripListFeed = {

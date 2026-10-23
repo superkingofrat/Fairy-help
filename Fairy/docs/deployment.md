@@ -119,7 +119,7 @@ app.example.com {
 | `JWT_SECRET`         | **是**                    | —                        | 启动强校验；`openssl rand -base64 48` 生成  |
 | `AI_PROVIDER`        | 否                        | `deepseek`               | `deepseek` / `openai` / `claude`            |
 | `AI_MODEL`           | 否                        | 供应商默认               | 覆盖默认模型                                |
-| `AI_TIMEOUT_MS`      | 否                        | `20000`                  | 单次 AI 请求超时                            |
+| `AI_TIMEOUT_MS`      | 否                        | `60000`                  | 单次 AI 请求超时；reasoning 模型实测 raw 11-25s，低于此值会被 abort 成误导性的 `PARSE` |
 | `DEEPSEEK_API_KEY`   | `AI_PROVIDER=deepseek` 时 | —                        |                                             |
 | `DEEPSEEK_BASE_URL`  | 否                        | 供应商默认               | 自建网关/代理时覆盖                         |
 | `OPENAI_API_KEY`     | `AI_PROVIDER=openai` 时   | —                        | embedding 未单配时也回落读它                |

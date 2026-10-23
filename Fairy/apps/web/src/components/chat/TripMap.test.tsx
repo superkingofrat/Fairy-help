@@ -25,6 +25,7 @@ const tripWithRoute: TripResult = {
           name: "西湖",
           category: "景点",
           note: null,
+          preferenceBasis: null,
           location: locatedFirst,
           validated: true,
         },
@@ -33,6 +34,7 @@ const tripWithRoute: TripResult = {
           name: "河坊街",
           category: "美食",
           note: null,
+          preferenceBasis: null,
           location: null,
           validated: false,
         },
@@ -47,6 +49,7 @@ const tripWithRoute: TripResult = {
           name: "灵隐寺",
           category: "景点",
           note: null,
+          preferenceBasis: null,
           location: locatedSecond,
           validated: true,
         },
@@ -55,6 +58,7 @@ const tripWithRoute: TripResult = {
   ],
   route: [{ from: "西湖", to: "灵隐寺", distanceMeters: 8000, durationSeconds: 1200 }],
   validated: true,
+  companion: null,
 };
 
 const tripWithoutRoute: TripResult = { ...tripWithRoute, route: null };

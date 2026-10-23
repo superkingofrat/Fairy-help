@@ -31,6 +31,11 @@ export function TripTimeline({ trip }: TripTimelineProps): JSX.Element {
       </div>
       <p className="mt-1 text-xs text-sky-700">
         {t("chat.trip.days").replace("{n}", String(trip.days))}
+        {/* FU-20：同行人是行程事实的一部分（快照），与天数同行展示；无同行人时整节点不渲染，
+            回放存量行程（companion 为 null）与改动前逐字一致 */}
+        {trip.companion
+          ? ` · ${t("chat.trip.companion").replace("{name}", trip.companion.name)}`
+          : ""}
       </p>
       <ol className="mt-3 flex flex-col gap-3">
         {trip.itinerary.map((day) => (
@@ -54,6 +59,16 @@ export function TripTimeline({ trip }: TripTimelineProps): JSX.Element {
                     <span className="text-xs text-amber-600">{t("chat.trip.stepUnverified")}</span>
                   ) : null}
                   {step.note ? <span className="text-xs text-slate-500">— {step.note}</span> : null}
+                  {/* FU-21：偏好依据——该选点落实了哪条画像偏好、因此选/避开了什么。
+                      个性化从「看不见」变「看得见」的落点。为 null 时整节点不渲染，
+                      回放存量行程（缺键解析为 null）与改动前逐字一致，不出现空壳占位。
+                      文案只取依据原文、不拼同行人名：依据本身已写成「哪条偏好 → 因此选/避开了
+                      什么」；且依据也可能来自本人旅行风格（无同行人可归），套人名会出现两套模板。 */}
+                  {step.preferenceBasis ? (
+                    <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-700">
+                      {t("chat.trip.preferenceBasis").replace("{basis}", step.preferenceBasis)}
+                    </span>
+                  ) : null}
                 </li>
               ))}
             </ol>

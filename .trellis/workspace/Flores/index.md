@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 27
-- **Last Active**: 2026-09-24
+- **Total Sessions**: 40
+- **Last Active**: 2026-10-20
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1182 | Active |
+| `journal-1.md` | ~1810 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,19 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 40 | 2026-10-20 | 十月交付批次收尾：四项工程收尾（xlsx 移出仓库根 / Prisma 启动预热修 Neon 冷启动首请求 500 / docker-compose / README hero + PROJECT_STATUS 摘要表）+ 分支积压 6 组提交落地 + 脊柱 5 处 openspec 断链修复；原计划 7 组因 FU-20 与 FU-11 共享 diff hunk 不可拆分而合并为 1 组（已构造并验证「仅同行人」中间态证明可独立成立）；踩坑：sed 按行号多段删除切错区域、`git show HEAD:file | prettier --stdin-filepath` 判定不可靠、根文档在 HEAD 即不符合 prettier（配置在 Fairy/ 不检查仓库根）（未推送、未开 PR） | `e0833e4`, `ac5df97`, `6f35390`, `74cad7b`, `88a5680`, `4a28528` | `docs/sync-requirement-statuses` |
+| 39 | 2026-10-16 | 行程偏好依据可追溯：Apply 全 20 项任务（shared 可空 preferenceBasis + prompt 落实要求 + 回复层条件式归属去幻觉 + Web 徽章）+ 真机验收 AC-1~AC-6 全过 + OpenSpec 归档；验收期发现两个既有缺陷（草稿预算 4000 不足失败率 2/3 → 6000 + 步骤 3-4；AI_TIMEOUT_MS 默认 20s 对 reasoning 模型太短且超时伪装成 PARSE）（未提交） | - | `docs/sync-requirement-statuses` |
+| 38 | 2026-10-16 | 前端行程导航入口收敛（P1 §15.2，方案 B）：「行程」链接改为仅 admin/agent 渲染，/trips 路由保持可达由 owner-scoped 接口兜底；选 B 是因 A 会收窄已归档提案的 owner-read Requirement 须走 OpenSpec；并纠正 Session 37 两处错判（GET /api/trips 非 admin-only、创建表单已收起无 403 路径）（未提交） | - | `docs/sync-requirement-statuses` |
+| 37 | 2026-10-16 | 行程偏好依据可追溯：根因定位为契约缺陷（偏好只进 prompt 不进契约 + 无条件归属断言违反 §0）+ OpenSpec 提案（可空 `preferenceBasis`、条件式归属、落实要求，待批准，未写产品代码）；附带诊断对话 500 = Neon 冷启动偶发、行程导航门禁缺口 = P1 待确认 | - | `docs/sync-requirement-statuses` |
+| 36 | 2026-10-16 | 修复 pnpm 不在 PATH：`~/.npmrc` 的 prefix `E:\nodejs\node_global` 未进 PATH，PowerShell 报 CommandNotFoundException；追加该目录并验证 pnpm dev 双服务正常（环境修复，未提交） | - | `docs/sync-requirement-statuses` |
+| 35 | 2026-10-11 | 行程结果纳入同行人上下文：Apply（shared/api/db/web 四包）+ 回填脚本 + 真机验收 AC-1~7 全过 + OpenSpec 归档（未提交） | - | `docs/sync-requirement-statuses` |
+| 34 | 2026-10-11 | 行程结果纳入同行人上下文：需求文档 + OpenSpec 提案（可空 companion 契约 + 无外键快照两列 + 幂等回填，待批准，未写产品代码） | - | `docs/sync-requirement-statuses` |
+| 33 | 2026-10-11 | 行程回复丢失画像定制信息 + 偏好软约束修复：facts 带 title/note + 概括不罗列 + 行程预算单独放宽 600（P1 §15.2，未提交） | - | `docs/sync-requirement-statuses` |
+| 32 | 2026-10-11 | 行程规划草稿预算修复（P0 §15.2）：reasoning 模型思考与正文共用预算，1200 截断 JSON → 常量 4000 + 输出规格收紧 + 固化为可复用约定 | - | `docs/sync-requirement-statuses` |
+| 31 | 2026-10-11 | 影片库影片详情查看：模态框 + 列表数据零请求派生 + 详情内借阅同源（Trellis 轨交付，未提交） | - | `docs/sync-requirement-statuses` |
+| 30 | 2026-10-10 / 2026-10-11 | 影片库封面展示 + 39 部绝区零影片导入 dev 库（Trellis 轨交付，未提交） | - | `docs/sync-requirement-statuses` |
+| 29 | 2026-10-10 | FU-20 行程规划同行人画像：同行人画像进入行程生成链路（Trellis 轨交付，未提交） | - | `docs/sync-requirement-statuses` |
+| 28 | 2026-09-24 | 演示用户种子数据：seed personas 46 名落地与验收 | - | `feature/travel-planning-phase-2` |
 | 27 | 2026-09-24 | 路线图执行：PR 合并门禁落地 + CI 两处工程缺陷修复 + token 预算 P1 修复（裁剪方向偏差）+ 需求 Status 治理 + 两份候选需求登记（journal: `2026-09-24-roadmap-execution.md`） | `1e3078a`, `9da2420`, `ff954d5`, `7e618c5`, `0586726`, `a042494`, `767fb99` | `fix/intent-history-token-budget` + `docs/*` |
 | 26 | 2026-09-23 | 主动运营建议（阈值异常 + 每日经营日报 + 管理端建议流）：OpenSpec 全闭环归档，验收期修复 reasoning 模型预算截断 | `85700c1`, `6caccfd`, `4fc6ad1`, `11ceef1`, `6aa39e7` | `feature/travel-planning-phase-2` |
 | 25 | 2026-09-23 | 旅行规划二期（FU-19）：REST 行程端点复用 planTripTool + /trips 页 + Amap JS 地图叠加，OpenSpec 全闭环归档 | `2a9da18`, `756c52f`, `261ac00`, `4c41058` | `feature/travel-planning-phase-2` |

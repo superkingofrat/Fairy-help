@@ -1,0 +1,80 @@
+# Fairy 全栈一条命令起本地/自托管环境。
+#
+#   cd Fairy
+#   docker compose up --build
+#
+# 构建上下文是 monorepo 根（本文件所在目录），两个 Dockerfile 都按此约定编写。
+#
+# ── 必读：VITE_API_URL 是构建期内联，不是运行时配置 ──────────────────────────
+# Vite 在 `vite build` 时把 import.meta.env.VITE_API_URL 写死进产物，换域名必须
+# 重新 build。浏览器跑在宿主机上，它访问的是**宿主机端口**，不是 docker 网络内的
+# 服务名——所以这里必须写 http://localhost:3000，写 http://api:3000 只在容器网络
+# 内可解析，浏览器会解析失败。改端口映射时同步改这个 build arg。
+#
+# ── 密钥只从环境注入，不进镜像 ─────────────────────────────────────────────
+# .dockerignore 排除 .env*，api 运行时经 env_file 注入（§14：永不提交密钥）。
+# 首次运行前确认 apps/api/.env 已由 .env.example 复制并填好 DATABASE_URL 与 JWT_SECRET。
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    ports:
+      - "${API_PORT:-3000}:3000"
+    env_file:
+      # 单一事实来源：与 AGENTS §9 约定的 apps/api/.env 一致（含 DATABASE_URL / JWT_SECRET / AI 密钥）
+      - ./apps/api/.env
+    environment:
+      # 容器内固定 3000（镜像内 ENV PORT=3000）；宿主机端口由上面的映射决定
+      PORT: "3000"
+      # 反代跳数：compose 直连时容器到宿主机算 1 跳，保持默认即可
+      TRUST_PROXY_HOPS: "${TRUST_PROXY_HOPS:-1}"
+      TZ: "${TZ:-Asia/Shanghai}"
+    healthcheck:
+      # 复用镜像内 HEALTHCHECK 的探针；start_period 留足 Prisma 连接与迁移就绪时间
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # 见文件头：必须是浏览器可达的宿主机地址，不是容器服务名
+        VITE_API_URL: "${VITE_API_URL:-http://localhost:3000}"
+        # 高德浏览器端安全密钥（referrer 防盗链）；不传则行程地图静默不渲染，不影响其余功能
+        VITE_AMAP_JS_KEY: "${VITE_AMAP_JS_KEY:-}"
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+# 可选：完全本地化（不依赖 Neon）时取消注释，并把 api 的 DATABASE_URL 指向 db。
+# 注意 schema 用了 pgvector（FU-16 记忆向量检索），需带 vector 扩展的镜像；
+# 迁移须在 api 启动前应用（pnpm --filter=@fairy/database migrate:deploy）。
+#
+#   db:
+#     image: pgvector/pgvector:pg16
+#     environment:
+#       POSTGRES_USER: fairy
+#       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}"
+#       POSTGRES_DB: fairy
+#     ports:
+#       - "5432:5432"
+#     volumes:
+#       - fairy-pgdata:/var/lib/postgresql/data
+#     healthcheck:
+#       test: ["CMD-SHELL", "pg_isready -U fairy -d fairy"]
+#       interval: 10s
+#       timeout: 5s
+#       retries: 5
+#
+# volumes:
+#   fairy-pgdata:

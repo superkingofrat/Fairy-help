@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MovieLibraryPage } from "./MovieLibraryPage";
 import * as movieApi from "../../lib/movieApi";
 import * as rentalsApi from "../../lib/rentalsApi";
@@ -52,6 +52,17 @@ describe("MovieLibraryPage", () => {
 
     expect(await screen.findByText("盗梦空间")).toBeDefined();
     expect(movieApi.fetchMovies).toHaveBeenCalledWith(1, 12);
+  });
+
+  it("renders the cover for a movie that has one", async () => {
+    vi.mocked(movieApi.fetchMovies).mockResolvedValue(
+      paginated([{ ...movie, coverUrl: "/covers/盗梦空间.png" }]),
+    );
+
+    render(<MovieLibraryPage />);
+
+    const cover = await screen.findByAltText("《盗梦空间》封面");
+    expect(cover.getAttribute("src")).toBe("/covers/盗梦空间.png");
   });
 
   it("composes mood/scene/keyword into a search request", async () => {
@@ -142,5 +153,33 @@ describe("MovieLibraryPage", () => {
     await screen.findByText("盗梦空间");
 
     expect(screen.queryByText("归还")).toBeNull();
+  });
+
+  it("opens the movie detail when a card is clicked and closes it with Escape", async () => {
+    render(<MovieLibraryPage />);
+    await screen.findByText("盗梦空间");
+
+    fireEvent.click(screen.getByRole("button", { name: "查看《盗梦空间》详情" }));
+
+    const dialog = screen.getByRole("dialog", { name: "影片详情" });
+    expect(within(dialog).getByText("测试影片")).toBeDefined();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("keeps the card and the detail in sync after borrowing from the detail", async () => {
+    render(<MovieLibraryPage />);
+    await screen.findByText("盗梦空间");
+
+    fireEvent.click(screen.getByRole("button", { name: "查看《盗梦空间》详情" }));
+    const dialog = screen.getByRole("dialog", { name: "影片详情" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "借阅" }));
+
+    expect(await screen.findByText("借阅成功")).toBeDefined();
+    expect(movieApi.borrowMovie).toHaveBeenCalledWith(MOVIE_ID);
+    const borrowedButtons = await screen.findAllByRole("button", { name: "已借" });
+    expect(borrowedButtons).toHaveLength(2);
   });
 });

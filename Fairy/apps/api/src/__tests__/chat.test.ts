@@ -645,6 +645,7 @@ describe("POST /api/chat", () => {
               name: "西湖",
               category: "景点",
               note: null,
+              preferenceBasis: null,
               location: { lng: 120.15, lat: 30.25 },
               validated: true,
             },
@@ -653,6 +654,7 @@ describe("POST /api/chat", () => {
       ],
       route: null,
       validated: true,
+      companion: null,
     };
     vi.mocked(planTripTool.planTripTool).mockResolvedValue({
       success: true,

@@ -37,6 +37,35 @@ export async function getByUserId(userId: string): Promise<Profile | null> {
   return record ? toProfile(record) : null;
 }
 
+export type CompanionCandidate = {
+  userId: string;
+  name: string;
+  travelStyle: string | null;
+  styleTags: string[];
+  dietPreference: string | null;
+  avoidFood: string[];
+};
+
+// FU-20：同行人解析的候选集——除登录用户本人外的全部画像（当前表小，一次查询）。
+// 「消息中是否出现该人名」由调用方按精确子串判定；此处不做模糊/别名匹配，
+// 也不 join User（避免把邮箱等身份信息带进行程生成链路）。
+export async function listCompanionCandidates(
+  excludeUserId: string,
+): Promise<CompanionCandidate[]> {
+  return prisma.profile.findMany({
+    where: { userId: { not: excludeUserId } },
+    select: {
+      userId: true,
+      name: true,
+      travelStyle: true,
+      styleTags: true,
+      dietPreference: true,
+      avoidFood: true,
+    },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
 export async function listUsersWithProfiles(): Promise<ProfileListItem[]> {
   const users = await prisma.user.findMany({
     include: { profile: true },
