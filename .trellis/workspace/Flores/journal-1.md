@@ -1845,7 +1845,7 @@ e0833e4 store: add movie covers and detail modal           (63 files, +1683/-15)
   2. **提交消息要归一化成单个行尾 `\n`**。`--pretty=%B` 取出会多一个空行，GitHub 侧规整行尾后 sha 即变。
   两处都对齐后，远端提交 sha 与本地逐字节相同（`fa0b7659`），本地无需 reset。另注意 Windows 下 node `execSync` 走 cmd.exe，`HEAD^`、`HEAD^{tree}` 里的 `^` 被当转义符**静默**吃掉（变成 `HEAD`，导致 parent 取成自己、diff 列表为空），一律改写 `HEAD~1` 与 `--pretty=%T`
 - **误推后可以原地改正**：CRLF 那次推出的坏提交无任何 PR 引用，用 `PATCH /git/refs` + `force: true` 指回正确提交即可，坏提交成为不可达垃圾。但推送前应先确认远端 tip 等于本地 parent（本次即靠该校验拦下「本地未含远端新提交」的情况）
-- **`GET /actions/runs?head_sha=<sha>` 有索引延迟**：run 已 `completed/success`，该过滤却连续 6 分钟返回 `total_count: 0`，而不带过滤的列表里同一 run 赫然在列。轮询 CI 要么不带过滤在 JS 侧按 `head_sha` 筛，要么留足等待；别把「查不到」当成「没触发」
+- **`TOKEN=$(...) && node script` 不会把令牌传给 node**（本次最大乌龙）：bash 里 `VAR=value command` 才会把变量导入该命令的环境；中间插一个 `&&` 就退化成普通 shell 变量，`process.env.TOKEN` 是 `undefined`，请求头变成 `Authorization: token undefined`，GitHub 一律回 401。于是轮询脚本把 401 的错误体当成「没有 run」连续刷屏 6 分钟，我据此误判「`GET /actions/runs?head_sha=` 有索引延迟」并写进了文档——**同一会话内 curl 带同一个令牌是 200，本可立即识破**。改正：凡是 `TOKEN=... node ...` 必须写在一行、不加 `&&`。附带教训：轮询类脚本必须检查 `res.status` 与响应体形态，不能把「解析不到列表」静默降级成「还没出现」；本次初版 poller 正是 `body.workflow_runs || []` 把 401 吞成了空列表
 - **GitHub 合并提交对象无法在本地可靠重建**：拿齐 API 给的 tree / parents / author / committer / message，穷举消息行尾（0/1/2 个 `\n`）× 时区（+0000/+0800）× 秒数（±1s）共 36 种组合，sha 无一命中。原因可能是 GitHub 侧未通过 API 暴露的细节。结论：**不要为「本地引用跟上远端」去重建合并提交**——本地 `master` 落后一个合并提交完全无害，`git pull` 自会快进；乱 `update-ref` 指向不存在的对象反而制造坏引用
 
 ### Git Commits
