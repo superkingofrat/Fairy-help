@@ -1845,15 +1845,18 @@ e0833e4 store: add movie covers and detail modal           (63 files, +1683/-15)
   2. **提交消息要归一化成单个行尾 `\n`**。`--pretty=%B` 取出会多一个空行，GitHub 侧规整行尾后 sha 即变。
   两处都对齐后，远端提交 sha 与本地逐字节相同（`fa0b7659`），本地无需 reset。另注意 Windows 下 node `execSync` 走 cmd.exe，`HEAD^`、`HEAD^{tree}` 里的 `^` 被当转义符**静默**吃掉（变成 `HEAD`，导致 parent 取成自己、diff 列表为空），一律改写 `HEAD~1` 与 `--pretty=%T`
 - **误推后可以原地改正**：CRLF 那次推出的坏提交无任何 PR 引用，用 `PATCH /git/refs` + `force: true` 指回正确提交即可，坏提交成为不可达垃圾。但推送前应先确认远端 tip 等于本地 parent（本次即靠该校验拦下「本地未含远端新提交」的情况）
+- **`GET /actions/runs?head_sha=<sha>` 有索引延迟**：run 已 `completed/success`，该过滤却连续 6 分钟返回 `total_count: 0`，而不带过滤的列表里同一 run 赫然在列。轮询 CI 要么不带过滤在 JS 侧按 `head_sha` 筛，要么留足等待；别把「查不到」当成「没触发」
+- **GitHub 合并提交对象无法在本地可靠重建**：拿齐 API 给的 tree / parents / author / committer / message，穷举消息行尾（0/1/2 个 `\n`）× 时区（+0000/+0800）× 秒数（±1s）共 36 种组合，sha 无一命中。原因可能是 GitHub 侧未通过 API 暴露的细节。结论：**不要为「本地引用跟上远端」去重建合并提交**——本地 `master` 落后一个合并提交完全无害，`git pull` 自会快进；乱 `update-ref` 指向不存在的对象反而制造坏引用
 
 ### Git Commits
 
 ```
 90c888b docs: correct the test count and movie total in the readme   (2 files)
 fa0b7659 docs: sync spine for the resume-readiness cleanup          (3 files)
+2cae992c docs: record the api-push and autocrlf lessons in the journal
 ```
 
-`fa0b7659` 因本机 github.com:443 不通改走 git database API 推送（树与提交 sha 均与本地一致，见「踩坑与教训」）；其上为 spine 同步（README 缺口清单 + PROJECT_STATUS 三项状态订正 + journal 本条）。
+`fa0b7659` 与 `2cae992c` 因本机 github.com:443 不通改走 git database API 推送（树与提交 sha 均与本地一致，见「踩坑与教训」）。PR #11（base master，2 提交 / 3 文件，CI run #22 `verify` 全绿）已合并，merge commit `4dfa2383`。**本地 `master` 仍停在 `f9135adb`**：无法 `fetch`，且该合并提交对象经穷举无法本地重建，故不做 `update-ref`（避免指向不存在对象），网络恢复后 `git pull` 快进即可。
 
 PR #10（base master，CI 绿，merge commit `f9135ad`）；本地 `master` 已快进到 `origin/master`。
 
@@ -1863,12 +1866,14 @@ PR #10（base master，CI 绿，merge commit `f9135ad`）；本地 `master` 已�
 - [OK] typecheck + lint：13/13
 - [OK] dev 库清理后置校验：movies 47 → 45、rentals 11 → 9、两个标题不存在、两处 `DATABASE_URL` 删除前复核逐字节一致
 - [OK] 转公开前三层密钥扫描 0 真实命中；未登录访问仓库页 200
+- [OK] PR #11 CI run #22 `verify` 全绿（prisma generate / lint / typecheck / test 各步 success），API 合并成功（merge commit `4dfa2383`）
+- [OK] API 推送的提交与本地逐字节一致：树 sha 相同、提交 sha 相同（`fa0b7659`、`2cae992c`）
 - [N/A] `docker compose up --build` 未跑（本机无 Docker、无 WSL：PATH/默认安装位/`wsl -l -v` 三处都查过）
 - [N/A] FU-16 真实 embed 端到端验收（负责人未购 embedding key，跳过）
 
 ### Status
 
-[OK] **Completed**（四项缺口解决三项：README 数字、dev 库残留、PR + 仓库公开；Docker 实跑仍缺环境，已登记 Risks 与 Next Steps）
+[OK] **Completed**（四项缺口解决三项：README 数字、dev 库残留、PR + 仓库公开；Docker 实跑仍缺环境，已登记 Risks 与 Next Steps。PR #11 脊柱同步已合并，本地 `master` 落后一个合并提交，待网络恢复 `git pull` 快进）
 
 ### Next Steps
 
