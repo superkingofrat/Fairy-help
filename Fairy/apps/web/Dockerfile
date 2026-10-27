@@ -27,7 +27,10 @@ RUN pnpm --filter @fairy/database generate
 ARG VITE_API_URL=""
 ENV VITE_API_URL=$VITE_API_URL
 # VITE_AMAP_JS_KEY（高德浏览器端安全密钥）同样 build-time 内联；不传则行程地图
-# 静默不渲染（TripMap 三种降级之一），不影响其余功能
+# 静默不渲染（TripMap 三种降级之一），不影响其余功能。
+# 注：BuildKit 会对此处报 SecretsUsedInArgOrEnv 警告——该 key 按设计就是要内联进浏览器
+# 产物的公开参照受限密钥（服务端 AMAP_SERVER_KEY 严禁出现在任何前端产物，AGENTS §14），
+# 属误报；警告不影响构建结果。
 ARG VITE_AMAP_JS_KEY=""
 ENV VITE_AMAP_JS_KEY=$VITE_AMAP_JS_KEY
 RUN pnpm --filter "@fairy/web..." run build

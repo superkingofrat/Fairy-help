@@ -200,7 +200,11 @@
 
 ## Last Updated（最近更新）
 
-**2026-10-27（二）· 三笔** — **在前两笔之后追加：运营建议阈值周期的重复生成浪费已修（容器冒烟暴露 → 当日修复并真机复现）**：
+**2026-10-27（二）· 四笔** — **在前三笔之后追加：CI 补 docker build 门禁（Docker 冒烟的后续加固）**：
+
+④ **`.github/workflows/ci.yml` 新增并行 job `docker-build`**（2026-10-27）：构建 api/web 两个镜像（`docker build -f apps/api/Dockerfile -t fairy-api:ci .` 与 web 同理，构建上下文 `Fairy/`）。动机：Dockerfile 属于「不真正构建过就不算验证过」的配置——本次冒烟暴露的两个缺陷（corepack shim、ESM 解析）自 2026-09-22 交付起潜伏近一年，正因为没有任何环节构建过镜像；`pnpm typecheck` 覆盖的是 tsc，覆盖不了 Dockerfile。该 job 还顺带补上 CI 此前不覆盖的 **vite build**（web 的 build 是 `tsc --noEmit && vite build`，CI 原来只跑到前者）与镜像内 `prisma generate`。与 `verify` 并行，不增加关键路径时长；runner 自带 Docker 且可直连 Docker Hub，无需密钥与数据库。两条构建命令已在本地原样跑通。**不加 compose 校验**：`docker compose config` 在缺 `apps/api/.env` 时会报错，而 CI 环境没有该文件（密钥只留本地），加了只会误报。另在 web Dockerfile 补注：BuildKit 对 `VITE_AMAP_JS_KEY` 的 `SecretsUsedInArgOrEnv` 警告属误报（该 key 按设计就是要内联进浏览器产物的公开参照受限密钥）。脊柱同步：`ARCHITECTURE.md` CI 门禁段。
+
+
 
 ③ **`runThresholdCycle` 每轮为已存在的建议白烧一轮 LLM（2026-10-27 修）**：Docker 冒烟让 api 跑了足够久，进程内调度器（`setInterval`，阈值周期 15 分钟一轮）真的跑起来后暴露。全量日志实测：一个周期内 **15 次 `agent.suggestion` LLM 调用、15 次 `dedupeKey` 唯一键冲突、`created: 0`**——约 9,074 个 token 全部丢弃，耗时约 56 秒，且每 15 分钟重复一次（持续异常不消失就永远重复，折合约 871k token/天）。根因：`generateSuggestion` 在 `create` **之前**调用，而该函数只靠 catch P2002 兜底，没有写入前查重；旁边的 `generateDailyReport` 早有 `findUnique` 先手，此处漏了。**修复**：每轮先把存量阈值键一次取回（同一次查询兼顾末段的恢复清理，少一次往返），已存在的键直接判 `skipped` 并 `continue`，不再调用 LLM；P2002 兜底与「恢复重现后重新生成」语义不变。**真机复现**：带修复重建 api 镜像后同一场景 `agent.suggestion` 调用 **15 → 0**、`dedupeKey` 冲突 **15 → 0**，周期结果仍为 `created: 0, skipped: 15`（该跳过的照样跳过）。新增 2 个回归用例（存量键不调 LLM；恢复清理后异常重现要重新生成），api 测试 444 → 446 通过，typecheck + lint 干净。脊柱同步：`ARCHITECTURE.md` 去重决策行补「写入前先查重再生成」。
 

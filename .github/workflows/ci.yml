@@ -39,3 +39,25 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+
+  # 镜像构建门禁（2026-10-27 加）。Dockerfile 属于「不真正构建过就不算验证过」的配置：
+  # 2026-09-22 交付后近一年只做静态核对，corepack shim 缺失（RUN pnpm 全部 127）与
+  # Bundler 解析导致 Node ESM 起不来两个缺陷，直到首次 docker compose up --build 才暴露
+  # （见 Fairy/docs/deployment.md §1 与 PROJECT_STATUS Last Updated 2026-10-27 条）。
+  # 与 verify 并行，不增加关键路径时长：runner 自带 Docker 且可直连 Docker Hub，
+  # 无需密钥与数据库。镜像内自跑 install + prisma generate + turbo 构建，
+  # 因此源码层面的构建断裂（含此前 CI 不覆盖的 vite build）也会在此被拦住。
+  docker-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Fairy
+    steps:
+      - uses: actions/checkout@v4
+
+      # 两个 Dockerfile 均故意不写 `# syntax=`，故无需额外拉取 dockerfile 前端镜像
+      - name: Build api image
+        run: docker build -f apps/api/Dockerfile -t fairy-api:ci .
+
+      - name: Build web image
+        run: docker build -f apps/web/Dockerfile -t fairy-web:ci .
