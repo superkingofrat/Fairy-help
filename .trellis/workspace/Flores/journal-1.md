@@ -1880,3 +1880,63 @@ PR #10（base master，CI 绿，merge commit `f9135ad`）；本地 `master` 已�
 - **有 Docker 的机器上跑** `cd Fairy && docker compose up --build`，核对 api `/health`、web SPA、跨源 web→api 全链路（`docs/deployment.md` §8 清单）
 - **远端陈旧分支与 `main` 清理**（待负责人决定）：8 个已合并分支 + 1 个 Initial commit 的 `main`；默认分支已是 `master`，纯观感问题
 - **FU-16 真实 embed 验收**：待负责人配 `EMBEDDING_API_KEY`（或有效 `OPENAI_API_KEY`）后补跑
+
+---
+
+## Session 42: Docker 首次真实构建冒烟 + 远端分支清理
+
+### Summary
+
+负责人装好 Docker Desktop 后要求处理两件事：把拖了很久的 `docker compose up --build` 实跑验证做掉，以及清理远端陈旧分支。Docker 冒烟连撞四个问题，其中两个是仓库级缺陷（静态核对近一年都不可能发现），修完后用真实浏览器完成全链路验收；分支清理前逐个核实合入状态，删后远端只剩 `master`。
+
+### Main Changes
+
+- **两个 Dockerfile 补 `RUN corepack enable`**：`corepack prepare pnpm@9.0.0 --activate` 不生成 PATH shim，`RUN pnpm install` 全部 127
+- **两个 Dockerfile 删掉 `# syntax=docker/dockerfile:1`**：它让 BuildKit 拉 `docker/dockerfile` 前端镜像，Docker Hub 不通时构建卡死；本项目只用标准语法，改走内置前端
+- **api Dockerfile 的 CMD 改为经 tsx loader 启动**：`node --import ./apps/api/node_modules/tsx/dist/loader.mjs apps/api/dist/index.js`，绕开 Bundler 解析产物在 Node 原生 ESM 下解析不了的问题
+- **本地 `apps/api/.env` 修复**（不受 git 跟踪）：删掉编辑 `DATABASE_URL` 时留下的残留行 `&connect_timeout=15&pool_timeout=15`，行尾归一 LF；含密钥备份移到仓库外
+- **远端删除 9 个 ref**：8 个已合并分支（含 `feat/october-deliveries`）+ `main`
+- **脊柱同步**：`ARCHITECTURE.md` 容器化决策行、`Fairy/docs/deployment.md` §1、`PROJECT_STATUS.md` 三节 + 新 Last Updated 条目、`README.md` 已知缺口
+
+### 关键实现决策
+
+- **mirror 拉基础镜像 + `docker tag` 成规范名，而不是改 Dockerfile 的 `FROM`**：把第三方镜像地址硬编码进仓库会影响所有使用者；daemon 级 mirror 是本地设置，仓库零改动。前端镜像（`docker/dockerfile`）在镜像站上要走 Docker Hub token 服务，同样不通，无解——但本项目用不到任何需要钉前端版本的语法，删掉 `# syntax=` 是更根本的解法
+- **用 tsx loader 兜住 ESM 扩展名问题，而不是顺手做 NodeNext 重构**：彻底方案要改约 274 处 import（api 84 个文件 213 处 + packages 61 处）并改变全仓 typecheck 语义，超出「让容器跑起来」的范围；tsx 本就是 api 的 devDependencies，镜像里现成。先 `docker run` 覆盖命令验证 `/health` 200，确认假设成立才固化进 Dockerfile
+- **删分支前逐个 `compare/master...<branch>` 核实 `ahead_by === 0`**：不用「我记得合并过」作数。`main` 的 compare 返回 404（无共同祖先，API 拒绝比较），改为单独核实其唯一提交的实际内容（2 行占位 README）再删
+- **验收用真实浏览器而非只 curl**：curl 只能证明端口在听，注册→登录→影片库→对话这条链路上的 JWT、CORS、SSE/会话创建、AI 调用只有浏览器能证伪
+
+### 踩坑与教训
+
+- **`corepack prepare --activate` ≠ pnpm 可用**：它只下载并设为默认版本，shim 要靠 `corepack enable`。一次性容器里三条命令即可复现（prepare → `which pnpm` 为空 → enable → `/usr/local/bin/pnpm`）
+- **compose 的 `env_file` 比 Node 的 dotenv 严格一个量级**：`.env` 里的残留行/裸特殊字符让 `docker compose up` 在读取阶段就退出，而 `dotenv` 静默忽略——表现为「`pnpm dev` 一直正常、docker 起不来」，极易误判成 Docker 装坏了
+- **管道会掩盖失败码**：`docker compose up --build -d 2>&1 | tail -30` 的退出码来自 `tail`，两次「exit code 0」实际都是构建失败。后台任务完成后必须单独看日志与 `docker compose ps`，不能信通知里的 exit code
+- **`docker compose` 的 cwd 依赖**：后台任务继承的是当时 shell 的 cwd，中途 `cd` 到仓库根会让下一次 compose 命令报「no configuration file provided」。compose 命令一律显式 `cd` 到 `Fairy/`
+- **api 从未从构建产物启动过**：`dev` 用 tsx、测试用 vitest，两者都容忍 Bundler 风格的无扩展名 import，所以 `tsc` 产物跑不起来的問題可以潜伏很久。凡是「只有一个入口脚本 + 从未在生产形态下执行过」的构建，都值得用容器实跑一次
+- **`docker/dockerfile` 前端镜像在镜像站上也不可用**：官方镜像（`library/*`）镜像站可直接代理，非官方仓库要回源 Docker Hub 取 token——国内网络下前者能拉、后者不能，这个差异解释了「基础镜像拉下来了、构建却还是卡住」
+
+### Git Commits
+
+```
+<本次提交> docs: record the docker smoke test and branch cleanup   (6 files)
+```
+
+### Testing
+
+- [OK] `docker compose up --build`：双镜像构建成功，`fairy-api-1` healthy、`fairy-web-1` Up
+- [OK] api `/health`：200，`{"code":"OK","data":{"status":"healthy"},"msg":"ok"}`，日志 `dbWarmup connected`
+- [OK] web SPA：8080 首页渲染、`/assets/index-*.js` 200（335KB）、SPA 兜底与 nginx 配置生效
+- [OK] CORS：带 `Origin: http://localhost:8080` 的实际请求与 OPTIONS 预检均返回 `Access-Control-Allow-Origin: *`
+- [OK] 真实浏览器全链路：注册 → 导航变已登录 → 影片库渲染 → 对话发送并收到真实 DeepSeek 回复（带库存与台词注入），`agent.intent`/`reply`/`memory` 三段各记 token 用量
+- [OK] API `GET /api/movies?limit=100`：`total: 45`，与 README 的 45 部一致
+- [OK] 分支删除前 9 个 ref 全部核实（8 个 `ahead_by === 0` + `main` 唯一提交人工核实）；删除后 `GET /branches` 返回 1（`master`）
+
+### Status
+
+[OK] **Completed**（Docker 冒烟通过并修掉两个仓库级缺陷；远端分支清理完成）
+
+### Next Steps
+
+- **ESM 扩展名彻底方案（独立重构）**：改 `moduleResolution: "NodeNext"` 并给 api 与 packages 的相对 import 补 `.js`（约 274 处），去掉对 tsx loader 的依赖。改动面大、会动全仓 typecheck 语义，应单独走 Trellis/OpenSpec 轨
+- **本地陈旧分支清理**（网络恢复后）：`git fetch --prune` 清掉 10 个失效的 `origin/*` 跟踪引用；本地 5 个陈旧分支（`chore/reliability-fixes`、`feat/fairy-avatar-expressions`、`feat/seed-persona-users`、`feature/travel-planning-phase-2`、`feat/october-deliveries`）已全部合入 master，可由负责人决定是否删
+- **dev 库验收账号** `docker-smoke-test@example.com`（1 会话 2 消息）可按需清理
+- **FU-16 真实 embed 验收**：待负责人配 `EMBEDDING_API_KEY`（或有效 `OPENAI_API_KEY`）后补跑

@@ -35,6 +35,17 @@ docker build -f apps/web/Dockerfile \
   `pnpm install --frozen-lockfile` 与 build，本地依赖与本地密钥不会被打进镜像。
 - api 镜像内已 `ENV NODE_ENV=production`、`ENV TZ=Asia/Shanghai`，以非 root 用户 `node`
   运行；`TZ` 依赖镜像内的 `tzdata` 生效（时区语义见 ARCHITECTURE §8 决策行）。
+- **无法直连 Docker Hub 的环境（国内自托管常见）**：两个 Dockerfile 都**故意不写**
+  `# syntax=docker/dockerfile:1`——那会让 BuildKit 额外拉取 `docker/dockerfile` 前端镜像，
+  而该仓库在镜像站上多要走 Docker Hub 的 token 服务，直连时直接卡死；本文件与 api 的
+  Dockerfile 只用标准语法，去掉后走 BuildKit 内置前端，零额外拉取。基础镜像
+  `node:20-alpine` / `nginx:alpine` 仍需拉取，此时给 Docker daemon 配 registry mirror
+  （Docker Desktop → Settings → Docker Engine → `"registry-mirrors": [...]`，或
+  `/etc/docker/daemon.json`）即可，无需改动仓库内任何文件。
+- **compose 的 `env_file` 比 Node 的 dotenv 严格得多**：`apps/api/.env` 里任何残留行
+  （如编辑 `DATABASE_URL` 时留下的半个 `&connect_timeout=15&pool_timeout=15`）、未闭合
+  引号或裸特殊字符，都会让 `docker compose up` 在读取阶段直接失败，而 Node 侧
+  （`dotenv`）会静默忽略同样的行——表现为「`pnpm dev` 正常、docker 起不来」。
 
 ## 2. 数据库迁移（先于新容器启动）
 

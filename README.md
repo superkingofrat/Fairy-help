@@ -101,6 +101,6 @@ cd Fairy && docker compose up --build   # api :3000、web :8080
 
 ## 已知缺口与后续事项
 
-开发中的待办（FU-16 真实 embed 验收待配 key、Docker 镜像未实测构建、日志表保留策略、远端陈旧分支清理等）统一登记在 [PROJECT_STATUS.md](PROJECT_STATUS.md) 的 In Progress / Risks & Decisions。
+开发中的待办（FU-16 真实 embed 验收待配 key、日志表保留策略等）统一登记在 [PROJECT_STATUS.md](PROJECT_STATUS.md) 的 In Progress / Risks & Decisions。
 
 演示账号口令仅限本地；上线前必须改密并配置生产密钥（见 [Fairy/docs/deployment.md](Fairy/docs/deployment.md)）。
