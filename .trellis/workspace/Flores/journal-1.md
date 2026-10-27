@@ -1940,3 +1940,50 @@ PR #10（base master，CI 绿，merge commit `f9135ad`）；本地 `master` 已�
 - **本地陈旧分支清理**（网络恢复后）：`git fetch --prune` 清掉 10 个失效的 `origin/*` 跟踪引用；本地 5 个陈旧分支（`chore/reliability-fixes`、`feat/fairy-avatar-expressions`、`feat/seed-persona-users`、`feature/travel-planning-phase-2`、`feat/october-deliveries`）已全部合入 master，可由负责人决定是否删
 - **dev 库验收账号** `docker-smoke-test@example.com`（1 会话 2 消息）可按需清理
 - **FU-16 真实 embed 验收**：待负责人配 `EMBEDDING_API_KEY`（或有效 `OPENAI_API_KEY`）后补跑
+
+---
+
+## Session 43: 运营建议阈值周期的重复生成浪费（容器冒烟暴露 → 修复 → 真机复现）
+
+### Summary
+
+Docker 冒烟让 api 持续运行，进程内调度器（阈值周期 15 分钟一轮）真实跑起来后暴露一处浪费：`runThresholdCycle` 每轮都为**已存在**的建议调用一遍 LLM 再被唯一索引挡下。负责人选定该项后当日修复，并在真实容器里复现对比（LLM 调用 15 → 0）。
+
+### Main Changes
+
+- **`Fairy/apps/api/src/services/suggestionService.ts`**：`runThresholdCycle` 每轮先把存量阈值键一次取回（同一次查询兼顾末段恢复清理，少一次往返），已存在的键直接判 `skipped` 并 `continue`，不再调用 `generateSuggestion`；`handledKeys`（存量 ∪ 本周期已落库）避免同周期重复生成；P2002 兜底与非重复错误原样抛出的语义不变
+- **`Fairy/apps/api/src/__tests__/suggestions.test.ts`**：新增 2 个回归用例；更新「恢复清理」用例的注释与断言（第二周期不再落库、不再调 LLM）
+- **`ARCHITECTURE.md`**：去重决策行补「写入前先查重再生成」及实测数据
+
+### 关键实现决策
+
+- **一次 `findMany` 同时服务查重与恢复清理**：两个查询的 where/select 原本完全相同（阈值三 kind + 只要 dedupeKey），合并后每轮少一次往返；`staleKeys` 仍从**存量快照**算，本周期新建的键本就属于活跃集合，不会被误判为待清理
+- **保留 P2002 兜底而非只靠查重**：查重是省 token 的快路径，唯一索引仍是并发/多实例下的事实来源（与 `generateDailyReport` 同构）
+- **`skipped` 语义不变**：仍是「检测到但因已存在而未创建」，调度器日志契约不动，仅把「尝试后碰撞」提前成「写入前已知」
+
+### 踩坑与教训
+
+- **「只在 dev/测试形态下跑过的代码」要警惕**：`dev` 走 tsx、测试走 vitest，两条路径都能容忍 Bundler 风格无扩展名 import，所以 api 从未从构建产物启动过这件事潜伏了很久；同理，这条 LLM 浪费也只在**进程内调度器真的按周期跑起来**后才可见——单测里 `runThresholdCycle` 一调就返回，看不出「每 15 分钟重复一次」的成本。长生命周期的后台任务值得在验收时让它真跑几个周期
+- **写测试时注意 mock 的时序语义**：初版「恢复重现」用例用 `mockResolvedValue` 给了固定返回值，导致三个周期都看到空存量、第二周期仍会生成；实现里存量查询已合并为一周期一次，故须按周期用 `mockResolvedValueOnce` 排序。测试若与实现的查询次数隐耦合，改动查询次数时会静默失效
+
+### Git Commits
+
+```
+<本次提交> suggestion: skip regeneration for anomalies already suggested   (3 files)
+```
+
+### Testing
+
+- [OK] api 测试 446 passed / 1 skipped（真实库门控），较修复前 +2（新增回归用例）；typecheck + lint 干净
+- [OK] 真机复现（带修复重建 api 镜像，重启后调度器启动即跑一轮）：`agent.suggestion` 调用 15 → **0**、`dedupeKey` 冲突 15 → **0**，周期结果仍为 `created: 0, skipped: 15`
+- [OK] 修复前同场景基线（同一容器、同一批存量建议）：15 次调用、约 9,074 token、`created: 0`
+
+### Status
+
+[OK] **Completed**（浪费已消除，行为契约未变）
+
+### Next Steps
+
+- 给 CI 补 `docker build` 门禁（本次 Dockerfile 两个缺陷若有该门禁早暴露）
+- ESM 扩展名彻底方案：NodeNext + 约 274 处 import 补 `.js`
+- FU-16 真实 embed 验收（待 `EMBEDDING_API_KEY`）

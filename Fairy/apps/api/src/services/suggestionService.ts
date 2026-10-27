@@ -6,7 +6,8 @@ import { tryChat } from "../agent/llmClient";
 // 2026-09-23-proactive-ops-suggestions：主动运营建议服务层。
 // 阈值/日报的触发判定复用 insightService 的只读聚合（单一事实来源）；
 // 生成走统一 AI SDK chat()，失败降级模板摘要（AGENTS §0 降级哲学）；
-// 去重以 dedupeKey 唯一索引为唯一事实来源，并发下后到一方 P2002 视为已存在。
+// 去重以 dedupeKey 唯一索引为唯一事实来源：写入前先按存量键查重（不为已存在者调用 LLM），
+// 并发下后到一方再以 P2002 兜底视为已存在。
 
 export const BORROW_RATIO_THRESHOLD = 0.8;
 export const DORMANT_DAYS = 7;
@@ -194,9 +195,26 @@ export async function runThresholdCycle(now: Date = new Date()): Promise<CycleRe
   const drafts = await detectThresholdAnomalies(now);
   const activeKeys = new Set(drafts.map((draft) => draft.dedupeKey));
 
+  // 存量阈值建议一次取回：既用于「已存在的键不再重复生成」，也用于末段的恢复清理。
+  // 生成发生在落库之前，若不在写入前查重，持续存在的异常会让每个周期都为同一批建议白烧
+  // 一轮 LLM——2026-10-27 容器冒烟实测：15 个异常 → 15 次调用、created: 0，约 9k token
+  // 全部丢弃，且每 15 分钟重复一次。日报路径（generateDailyReport）早有先手查重，此处补齐。
+  const stored = await prisma.opsSuggestion.findMany({
+    where: { kind: { in: ["LOW_STOCK", "BORROW_RATIO", "DORMANT"] } },
+    select: { dedupeKey: true },
+  });
+  const storedKeys = new Set(stored.map((row) => row.dedupeKey));
+  // 已处理键 = 存量 ∪ 本周期刚落库（或被唯一索引挡下）的，避免同周期内重复生成
+  const handledKeys = new Set(storedKeys);
+
   let created = 0;
   let skipped = 0;
   for (const draft of drafts) {
+    if (handledKeys.has(draft.dedupeKey)) {
+      // 同一异常的建议已在库：直接视为已存在，不调用 LLM
+      skipped += 1;
+      continue;
+    }
     const generated = await generateSuggestion(draft);
     try {
       await prisma.opsSuggestion.create({
@@ -210,22 +228,18 @@ export async function runThresholdCycle(now: Date = new Date()): Promise<CycleRe
       });
       created += 1;
     } catch (error) {
-      if (isDuplicateError(error)) {
-        // 并发或多实例下唯一索引兜底：视为已存在，绝不重复生成
-        skipped += 1;
-        continue;
+      if (!isDuplicateError(error)) {
+        throw error;
       }
-      throw error;
+      // 并发或多实例下唯一索引兜底：视为已存在，绝不重复生成
+      skipped += 1;
     }
+    handledKeys.add(draft.dedupeKey);
   }
 
   // 恢复清理：活跃异常集合之外的存量阈值建议全部删除（库存回补、借出率回落、借阅恢复）。
   // 异常重现时作为全新建议重新落库（新 createdAt、未读态）。
-  const stale = await prisma.opsSuggestion.findMany({
-    where: { kind: { in: ["LOW_STOCK", "BORROW_RATIO", "DORMANT"] } },
-    select: { dedupeKey: true },
-  });
-  const staleKeys = stale.map((row) => row.dedupeKey).filter((key) => !activeKeys.has(key));
+  const staleKeys = [...storedKeys].filter((key) => !activeKeys.has(key));
   let closed = 0;
   if (staleKeys.length > 0) {
     const { count } = await prisma.opsSuggestion.deleteMany({

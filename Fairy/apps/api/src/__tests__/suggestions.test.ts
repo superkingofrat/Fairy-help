@@ -213,7 +213,7 @@ describe("runThresholdCycle", () => {
     expect(prisma.opsSuggestion.create).toHaveBeenCalledTimes(3);
 
     // 第二周期：m2 回补、冷清恢复，仅 m1 仍低库存；m1 的建议已在库，
-    // 重建被唯一索引挡下（P2002 → skipped），其余两个键被判定恢复并删除
+    // 写入前查重即判为已存在（不调 LLM、不落库），其余两个键被判定恢复并删除
     vi.mocked(getStoreInsightsOverview).mockResolvedValueOnce(
       overviewFixture({
         inventory: {
@@ -223,7 +223,6 @@ describe("runThresholdCycle", () => {
         },
       }),
     );
-    vi.mocked(prisma.opsSuggestion.create).mockRejectedValue({ code: "P2002" } as never);
     vi.mocked(prisma.opsSuggestion.findMany).mockResolvedValue([
       { dedupeKey: "LOW_STOCK:m1" },
       { dedupeKey: "LOW_STOCK:m2" },
@@ -233,11 +232,69 @@ describe("runThresholdCycle", () => {
 
     const result = await runThresholdCycle(NOW);
 
+    expect(prisma.opsSuggestion.create).toHaveBeenCalledTimes(3); // 第二周期一次都没再落库
     expect(prisma.opsSuggestion.deleteMany).toHaveBeenCalledWith({
       where: { dedupeKey: { in: ["LOW_STOCK:m2", "DORMANT:store"] } },
     });
     expect(result.closed).toBe(2);
-    expect(result.skipped).toBe(1); // m1 的建议仍在活跃期，重建被唯一索引挡下
+    expect(result.skipped).toBe(1); // m1 的建议仍在活跃期，写入前查重即判为已存在
+  });
+
+  it("does not call the LLM for anomalies whose suggestion is already stored", async () => {
+    // 回归 2026-10-27 容器冒烟发现的浪费：生成发生在落库之前，若写入前不查重，
+    // 持续存在的异常会让每个周期都为同一批建议白烧一轮 token（实测 15 异常 → 15 次调用、created: 0）
+    vi.mocked(getStoreInsightsOverview).mockResolvedValue(
+      overviewFixture({
+        inventory: {
+          activeRentals: 8,
+          borrowedRatio: 0.8,
+          lowStockMovies: [
+            { movieId: "m1", title: "教父", stock: 0, totalStock: 2 },
+            { movieId: "m2", title: "小王子", stock: 1, totalStock: 1 },
+          ],
+        },
+      }),
+    );
+    vi.mocked(prisma.opsSuggestion.findMany).mockResolvedValue([
+      { dedupeKey: "LOW_STOCK:m1" },
+      { dedupeKey: "LOW_STOCK:m2" },
+      { dedupeKey: "BORROW_RATIO:store" },
+    ] as never);
+    vi.mocked(tryChat).mockResolvedValue({ text: "应当不会被调用" } as never);
+
+    const result = await runThresholdCycle(NOW);
+
+    expect(result).toEqual({ created: 0, skipped: 3, closed: 0 });
+    expect(tryChat).not.toHaveBeenCalled();
+    expect(prisma.opsSuggestion.create).not.toHaveBeenCalled();
+  });
+
+  it("regenerates after a recovered anomaly reappears", async () => {
+    // 恢复清理删掉旧行后，同一异常重现必须作为全新建议重新落库，不能被查重永久跳过。
+    // 实现里存量查询一周期一次，故按周期顺序给返回值：空 → 有该键 → 空（已被清理）
+    const lowStock = {
+      inventory: {
+        activeRentals: 2,
+        borrowedRatio: 0.2,
+        lowStockMovies: [{ movieId: "m1", title: "教父", stock: 0, totalStock: 2 }],
+      },
+    };
+    vi.mocked(getStoreInsightsOverview).mockResolvedValue(overviewFixture(lowStock));
+    vi.mocked(prisma.opsSuggestion.findMany)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([{ dedupeKey: "LOW_STOCK:m1" }] as never)
+      .mockResolvedValueOnce([] as never);
+
+    await expect(runThresholdCycle(NOW)).resolves.toEqual({ created: 1, skipped: 0, closed: 0 });
+    expect(tryChat).toHaveBeenCalledTimes(1);
+
+    // 第二周期：建议仍在库 → 不重复生成
+    await expect(runThresholdCycle(NOW)).resolves.toEqual({ created: 0, skipped: 1, closed: 0 });
+    expect(tryChat).toHaveBeenCalledTimes(1);
+
+    // 第三周期：库存回补（建议被清理）后异常重现 → 重新生成
+    await expect(runThresholdCycle(NOW)).resolves.toEqual({ created: 1, skipped: 0, closed: 0 });
+    expect(tryChat).toHaveBeenCalledTimes(2);
   });
 });
 
