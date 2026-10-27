@@ -1987,3 +1987,51 @@ Docker 冒烟让 api 持续运行，进程内调度器（阈值周期 15 分钟�
 - 给 CI 补 `docker build` 门禁（本次 Dockerfile 两个缺陷若有该门禁早暴露）
 - ESM 扩展名彻底方案：NodeNext + 约 274 处 import 补 `.js`
 - FU-16 真实 embed 验收（待 `EMBEDDING_API_KEY`）
+
+---
+
+## Session 44: CI 补 docker build 门禁
+
+### Summary
+
+Docker 冒烟的后续加固：给 CI 加一个并行 job 构建 api/web 两个镜像，把「Dockerfile 只有真正构建过才算验证过」变成每次 PR 的硬门禁。动机是本次暴露的两个缺陷（corepack shim、ESM 解析）潜伏近一年，根因就是没有任何环节构建过镜像。
+
+### Main Changes
+
+- **`.github/workflows/ci.yml`**：新增 `docker-build` job（与 `verify` 并行），`docker build -f apps/api/Dockerfile -t fairy-api:ci .` 与 web 同理，工作目录 `Fairy/`
+- **`Fairy/apps/web/Dockerfile`**：补注 BuildKit `SecretsUsedInArgOrEnv` 警告属误报（`VITE_AMAP_JS_KEY` 按设计就是要内联进浏览器产物的公开参照受限密钥）
+- **`ARCHITECTURE.md`** CI 门禁段、**`PROJECT_STATUS.md`** Last Updated 2026-10-27 条 ④
+
+### 关键实现决策
+
+- **独立 job 而非塞进 `verify`**：镜像构建不需要 pnpm/node 环境（镜像内自跑 install + prisma generate + turbo 构建），独立 job 与 verify 并行不增加关键路径时长，且失败归因清晰（「镜像构建」不会和 lint/typecheck 混在一起）
+- **每个 PR 都构建，不做 path 过滤**：镜像构建覆盖的不仅是 Dockerfile 本身，还有镜像内的 `pnpm install --frozen-lockfile`、`prisma generate`、turbo 构建与 **vite build**（CI 此前只跑 tsc，vite build 坏了发现不了）——源码层面的构建断裂同样该被拦住。仓库已公开，Actions 分钟免费，无成本顾虑
+- **不加 compose 校验**：`docker compose config` 在缺 `apps/api/.env` 时直接报错，而 CI 环境按设计没有该文件（密钥只留本地），加了只会误报——已在临时目录实测确认该行为
+
+### 踩坑与教训
+
+- **管道掩盖退出码的老坑又踩一次**：判断 `docker compose config` 是否失败时写成 `... | head -5; echo exit=$?`，拿到的是 `head` 的退出码（0），差点据此把会报错的步骤写进 CI。凡是要拿退出码做判断，要么不用管道，要么用 `PIPESTATUS`/单独执行
+- **无 yaml 库时别用正则校验 YAML 结构**：自检脚本把 `on:` 下的 `push:` 误报成顶层 job。这类校验只能证明「没 Tab、有缩进」，真正的语法校验要么靠工具要么靠 CI 自己——所以本地把 CI 将要执行的原命令跑一遍比校验 YAML 更值
+
+### Git Commits
+
+```
+<本次提交> ci: build both images on every pull request   (5 files)
+```
+
+### Testing
+
+- [OK] 两条 CI 命令在本地原样跑通：`fairy-api:ci`（628MB）、`fairy-web:ci`（103MB）均构建成功
+- [OK] 结构与卫生自检：无 Tab、无语法可疑项；两个 job（`verify` / `docker-build`）与 11 个 step 条目齐整
+- [N/A] GitHub 上的实际运行待 PR 合并前由 CI 自身验证
+
+### Status
+
+[OK] **Completed**（待 PR 合并）
+
+### Next Steps
+
+- ESM 扩展名彻底方案：NodeNext + 约 274 处 import 补 `.js`，去掉生产路径里的 tsx loader
+- 日志表保留策略（`behavior_logs` / `rentals`，需先定保留窗口）
+- `core.autocrlf=true` 导致 `pnpm format:check` 在本机全量假失败（158 个文件），加 `.gitattributes` 或关掉 autocrlf 恢复该门禁
+- FU-16 真实 embed 验收（待 `EMBEDDING_API_KEY`）
