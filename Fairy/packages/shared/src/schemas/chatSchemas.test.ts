@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chatRequestSchema } from "./chatSchemas";
+import { chatRequestSchema } from "./chatSchemas.js";
 
 describe("chatRequestSchema", () => {
   it("accepts a message only", () => {

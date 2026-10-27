@@ -1,5 +1,5 @@
-import * as rentalService from "../services/rentalService";
-import * as behaviorLogService from "../services/behaviorLogService";
+import * as rentalService from "../services/rentalService.js";
+import * as behaviorLogService from "../services/behaviorLogService.js";
 import type { BorrowErrorCode } from "@fairy/shared";
 
 export async function borrowMovieTool(input: { userId: string; movieId: string }): Promise<{

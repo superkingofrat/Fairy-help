@@ -157,7 +157,7 @@
 - **洞察窗口依赖服务器时区** — 运营洞察的趋势/活跃窗口按服务器本地日期分桶，起点为真本地午夜（`new Date(y, m, d)`）。部署必须显式设置 `TZ=Asia/Shanghai`（容器与 CI 同设）；若运行在 UTC 环境，窗口边界整体前移 8 小时、首日 00:00–08:00 数据缺失，且看板无任何报错提示。
 - **behavior_logs / rentals 无保留策略** — 行为日志每轮对话只增不减；洞察已按 30 天窗口控制查询成本（`recommendCount`/mood/scene），但表本身无清理或归档策略，长期仍会拖累写入与备份。须在落地前排定保留期（登记于整改批次，随 FU 排期）。
 - **（已解决 2026-09-24）intentClassifier 的历史注入不走 token 预算裁剪** — `stateLoop` 只对 synthesize 路径调 `trimHistoryToBudget`，`classifyIntent` 拿的是原始历史文本（现已经消毒 + 每条 ≤2000 字的换行折叠）。最近 10 条历史的极端情况下意图分类 prompt 仍可达 ~20k 字符（约 6k tokens 粗估），每轮固定发生，属成本关注而非正确性问题；缓解候选：意图分类也套同一预算裁剪（下批 P1 或随批次 6 处理）。**已消除**：分类路径同套 `trimHistoryToBudget`（意图分类不注入记忆，budget 全额给历史），见 2026-09-24 条目；同次复核发现并修正了裁剪方向偏差（原实现保留最旧轮次，与需求文档相反，已改为保留最新）。
-- **（2026-10-27 已消除）Docker 镜像未经实际构建验证** — 原风险：批次 7 的 Dockerfile/.dockerignore/nginx 配置只做过静态核对，`docker build` 从未在有 Docker 的环境跑过。**2026-10-27 负责人装好 Docker Desktop 后首次真实构建并冒烟通过**，且暴露出两个此前不可能被静态核对发现的缺陷（corepack shim 缺失致 `pnpm` 127、Bundler 解析致 Node ESM 起不来），均已修复，见 Last Updated 2026-10-27 条与 Next Steps 的 docker 条目。**仍存在的相关风险**：①ESM 扩展名问题是靠 tsx loader 兜住的，彻底方案（NodeNext + 274 处 import 补 `.js`）是独立重构；②Docker Hub 直连不通的环境需自配 registry mirror（基础镜像 `node:20-alpine`/`nginx:alpine` 仍需拉取，见 `docs/deployment.md` §1）；③`docker compose` 的 `env_file` 比 Node dotenv 严格，`.env` 有残留行会让 `up` 在读取阶段即失败。
+- **（2026-10-27 已消除）Docker 镜像未经实际构建验证** — 原风险：批次 7 的 Dockerfile/.dockerignore/nginx 配置只做过静态核对，`docker build` 从未在有 Docker 的环境跑过。**2026-10-27 负责人装好 Docker Desktop 后首次真实构建并冒烟通过**，且暴露出两个此前不可能被静态核对发现的缺陷（corepack shim 缺失致 `pnpm` 127、Bundler 解析致 Node ESM 起不来），均已修复，见 Last Updated 2026-10-27 条与 Next Steps 的 docker 条目。**仍存在的相关风险**：①Docker Hub 直连不通的环境需自配 registry mirror（基础镜像 `node:20-alpine`/`nginx:alpine` 仍需拉取，见 `docs/deployment.md` §1）；②`docker compose` 的 `env_file` 比 Node dotenv 严格，`.env` 有残留行会让 `up` 在读取阶段即失败；③NodeNext 只覆盖 api 与它依赖的三个 workspace 包，web 仍是 Bundler——四个包里新增 import 必须带 `.js` 扩展名（含 `vi.mock`/`import()` 参数），漏了由 typecheck 报 TS2835，但靠人记规则仍有漏网风险。
 
 ### 近期关键决策
 
@@ -200,7 +200,11 @@
 
 ## Last Updated（最近更新）
 
-**2026-10-27（二）· 四笔** — **在前三笔之后追加：CI 补 docker build 门禁（Docker 冒烟的后续加固）**：
+**2026-10-27（二）· 五笔** — **在前四笔之后追加：ESM 扩展名彻底迁移完成，生产路径不再依赖 tsx loader**：
+
+⑤ **Node 侧四包迁移到 NodeNext + 274 处 import 补 `.js`**（2026-10-27）：根 `tsconfig` 保持 `moduleResolution: "Bundler"`（Vite 打包 web 所需），`apps/api` 与它运行时依赖的 `packages/shared`、`packages/ai-sdk`、`packages/database` 四个包各自覆盖为 `NodeNext`，源码里的相对 import 一律带 `.js` 扩展名（tsc 自动把 `./x.js` 解析到 `./x.ts`）；三个目录导入（`./schemas`、`./types`、`./providers`）改写为显式 `/index.js`。api Dockerfile 的 CMD 从 `node --import ./apps/api/node_modules/tsx/dist/loader.mjs ...` 改回纯粹的 `node apps/api/dist/index.js`——**生产路径不再依赖任何 loader/转译器**。覆盖范围 274 处 / 115 文件（其中 49 处是测试文件里 `vi.mock("...")` 与 `import("...")` 的参数，初版脚本只匹配 `from`/`import` 声明，漏掉后由 `tsc` 报 TS2835 发现才补上）。**验证**：全仓 test 8/8（api 446 + shared 128 + ai-sdk 18 + database 12）、typecheck 8/8、lint 8/8；宿主机直接 `node apps/api/dist/index.js`（PORT=4000）连上数据库、`/health` 200；带迁移结果重建 api 镜像后容器内 `PID 1` 命令行就是 `node apps/api/dist/index.js`、`/health` 200、跨源登录与影片库 `total: 45` 复核通过。脊柱同步：`ARCHITECTURE.md` 新增「Node 侧四包用 NodeNext、web 保持 Bundler」决策行、容器化行与提交前本地验证段同步更新。
+
+
 
 ④ **`.github/workflows/ci.yml` 新增并行 job `docker-build`**（2026-10-27）：构建 api/web 两个镜像（`docker build -f apps/api/Dockerfile -t fairy-api:ci .` 与 web 同理，构建上下文 `Fairy/`）。动机：Dockerfile 属于「不真正构建过就不算验证过」的配置——本次冒烟暴露的两个缺陷（corepack shim、ESM 解析）自 2026-09-22 交付起潜伏近一年，正因为没有任何环节构建过镜像；`pnpm typecheck` 覆盖的是 tsc，覆盖不了 Dockerfile。该 job 还顺带补上 CI 此前不覆盖的 **vite build**（web 的 build 是 `tsc --noEmit && vite build`，CI 原来只跑到前者）与镜像内 `prisma generate`。与 `verify` 并行，不增加关键路径时长；runner 自带 Docker 且可直连 Docker Hub，无需密钥与数据库。两条构建命令已在本地原样跑通。**不加 compose 校验**：`docker compose config` 在缺 `apps/api/.env` 时会报错，而 CI 环境没有该文件（密钥只留本地），加了只会误报。另在 web Dockerfile 补注：BuildKit 对 `VITE_AMAP_JS_KEY` 的 `SecretsUsedInArgOrEnv` 警告属误报（该 key 按设计就是要内联进浏览器产物的公开参照受限密钥）。脊柱同步：`ARCHITECTURE.md` CI 门禁段。
 

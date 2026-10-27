@@ -6,7 +6,7 @@ import {
   trimHistoryToBudget,
   wrapUntrustedSpan,
   type HistoryTurn,
-} from "../agent/contextBuilder";
+} from "../agent/contextBuilder.js";
 
 describe("buildConversationHistory", () => {
   it("returns an empty string for an empty history", () => {

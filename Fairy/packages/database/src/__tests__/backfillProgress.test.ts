@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { selectFreshRows, type PendingRow } from "../backfillProgress";
+import { selectFreshRows, type PendingRow } from "../backfillProgress.js";
 
 function rows(...ids: string[]): PendingRow[] {
   return ids.map((id) => ({ id, content: `content-${id}` }));

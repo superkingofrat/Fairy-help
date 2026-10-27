@@ -12,9 +12,9 @@ import type {
   TripResult,
   RouteLeg,
 } from "@fairy/shared";
-import { sanitizeUserInput, tryChat } from "./llmClient";
-import { buildMemoryBlock, wrapUntrustedSpan } from "./contextBuilder";
-import type { ToolObservation } from "./toolDispatcher";
+import { sanitizeUserInput, tryChat } from "./llmClient.js";
+import { buildMemoryBlock, wrapUntrustedSpan } from "./contextBuilder.js";
+import type { ToolObservation } from "./toolDispatcher.js";
 
 export interface SynthesizedResponse {
   texts: TextSseEvent[];

@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
-import { getStoreInsightsOverview } from "../services/insightService";
+import { getStoreInsightsOverview } from "../services/insightService.js";
 
 export async function getInsightsOverviewHandler(
   _req: Request,

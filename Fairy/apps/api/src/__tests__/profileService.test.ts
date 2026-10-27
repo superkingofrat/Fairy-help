@@ -4,7 +4,7 @@ import {
   loadGenreWhitelist,
   mergeLikeGenres,
   resetGenreWhitelistForTests,
-} from "../services/profileService";
+} from "../services/profileService.js";
 
 const { MockPrismaClientKnownRequestError } = vi.hoisted(() => {
   class MockPrismaClientKnownRequestError extends Error {

@@ -1,8 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
 import type { CreateProfileInput, UpdateProfileInput } from "@fairy/shared";
 import { userIdParamsSchema } from "@fairy/shared";
-import type { Role } from "../middleware/auth";
-import * as profileService from "../services/profileService";
+import type { Role } from "../middleware/auth.js";
+import * as profileService from "../services/profileService.js";
 
 export async function listProfilesHandler(
   _req: Request,

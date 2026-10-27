@@ -1,11 +1,11 @@
-import { recommendMovieTool } from "../tools/recommendMovieTool";
-import { borrowMovieTool } from "../tools/borrowMovieTool";
-import { returnMovieTool } from "../tools/returnMovieTool";
-import { storeInsightTool } from "../tools/storeInsightTool";
-import { planTripTool } from "../tools/planTripTool";
-import type { PlannedCall } from "./planner";
+import { recommendMovieTool } from "../tools/recommendMovieTool.js";
+import { borrowMovieTool } from "../tools/borrowMovieTool.js";
+import { returnMovieTool } from "../tools/returnMovieTool.js";
+import { storeInsightTool } from "../tools/storeInsightTool.js";
+import { planTripTool } from "../tools/planTripTool.js";
+import type { PlannedCall } from "./planner.js";
 import type { Movie, StoreInsightsOverview, InsightTopic, TripResult } from "@fairy/shared";
-import type { Role } from "../middleware/auth";
+import type { Role } from "../middleware/auth.js";
 
 export type ToolObservation =
   | { kind: "recommend"; movies: Movie[] }

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@fairy/database";
-import { borrow, listActiveRentals, returnRental } from "../services/rentalService";
+import { borrow, listActiveRentals, returnRental } from "../services/rentalService.js";
 
 vi.mock("@fairy/database", () => ({
   prisma: {

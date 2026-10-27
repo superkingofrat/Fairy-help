@@ -7,7 +7,7 @@ import {
   type StreamChunk,
   type UsageMetadata,
 } from "@fairy/ai-sdk";
-import { resetLlmProviderForTests, sanitizeUserInput, tryChat } from "../agent/llmClient";
+import { resetLlmProviderForTests, sanitizeUserInput, tryChat } from "../agent/llmClient.js";
 
 // createAiProvider 换成可操控的桩，isAiProviderError 等其余导出保持真实
 vi.mock("@fairy/ai-sdk", async (importOriginal) => {

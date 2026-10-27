@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { stripControlChars } from "../agent/sanitize";
+import { stripControlChars } from "../agent/sanitize.js";
 
 describe("stripControlChars", () => {
   it("strips C0 controls except tab/newline/carriage return, plus DEL and C1", () => {

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { createApp } from "../app";
+import { createApp } from "../app.js";
 
 const originalHops = process.env.TRUST_PROXY_HOPS;
 

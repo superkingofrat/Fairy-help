@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Movie, Profile, StoreInsightsOverview, TripResult } from "@fairy/shared";
 import type { ChatResult } from "@fairy/ai-sdk";
-import { synthesize } from "../agent/responseSynthesizer";
-import * as llmClient from "../agent/llmClient";
+import { synthesize } from "../agent/responseSynthesizer.js";
+import * as llmClient from "../agent/llmClient.js";
 
-vi.mock("../agent/llmClient", () => ({
+vi.mock("../agent/llmClient.js", () => ({
   sanitizeUserInput: (message: string) => message,
   tryChat: vi.fn(),
 }));

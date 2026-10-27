@@ -1,7 +1,7 @@
 import type { Movie, Profile } from "@fairy/shared";
-import * as movieService from "../services/movieService";
-import * as profileService from "../services/profileService";
-import * as behaviorLogService from "../services/behaviorLogService";
+import * as movieService from "../services/movieService.js";
+import * as profileService from "../services/profileService.js";
+import * as behaviorLogService from "../services/behaviorLogService.js";
 import type { Mood, Scene } from "@fairy/shared";
 
 const MAX_RESULTS = 5;

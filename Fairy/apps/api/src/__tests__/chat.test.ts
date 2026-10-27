@@ -1,16 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
-import { createApp } from "../app";
-import * as movieService from "../services/movieService";
-import * as profileService from "../services/profileService";
-import * as rentalService from "../services/rentalService";
-import * as behaviorLogService from "../services/behaviorLogService";
-import * as sessionService from "../services/sessionService";
-import * as insightService from "../services/insightService";
-import * as planTripTool from "../tools/planTripTool";
-import * as llmClient from "../agent/llmClient";
-import * as memoryService from "../memory/memoryService";
-import * as memoryExtractor from "../memory/memoryExtractor";
+import { createApp } from "../app.js";
+import * as movieService from "../services/movieService.js";
+import * as profileService from "../services/profileService.js";
+import * as rentalService from "../services/rentalService.js";
+import * as behaviorLogService from "../services/behaviorLogService.js";
+import * as sessionService from "../services/sessionService.js";
+import * as insightService from "../services/insightService.js";
+import * as planTripTool from "../tools/planTripTool.js";
+import * as llmClient from "../agent/llmClient.js";
+import * as memoryService from "../memory/memoryService.js";
+import * as memoryExtractor from "../memory/memoryExtractor.js";
 import {
   DEV_USER_ID,
   type Movie,
@@ -19,23 +19,23 @@ import {
   type TripResult,
   type MemoryRecord,
 } from "@fairy/shared";
-import { authHeader } from "./helpers/auth";
+import { authHeader } from "./helpers/auth.js";
 
-vi.mock("../services/movieService");
-vi.mock("../services/profileService");
-vi.mock("../services/rentalService");
-vi.mock("../services/behaviorLogService");
-vi.mock("../services/sessionService");
-vi.mock("../services/insightService");
-vi.mock("../tools/planTripTool");
-vi.mock("../agent/llmClient", () => ({
+vi.mock("../services/movieService.js");
+vi.mock("../services/profileService.js");
+vi.mock("../services/rentalService.js");
+vi.mock("../services/behaviorLogService.js");
+vi.mock("../services/sessionService.js");
+vi.mock("../services/insightService.js");
+vi.mock("../tools/planTripTool.js");
+vi.mock("../agent/llmClient.js", () => ({
   sanitizeUserInput: (message: string) => message,
   tryChat: vi.fn(),
 }));
-vi.mock("../memory/memoryService", () => ({
+vi.mock("../memory/memoryService.js", () => ({
   searchMemories: vi.fn(),
 }));
-vi.mock("../memory/memoryExtractor", () => ({
+vi.mock("../memory/memoryExtractor.js", () => ({
   extractAndStoreMemories: vi.fn(),
 }));
 

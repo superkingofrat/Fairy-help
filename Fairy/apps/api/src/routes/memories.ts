@@ -11,9 +11,9 @@ import {
   listMemoriesHandler,
   listMyMemoriesHandler,
   updateMemoryHandler,
-} from "../controllers/memoryController";
-import { requireRole } from "../middleware/auth";
-import { validateBody, validateQuery } from "../middleware/validateBody";
+} from "../controllers/memoryController.js";
+import { requireRole } from "../middleware/auth.js";
+import { validateBody, validateQuery } from "../middleware/validateBody.js";
 
 // FU-15：记忆管理面 REST 端点——全部 admin-only（403 FORBIDDEN，与 behavior-logs/insights 一致）。
 // FU-17：GET /me 自查面——任意已登录角色（router 已在 app.ts 挂 authMiddleware，身份在 res.locals.userId）。

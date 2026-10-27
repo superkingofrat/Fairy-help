@@ -1,9 +1,9 @@
 import type { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import type { TripCreateRequest, TripListQuery } from "@fairy/shared";
-import * as tripService from "../services/tripService";
-import * as authService from "../services/authService";
-import type { Role } from "../middleware/auth";
+import * as tripService from "../services/tripService.js";
+import * as authService from "../services/authService.js";
+import type { Role } from "../middleware/auth.js";
 
 // FU-19（旅行规划二期）：行程 REST controller。角色门禁（admin/agent）与 chat dispatch
 // trip 分支一致；越权读取统一 404 TRIP_NOT_FOUND，不泄漏行程存在性。

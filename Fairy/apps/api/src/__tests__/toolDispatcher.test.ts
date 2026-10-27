@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { dispatch } from "../agent/toolDispatcher";
-import * as storeInsightTool from "../tools/storeInsightTool";
-import * as planTripTool from "../tools/planTripTool";
+import { dispatch } from "../agent/toolDispatcher.js";
+import * as storeInsightTool from "../tools/storeInsightTool.js";
+import * as planTripTool from "../tools/planTripTool.js";
 import type { StoreInsightsOverview, TripResult } from "@fairy/shared";
 
-vi.mock("../tools/storeInsightTool");
-vi.mock("../tools/planTripTool");
+vi.mock("../tools/storeInsightTool.js");
+vi.mock("../tools/planTripTool.js");
 
 const overviewFixture: StoreInsightsOverview = {
   popularMovies: [

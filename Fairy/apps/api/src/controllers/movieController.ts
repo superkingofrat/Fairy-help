@@ -5,7 +5,7 @@ import type {
   SearchMoviesQuery,
   UpdateMovieInput,
 } from "@fairy/shared";
-import * as movieService from "../services/movieService";
+import * as movieService from "../services/movieService.js";
 
 function getValidatedQuery<T>(res: Response): T {
   return res.locals.validatedQuery as T;

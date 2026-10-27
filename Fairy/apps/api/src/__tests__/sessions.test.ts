@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
-import { createApp } from "../app";
-import * as sessionService from "../services/sessionService";
-import { authHeader } from "./helpers/auth";
+import { createApp } from "../app.js";
+import * as sessionService from "../services/sessionService.js";
+import { authHeader } from "./helpers/auth.js";
 
-vi.mock("../services/sessionService");
+vi.mock("../services/sessionService.js");
 
 const SESSION_ID = "550e8400-e29b-41d4-a716-446655440000";
 

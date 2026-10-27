@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
-import { createApp } from "../app";
-import * as authService from "../services/authService";
-import * as tripService from "../services/tripService";
+import { createApp } from "../app.js";
+import * as authService from "../services/authService.js";
+import * as tripService from "../services/tripService.js";
 import { DEV_ADMIN_ID, DEV_USER_ID, type TripDetail } from "@fairy/shared";
-import { authHeader } from "./helpers/auth";
+import { authHeader } from "./helpers/auth.js";
 
-vi.mock("../services/tripService");
-vi.mock("../services/authService");
+vi.mock("../services/tripService.js");
+vi.mock("../services/authService.js");
 
 const TRIP_ID = "550e8400-e29b-41d4-a716-446655440000";
 const OTHER_USER_ID = "00000000-0000-4000-8000-000000000099";

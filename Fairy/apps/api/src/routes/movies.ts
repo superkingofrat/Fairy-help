@@ -12,9 +12,9 @@ import {
   listMoviesHandler,
   searchMoviesHandler,
   updateMovieHandler,
-} from "../controllers/movieController";
-import { requireRole } from "../middleware/auth";
-import { validateBody, validateQuery } from "../middleware/validateBody";
+} from "../controllers/movieController.js";
+import { requireRole } from "../middleware/auth.js";
+import { validateBody, validateQuery } from "../middleware/validateBody.js";
 
 const router: IRouter = Router();
 

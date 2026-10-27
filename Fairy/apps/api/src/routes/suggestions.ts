@@ -5,9 +5,9 @@ import {
   listSuggestionsHandler,
   markSuggestionReadHandler,
   unreadCountHandler,
-} from "../controllers/suggestionController";
-import { validateQuery } from "../middleware/validateBody";
-import { requireRole } from "../middleware/auth";
+} from "../controllers/suggestionController.js";
+import { validateQuery } from "../middleware/validateBody.js";
+import { requireRole } from "../middleware/auth.js";
 
 // 2026-09-23-proactive-ops-suggestions：运营建议 REST 端点（admin-only）。
 // 生成由服务层调度器负责；本文件只暴露读取面与手动触发入口。

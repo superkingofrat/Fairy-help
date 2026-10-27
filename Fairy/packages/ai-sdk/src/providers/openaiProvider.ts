@@ -1,5 +1,5 @@
-import { AiProviderError } from "../errors";
-import { parseSseBlocks } from "../streaming";
+import { AiProviderError } from "../errors.js";
+import { parseSseBlocks } from "../streaming.js";
 import type {
   AiProvider,
   AiProviderName,
@@ -9,7 +9,7 @@ import type {
   EmbedResult,
   StreamChunk,
   UsageMetadata,
-} from "../types";
+} from "../types.js";
 
 export interface OpenAiCompatibleConfig {
   name: AiProviderName;

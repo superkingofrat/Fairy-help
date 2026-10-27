@@ -5,9 +5,9 @@ import {
   getProfileHandler,
   listProfilesHandler,
   updateProfileHandler,
-} from "../controllers/profileController";
-import { requireRole } from "../middleware/auth";
-import { validateBody } from "../middleware/validateBody";
+} from "../controllers/profileController.js";
+import { requireRole } from "../middleware/auth.js";
+import { validateBody } from "../middleware/validateBody.js";
 
 const router: IRouter = Router();
 

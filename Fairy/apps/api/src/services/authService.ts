@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { prisma } from "@fairy/database";
 import type { AuthUser } from "@fairy/shared";
-import * as profileService from "./profileService";
+import * as profileService from "./profileService.js";
 
 const ACCESS_TTL = "12h";
 const REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 天

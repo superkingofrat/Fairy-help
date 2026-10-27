@@ -7,7 +7,7 @@ import {
   getRecentMessages,
   getSessionMessages,
   listSessions,
-} from "../services/sessionService";
+} from "../services/sessionService.js";
 
 vi.mock("@fairy/database", () => ({
   prisma: {

@@ -1,12 +1,12 @@
 import { Router, type IRouter, type Response } from "express";
 import { chatRequestSchema, type ChatEvent, type ChatRequestInput } from "@fairy/shared";
-import { validateBody } from "../middleware/validateBody";
-import { runChatTurn } from "../agent/stateLoop";
-import type { SynthesizedResponse } from "../agent/responseSynthesizer";
-import { buildConversationHistory } from "../agent/contextBuilder";
-import { extractAndStoreMemories } from "../memory/memoryExtractor";
-import * as sessionService from "../services/sessionService";
-import type { Role } from "../middleware/auth";
+import { validateBody } from "../middleware/validateBody.js";
+import { runChatTurn } from "../agent/stateLoop.js";
+import type { SynthesizedResponse } from "../agent/responseSynthesizer.js";
+import { buildConversationHistory } from "../agent/contextBuilder.js";
+import { extractAndStoreMemories } from "../memory/memoryExtractor.js";
+import * as sessionService from "../services/sessionService.js";
+import type { Role } from "../middleware/auth.js";
 
 const router: IRouter = Router();
 

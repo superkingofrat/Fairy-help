@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { sessionIdParamSchema } from "@fairy/shared";
-import * as sessionService from "../services/sessionService";
+import * as sessionService from "../services/sessionService.js";
 
 const ERROR_HTTP: Record<sessionService.SessionErrorCode, { status: number; msg: string }> = {
   SESSION_NOT_FOUND: { status: 404, msg: "会话不存在" },

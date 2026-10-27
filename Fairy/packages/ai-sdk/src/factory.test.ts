@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AiProviderError } from "./errors";
+import { AiProviderError } from "./errors.js";
 import {
   createAiProvider,
   createEmbeddingProvider,
   EMBEDDING_DEFAULT_MODEL,
   isAiProviderName,
   PROVIDER_DEFAULT_MODELS,
-} from "./factory";
-import type { ChatMessage } from "./types";
+} from "./factory.js";
+import type { ChatMessage } from "./types.js";
 
 const messages: ChatMessage[] = [
   { role: "system", content: "你是 Fairy。" },

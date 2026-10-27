@@ -1,14 +1,14 @@
 import type { Profile } from "@fairy/shared";
-import * as profileService from "../services/profileService";
-import * as rentalService from "../services/rentalService";
-import * as memoryService from "../memory/memoryService";
-import { classifyIntent } from "./intentClassifier";
-import { buildMemoryBlock, trimHistoryToBudget } from "./contextBuilder";
-import { plan } from "./planner";
-import { dispatch, type ToolObservation } from "./toolDispatcher";
-import { returnMovieTool } from "../tools/returnMovieTool";
-import { synthesize, type SynthesizedResponse } from "./responseSynthesizer";
-import type { Role } from "../middleware/auth";
+import * as profileService from "../services/profileService.js";
+import * as rentalService from "../services/rentalService.js";
+import * as memoryService from "../memory/memoryService.js";
+import { classifyIntent } from "./intentClassifier.js";
+import { buildMemoryBlock, trimHistoryToBudget } from "./contextBuilder.js";
+import { plan } from "./planner.js";
+import { dispatch, type ToolObservation } from "./toolDispatcher.js";
+import { returnMovieTool } from "../tools/returnMovieTool.js";
+import { synthesize, type SynthesizedResponse } from "./responseSynthesizer.js";
+import type { Role } from "../middleware/auth.js";
 
 export async function runChatTurn(
   input: {

@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import type { Suggestion, SuggestionListQuery } from "@fairy/shared";
-import * as suggestionService from "../services/suggestionService";
+import * as suggestionService from "../services/suggestionService.js";
 
 // 2026-09-23-proactive-ops-suggestions：运营建议 controller，保持薄——
 // 所有判定（存在性、幂等、降级）都在 service 层，这里只做信封与状态码映射。

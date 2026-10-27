@@ -1,18 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChatResult } from "@fairy/ai-sdk";
-import { extractMemories, extractAndStoreMemories } from "../memory/memoryExtractor";
-import * as llmClient from "../agent/llmClient";
-import * as memoryService from "../memory/memoryService";
-import * as profileService from "../services/profileService";
+import { extractMemories, extractAndStoreMemories } from "../memory/memoryExtractor.js";
+import * as llmClient from "../agent/llmClient.js";
+import * as memoryService from "../memory/memoryService.js";
+import * as profileService from "../services/profileService.js";
 
-vi.mock("../agent/llmClient", () => ({
+vi.mock("../agent/llmClient.js", () => ({
   sanitizeUserInput: (message: string) => message.trim(),
   tryChat: vi.fn(),
 }));
-vi.mock("../memory/memoryService", () => ({
+vi.mock("../memory/memoryService.js", () => ({
   addMemory: vi.fn(),
 }));
-vi.mock("../services/profileService", () => ({
+vi.mock("../services/profileService.js", () => ({
   mergeLikeGenres: vi.fn(),
 }));
 vi.mocked(profileService.mergeLikeGenres).mockResolvedValue(undefined);

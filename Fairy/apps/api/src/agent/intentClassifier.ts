@@ -7,9 +7,9 @@ import {
   type Scene,
   type InsightTopic,
 } from "@fairy/shared";
-import * as movieService from "../services/movieService";
-import { sanitizeUserInput, tryChat } from "./llmClient";
-import { trimHistoryToBudget, wrapUntrustedSpan } from "./contextBuilder";
+import * as movieService from "../services/movieService.js";
+import { sanitizeUserInput, tryChat } from "./llmClient.js";
+import { trimHistoryToBudget, wrapUntrustedSpan } from "./contextBuilder.js";
 
 export type ChatIntent =
   | { type: "borrow"; movieId: string }

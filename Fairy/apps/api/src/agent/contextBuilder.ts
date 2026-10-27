@@ -1,5 +1,5 @@
 import type { MemoryRecord } from "@fairy/shared";
-import { stripControlChars } from "./sanitize";
+import { stripControlChars } from "./sanitize.js";
 
 // FU-14：会话历史与记忆注入的格式化。
 // prompt token 预算：记忆优先级高于历史，超预算时只裁历史最旧轮次（保留最新轮次）。

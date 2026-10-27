@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { movieDtoSchema } from "./movieSchemas";
-import { tripEventSchema } from "./tripSchemas";
+import { movieDtoSchema } from "./movieSchemas.js";
+import { tripEventSchema } from "./tripSchemas.js";
 
 export const sessionRoleSchema = z.enum(["user", "assistant"]);
 

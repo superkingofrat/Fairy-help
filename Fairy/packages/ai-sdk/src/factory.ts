@@ -1,7 +1,7 @@
-import { AiProviderError } from "./errors";
-import { createClaudeProvider } from "./providers/claudeProvider";
-import { createOpenAiCompatibleProvider } from "./providers/openaiProvider";
-import type { AiProvider, AiProviderName } from "./types";
+import { AiProviderError } from "./errors.js";
+import { createClaudeProvider } from "./providers/claudeProvider.js";
+import { createOpenAiCompatibleProvider } from "./providers/openaiProvider.js";
+import type { AiProvider, AiProviderName } from "./types.js";
 
 export const PROVIDER_DEFAULT_MODELS: Record<AiProviderName, string> = {
   deepseek: "deepseek-v4-flash",

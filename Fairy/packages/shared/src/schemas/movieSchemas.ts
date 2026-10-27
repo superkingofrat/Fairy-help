@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MOODS, SCENES } from "../types/movieTypes";
+import { MOODS, SCENES } from "../types/movieTypes.js";
 
 const moodSchema = z.enum(MOODS);
 const sceneSchema = z.enum(SCENES);

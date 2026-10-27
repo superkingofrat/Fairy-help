@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@fairy/database";
-import { borrowMovieTool } from "../tools/borrowMovieTool";
-import * as rentalService from "../services/rentalService";
+import { borrowMovieTool } from "../tools/borrowMovieTool.js";
+import * as rentalService from "../services/rentalService.js";
 
-vi.mock("../services/rentalService");
+vi.mock("../services/rentalService.js");
 // behaviorLogService 不 mock：经真实 appendQuietly → append → prisma.behaviorLog.create
 // 走完整链路，「日志写失败仍 success」才测得的是生产行为而非 mock 行为
 vi.mock("@fairy/database", () => ({

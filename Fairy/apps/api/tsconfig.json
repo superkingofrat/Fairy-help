@@ -1,6 +1,10 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
+    // NodeNext：产物相对 import 必须带 .js 扩展名，构建产物才能被 node 直接跑（不依赖 tsx loader）。
+    // 仅 api 与它运行时依赖的三个 workspace 包需要；web 由 Vite 打包，保持根的 Bundler 解析。
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "outDir": "./dist",
     "rootDir": "./src",
     "baseUrl": ".",

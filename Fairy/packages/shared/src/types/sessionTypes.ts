@@ -1,5 +1,5 @@
-import type { Movie } from "./movieTypes";
-import type { TripResult } from "../schemas/tripSchemas";
+import type { Movie } from "./movieTypes.js";
+import type { TripResult } from "../schemas/tripSchemas.js";
 
 export type SessionRole = "user" | "assistant";
 

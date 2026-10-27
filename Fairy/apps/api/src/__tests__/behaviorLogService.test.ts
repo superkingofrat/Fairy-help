@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@fairy/database";
-import { listLogs } from "../services/behaviorLogService";
-import * as movieService from "../services/movieService";
+import { listLogs } from "../services/behaviorLogService.js";
+import * as movieService from "../services/movieService.js";
 import type { BehaviorLogQuery } from "@fairy/shared";
 
 vi.mock("@fairy/database", () => ({
@@ -12,7 +12,7 @@ vi.mock("@fairy/database", () => ({
     },
   },
 }));
-vi.mock("../services/movieService");
+vi.mock("../services/movieService.js");
 
 function record(overrides: Record<string, unknown> = {}) {
   return {

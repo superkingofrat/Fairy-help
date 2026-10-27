@@ -35,7 +35,7 @@ describe("embeddingClient.embedContent (FU-16)", () => {
   it("returns null when no embedding provider is configured (no key)", async () => {
     vi.mocked(createEmbeddingProvider).mockReturnValue(null);
 
-    const { embedContent } = (await import("../memory/embeddingClient")) as {
+    const { embedContent } = (await import("../memory/embeddingClient.js")) as {
       embedContent: EmbedContent;
     };
 
@@ -48,7 +48,7 @@ describe("embeddingClient.embedContent (FU-16)", () => {
       fakeProvider({ embed: vi.fn().mockResolvedValue({ vectors: [vector] }) }),
     );
 
-    const { embedContent } = (await import("../memory/embeddingClient")) as {
+    const { embedContent } = (await import("../memory/embeddingClient.js")) as {
       embedContent: EmbedContent;
     };
 
@@ -63,7 +63,7 @@ describe("embeddingClient.embedContent (FU-16)", () => {
     );
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
-    const { embedContent } = (await import("../memory/embeddingClient")) as {
+    const { embedContent } = (await import("../memory/embeddingClient.js")) as {
       embedContent: EmbedContent;
     };
 
@@ -82,7 +82,7 @@ describe("embeddingClient.embedContent (FU-16)", () => {
     );
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
-    const { embedContent } = (await import("../memory/embeddingClient")) as {
+    const { embedContent } = (await import("../memory/embeddingClient.js")) as {
       embedContent: EmbedContent;
     };
 

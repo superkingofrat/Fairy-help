@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
-import { createApp } from "../app";
-import { getStoreInsightsOverview } from "../services/insightService";
-import { authHeader } from "./helpers/auth";
+import { createApp } from "../app.js";
+import { getStoreInsightsOverview } from "../services/insightService.js";
+import { authHeader } from "./helpers/auth.js";
 
-vi.mock("../services/insightService");
+vi.mock("../services/insightService.js");
 
 const overviewFixture = {
   popularMovies: [

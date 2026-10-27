@@ -1,5 +1,5 @@
-export { AiProviderError, isAiProviderError, isMissingApiKeyError } from "./errors";
-export type { AiProviderErrorCode } from "./errors";
+export { AiProviderError, isAiProviderError, isMissingApiKeyError } from "./errors.js";
+export type { AiProviderErrorCode } from "./errors.js";
 export {
   createAiProvider,
   createEmbeddingProvider,
@@ -9,10 +9,10 @@ export {
   EMBEDDING_DIMENSIONS,
   type CreateAiProviderOptions,
   type CreateEmbeddingProviderOptions,
-} from "./factory";
-export * from "./providers";
-export { parseSseBlocks } from "./streaming";
-export type { SseBlock } from "./streaming";
+} from "./factory.js";
+export * from "./providers/index.js";
+export { parseSseBlocks } from "./streaming.js";
+export type { SseBlock } from "./streaming.js";
 export type {
   AiProvider,
   AiProviderName,
@@ -23,4 +23,4 @@ export type {
   EmbedResult,
   StreamChunk,
   UsageMetadata,
-} from "./types";
+} from "./types.js";

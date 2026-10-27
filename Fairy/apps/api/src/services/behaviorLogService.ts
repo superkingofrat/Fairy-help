@@ -1,6 +1,6 @@
 import { BehaviorAction, prisma, type Prisma } from "@fairy/database";
 import type { BehaviorLogListItem, BehaviorLogQuery } from "@fairy/shared";
-import * as movieService from "./movieService";
+import * as movieService from "./movieService.js";
 
 export interface BehaviorLogInput {
   userId: string;

@@ -6,8 +6,8 @@ import {
   type ChatResult,
   type UsageMetadata,
 } from "@fairy/ai-sdk";
-import { recordUsage } from "./usage";
-import { stripControlChars } from "./sanitize";
+import { recordUsage } from "./usage.js";
+import { stripControlChars } from "./sanitize.js";
 
 const MAX_INPUT_CHARS = 2000;
 
