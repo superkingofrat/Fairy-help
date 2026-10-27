@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@fairy/database";
-import { getTripDetail } from "../services/tripService";
+import { getTripDetail } from "../services/tripService.js";
 
 // 只替换 prisma：tripService 经 planTripTool 间接拉进 behaviorLogService/profileService，
 // 它们需要真实的 BehaviorAction 与 Prisma 值导出，故用 importOriginal 保留原模块其余部分。

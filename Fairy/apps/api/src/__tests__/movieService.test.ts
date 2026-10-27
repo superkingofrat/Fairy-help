@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@fairy/database";
-import { listMoviesByIds } from "../services/movieService";
+import { listMoviesByIds } from "../services/movieService.js";
 
 vi.mock("@fairy/database", () => ({
   prisma: {

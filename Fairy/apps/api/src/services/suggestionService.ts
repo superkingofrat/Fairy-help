@@ -1,7 +1,7 @@
 import { prisma } from "@fairy/database";
 import type { Suggestion, SuggestionListQuery, StoreInsightsOverview } from "@fairy/shared";
-import { getStoreInsightsOverview, toLocalDateKey } from "./insightService";
-import { tryChat } from "../agent/llmClient";
+import { getStoreInsightsOverview, toLocalDateKey } from "./insightService.js";
+import { tryChat } from "../agent/llmClient.js";
 
 // 2026-09-23-proactive-ops-suggestions：主动运营建议服务层。
 // 阈值/日报的触发判定复用 insightService 的只读聚合（单一事实来源）；

@@ -9,7 +9,7 @@ import {
   inventoryStatusSchema,
   insightTopicSchema,
   INSIGHT_TOPICS,
-} from "./insightSchemas";
+} from "./insightSchemas.js";
 
 const overviewFixture = {
   popularMovies: [

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { BorrowResult } from "../services/rentalService";
+import type { BorrowResult } from "../services/rentalService.js";
 
 // 真实库并发用例：仅配置 TEST_DATABASE_URL 时运行，CI 与本地默认整体跳过。
 // 并发借阅必须真实提交事务（无法共享回滚隔离），因此该 URL 必须指向独立测试库
@@ -23,7 +23,7 @@ databaseTest("rentalService.borrow under 20-way concurrency (real database)", ()
     // 共享单例），让 borrow 打到测试库而不是开发库
     process.env.DATABASE_URL = testDatabaseUrl;
     database = await import("@fairy/database");
-    ({ borrow } = await import("../services/rentalService"));
+    ({ borrow } = await import("../services/rentalService.js"));
 
     const prisma = database.prisma;
     const suffix = Math.random().toString(36).slice(2, 10);

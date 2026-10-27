@@ -3,8 +3,8 @@ import {
   DETECTION_INTERVAL_MINUTES,
   generateDailyReport,
   runThresholdCycle,
-} from "./suggestionService";
-import { toLocalDateKey } from "./insightService";
+} from "./suggestionService.js";
+import { toLocalDateKey } from "./insightService.js";
 
 // 2026-09-23-proactive-ops-suggestions：进程内调度器（无外部 cron/queue 依赖）。
 // 阈值周期 + 本地 08:00 日报；判定函数保持纯函数便于单测，

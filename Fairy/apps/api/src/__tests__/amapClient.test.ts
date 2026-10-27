@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { planRoute, searchPoi } from "../services/amapClient";
+import { planRoute, searchPoi } from "../services/amapClient.js";
 
 const originalKey = process.env.AMAP_SERVER_KEY;
 

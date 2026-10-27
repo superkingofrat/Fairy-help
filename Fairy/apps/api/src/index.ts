@@ -1,8 +1,8 @@
 import "dotenv/config";
 import { prisma } from "@fairy/database";
-import { createApp } from "./app";
-import { warmUpDatabase } from "./dbWarmup";
-import { startScheduler } from "./services/suggestionScheduler";
+import { createApp } from "./app.js";
+import { warmUpDatabase } from "./dbWarmup.js";
+import { startScheduler } from "./services/suggestionScheduler.js";
 
 const jwtSecret = process.env.JWT_SECRET;
 if (!jwtSecret) {

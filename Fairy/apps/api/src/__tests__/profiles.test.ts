@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
-import { createApp } from "../app";
-import * as profileService from "../services/profileService";
+import { createApp } from "../app.js";
+import * as profileService from "../services/profileService.js";
 import { DEV_ADMIN_ID, DEV_USER_ID } from "@fairy/shared";
 import type { Profile, ProfileListItem } from "@fairy/shared";
-import { authHeader } from "./helpers/auth";
+import { authHeader } from "./helpers/auth.js";
 
-vi.mock("../services/profileService");
+vi.mock("../services/profileService.js");
 
 const sampleProfile: Profile = {
   userId: DEV_USER_ID,

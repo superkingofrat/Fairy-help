@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { plan } from "../agent/planner";
-import type { ChatIntent } from "../agent/intentClassifier";
+import { plan } from "../agent/planner.js";
+import type { ChatIntent } from "../agent/intentClassifier.js";
 
 describe("plan", () => {
   it("maps store_insight intent to the insight tool with its topic", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loginSchema, registerSchema, refreshTokenSchema, authUserSchema } from "./authSchemas";
+import { loginSchema, registerSchema, refreshTokenSchema, authUserSchema } from "./authSchemas.js";
 
 describe("loginSchema", () => {
   it("accepts a valid email and password", () => {

@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
-import { createApp } from "../app";
-import * as movieService from "../services/movieService";
+import { createApp } from "../app.js";
+import * as movieService from "../services/movieService.js";
 import type { Movie } from "@fairy/shared";
-import { authHeader } from "./helpers/auth";
+import { authHeader } from "./helpers/auth.js";
 
-vi.mock("../services/movieService");
+vi.mock("../services/movieService.js");
 
 const sampleMovie: Movie = {
   id: "550e8400-e29b-41d4-a716-446655440000",

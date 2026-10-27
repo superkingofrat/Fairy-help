@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
-import { createApp } from "../app";
-import * as memoryService from "../memory/memoryService";
+import { createApp } from "../app.js";
+import * as memoryService from "../memory/memoryService.js";
 import { DEV_ADMIN_ID, DEV_USER_ID } from "@fairy/shared";
 import type { MemoryListItem, MemoryRecord } from "@fairy/shared";
-import { authHeader } from "./helpers/auth";
+import { authHeader } from "./helpers/auth.js";
 
-vi.mock("../memory/memoryService");
+vi.mock("../memory/memoryService.js");
 
 const recordFixture: MemoryRecord = {
   id: "550e8400-e29b-41d4-a716-446655440000",

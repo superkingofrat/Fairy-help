@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
-import * as authService from "../services/authService";
+import * as authService from "../services/authService.js";
 
 export async function loginHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {

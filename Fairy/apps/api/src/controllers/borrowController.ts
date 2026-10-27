@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
-import { borrowMovieTool } from "../tools/borrowMovieTool";
+import { borrowMovieTool } from "../tools/borrowMovieTool.js";
 
 const HTTP_STATUS_BY_CODE: Record<string, number> = {
   MOVIE_NOT_FOUND: 404,

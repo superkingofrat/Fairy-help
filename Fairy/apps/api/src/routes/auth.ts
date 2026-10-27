@@ -6,9 +6,9 @@ import {
   registerHandler,
   refreshHandler,
   logoutHandler,
-} from "../controllers/authController";
-import { authMiddleware } from "../middleware/auth";
-import { validateBody } from "../middleware/validateBody";
+} from "../controllers/authController.js";
+import { authMiddleware } from "../middleware/auth.js";
+import { validateBody } from "../middleware/validateBody.js";
 
 const router: IRouter = Router();
 

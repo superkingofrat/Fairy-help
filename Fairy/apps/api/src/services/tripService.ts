@@ -2,7 +2,7 @@ import { z } from "zod";
 import { prisma } from "@fairy/database";
 import type { TripDetail, TripListItem, TripResult } from "@fairy/shared";
 import { itineraryDaySchema, tripDetailSchema } from "@fairy/shared";
-import { planTripTool } from "../tools/planTripTool";
+import { planTripTool } from "../tools/planTripTool.js";
 
 // FU-19（旅行规划二期）：行程 REST 服务层。
 // create 复用 chat 的 planTripTool 同一链路（LLM 草稿 → 高德校验 → 事务落库 → 行为日志），

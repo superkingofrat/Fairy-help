@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readCompanionFromPayload } from "../tripCompanionBackfill";
+import { readCompanionFromPayload } from "../tripCompanionBackfill.js";
 
 // 回填脚本唯一需要判断的分支：payload 形状是否足以拼出一个完整快照。
 // 这些用例守住的是「不写半截快照」与「不猜损坏数据」两条边界。

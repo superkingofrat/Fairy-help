@@ -1,5 +1,5 @@
 import type { Mood, Scene, InsightTopic } from "@fairy/shared";
-import type { ChatIntent } from "./intentClassifier";
+import type { ChatIntent } from "./intentClassifier.js";
 
 export type PlannedCall =
   | { tool: "recommend"; moods: Mood[]; scenes: Scene[] }

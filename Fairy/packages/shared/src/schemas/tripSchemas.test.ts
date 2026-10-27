@@ -11,8 +11,8 @@ import {
   routeLegSchema,
   tripResultSchema,
   tripEventSchema,
-} from "./tripSchemas";
-import { chatEventSchema } from "./sessionSchemas";
+} from "./tripSchemas.js";
+import { chatEventSchema } from "./sessionSchemas.js";
 
 const tripResultFixture = {
   tripId: "550e8400-e29b-41d4-a716-446655440000",

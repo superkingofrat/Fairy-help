@@ -1,9 +1,9 @@
 import type { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { rentalsQuerySchema } from "@fairy/shared";
-import type { Role } from "../middleware/auth";
-import * as authService from "../services/authService";
-import * as rentalService from "../services/rentalService";
+import type { Role } from "../middleware/auth.js";
+import * as authService from "../services/authService.js";
+import * as rentalService from "../services/rentalService.js";
 
 const uuidSchema = z.string().uuid();
 

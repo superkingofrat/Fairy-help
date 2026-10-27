@@ -8,7 +8,7 @@ import type {
   PopularMovieItem,
   StoreInsightsOverview,
 } from "@fairy/shared";
-import { PRISMA_TO_MOOD, PRISMA_TO_SCENE } from "./movieService";
+import { PRISMA_TO_MOOD, PRISMA_TO_SCENE } from "./movieService.js";
 
 // FU-11：只读聚合，供 /admin/insights 看板消费；阈值与窗口均为契约常量。
 export const LOW_STOCK_THRESHOLD = 1;

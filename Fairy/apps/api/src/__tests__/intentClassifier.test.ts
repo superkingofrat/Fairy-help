@@ -3,16 +3,16 @@ import {
   classifyIntent,
   classifyStoreInsightByRules,
   isPlanTripByRules,
-} from "../agent/intentClassifier";
-import * as llmClient from "../agent/llmClient";
-import * as movieService from "../services/movieService";
+} from "../agent/intentClassifier.js";
+import * as llmClient from "../agent/llmClient.js";
+import * as movieService from "../services/movieService.js";
 import type { ChatResult } from "@fairy/ai-sdk";
 
-vi.mock("../agent/llmClient", () => ({
+vi.mock("../agent/llmClient.js", () => ({
   sanitizeUserInput: (message: string) => message,
   tryChat: vi.fn(),
 }));
-vi.mock("../services/movieService");
+vi.mock("../services/movieService.js");
 
 const MOVIE_ID = "550e8400-e29b-41d4-a716-446655440000";
 

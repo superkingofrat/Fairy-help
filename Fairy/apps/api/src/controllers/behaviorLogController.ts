@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import type { BehaviorLogQuery, BehaviorLogListItem } from "@fairy/shared";
 import { userIdParamsSchema } from "@fairy/shared";
-import * as behaviorLogService from "../services/behaviorLogService";
+import * as behaviorLogService from "../services/behaviorLogService.js";
 
 export async function listBehaviorLogsHandler(
   _req: Request,

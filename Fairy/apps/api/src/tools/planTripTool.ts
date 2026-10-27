@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { prisma, type Prisma } from "@fairy/database";
 import type { TripResult, TripPoi, RouteLeg } from "@fairy/shared";
-import { sanitizeUserInput, tryChat } from "../agent/llmClient";
-import * as profileService from "../services/profileService";
-import type { CompanionCandidate } from "../services/profileService";
-import * as behaviorLogService from "../services/behaviorLogService";
-import * as amapClient from "../services/amapClient";
+import { sanitizeUserInput, tryChat } from "../agent/llmClient.js";
+import * as profileService from "../services/profileService.js";
+import type { CompanionCandidate } from "../services/profileService.js";
+import * as behaviorLogService from "../services/behaviorLogService.js";
+import * as amapClient from "../services/amapClient.js";
 
 // FU-13：planTripTool——读取画像与消息 → LLM 生成行程草稿 → 高德校验 POI/路线（可选）
 // → 落库 Trip + TRIP_PLANNED 日志 → { success, data | { unresolved }, error }。

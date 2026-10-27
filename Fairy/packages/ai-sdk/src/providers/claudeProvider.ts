@@ -1,5 +1,5 @@
-import { AiProviderError } from "../errors";
-import { parseSseBlocks } from "../streaming";
+import { AiProviderError } from "../errors.js";
+import { parseSseBlocks } from "../streaming.js";
 import type {
   AiProvider,
   ChatMessage,
@@ -8,7 +8,7 @@ import type {
   EmbedRequest,
   EmbedResult,
   StreamChunk,
-} from "../types";
+} from "../types.js";
 
 export interface ClaudeConfig {
   apiKey: string;

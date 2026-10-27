@@ -7,7 +7,7 @@ import type {
   MemorySelfQuery,
   MemoryUpdateInput,
 } from "@fairy/shared";
-import * as memoryService from "../memory/memoryService";
+import * as memoryService from "../memory/memoryService.js";
 
 export async function listMemoriesHandler(
   _req: Request,

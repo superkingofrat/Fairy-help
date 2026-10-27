@@ -9,17 +9,17 @@ import {
   listSuggestions,
   markRead,
   runThresholdCycle,
-} from "../services/suggestionService";
-import { getStoreInsightsOverview } from "../services/insightService";
-import { tryChat } from "../agent/llmClient";
+} from "../services/suggestionService.js";
+import { getStoreInsightsOverview } from "../services/insightService.js";
+import { tryChat } from "../agent/llmClient.js";
 
-vi.mock("../agent/llmClient", () => ({
+vi.mock("../agent/llmClient.js", () => ({
   sanitizeUserInput: (message: string) => message,
   tryChat: vi.fn(),
 }));
 
 // insightService 仅 mock 打库的聚合函数；toLocalDateKey 保留真实公式（与实现共用保证确定性）
-vi.mock("../services/insightService", () => ({
+vi.mock("../services/insightService.js", () => ({
   getStoreInsightsOverview: vi.fn(),
   toLocalDateKey: (date: Date) =>
     new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10),

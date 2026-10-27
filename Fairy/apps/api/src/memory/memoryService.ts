@@ -9,7 +9,7 @@ import type {
   MemorySelfQuery,
   MemoryUpdateInput,
 } from "@fairy/shared";
-import { embedContent } from "./embeddingClient";
+import { embedContent } from "./embeddingClient.js";
 
 // FU-14：记忆中心——结构化记忆的落库与检索（按 profileId 用户隔离，时间倒序 + 限量）。
 // 调用方负责降级：本服务方法失败向上抛，由对话链路统一 catch（不中断响应）。

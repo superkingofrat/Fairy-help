@@ -1,4 +1,4 @@
-import type { AiProviderName } from "./types";
+import type { AiProviderName } from "./types.js";
 
 export type AiProviderErrorCode =
   | "MISSING_API_KEY"

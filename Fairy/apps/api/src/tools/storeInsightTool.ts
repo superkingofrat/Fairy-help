@@ -1,4 +1,4 @@
-import * as insightService from "../services/insightService";
+import * as insightService from "../services/insightService.js";
 import type { StoreInsightsOverview } from "@fairy/shared";
 
 // FU-12：storeInsightTool——admin 在 chat 中直接询问店内运营数据。

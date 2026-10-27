@@ -1,18 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@fairy/database";
 import type { ChatResult } from "@fairy/ai-sdk";
-import { planTripTool } from "../tools/planTripTool";
-import * as llmClient from "../agent/llmClient";
-import * as profileService from "../services/profileService";
-import type { CompanionCandidate } from "../services/profileService";
-import * as amapClient from "../services/amapClient";
+import { planTripTool } from "../tools/planTripTool.js";
+import * as llmClient from "../agent/llmClient.js";
+import * as profileService from "../services/profileService.js";
+import type { CompanionCandidate } from "../services/profileService.js";
+import * as amapClient from "../services/amapClient.js";
 
-vi.mock("../agent/llmClient", () => ({
+vi.mock("../agent/llmClient.js", () => ({
   sanitizeUserInput: (message: string) => message,
   tryChat: vi.fn(),
 }));
-vi.mock("../services/profileService");
-vi.mock("../services/amapClient");
+vi.mock("../services/profileService.js");
+vi.mock("../services/amapClient.js");
 // behaviorLogService 不 mock：经真实 appendQuietly → append → prisma.behaviorLog.create
 // 走完整链路，「日志写失败仍 success」才测得的是生产行为而非 mock 行为
 vi.mock("@fairy/database", () => ({

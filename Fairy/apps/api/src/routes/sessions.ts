@@ -3,7 +3,7 @@ import {
   createSessionHandler,
   getSessionMessagesHandler,
   listSessionsHandler,
-} from "../controllers/sessionsController";
+} from "../controllers/sessionsController.js";
 
 const router: IRouter = Router();
 

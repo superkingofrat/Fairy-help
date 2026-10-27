@@ -54,8 +54,8 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/health || exit 1
 
-# tsc 的 moduleResolution 是 Bundler，产物的相对 import 不带扩展名（`./app`），Node 原生 ESM
-# 解析不了（ERR_MODULE_NOT_FOUND）；api 包自身依赖 tsx，用它的 ESM loader 提供 Bundler 风格
-# 解析，构建产物即可被 node 直接跑。彻底方案是改 NodeNext + 全量补 .js 扩展名（约 274 处 import），
-# 属独立重构，不在本次容器化范围内
-CMD ["node", "--import", "./apps/api/node_modules/tsx/dist/loader.mjs", "apps/api/dist/index.js"]
+# 构建产物可直接被 node 跑：api/shared/ai-sdk/database 四个包的 tsconfig 用
+# moduleResolution: NodeNext，源码里的相对 import 一律带 .js 扩展名（tsc 会把 ./x.js
+# 解析到 ./x.ts），Node 原生 ESM 因此无需任何 loader。web 仍由 Vite 打包，保持根的
+# Bundler 解析不变。
+CMD ["node", "apps/api/dist/index.js"]

@@ -8,8 +8,8 @@ import {
   listOwnMemories,
   searchMemories,
   updateMemory,
-} from "../memory/memoryService";
-import { embedContent } from "../memory/embeddingClient";
+} from "../memory/memoryService.js";
+import { embedContent } from "../memory/embeddingClient.js";
 
 const { MockPrismaClientKnownRequestError } = vi.hoisted(() => {
   class MockPrismaClientKnownRequestError extends Error {
@@ -81,7 +81,7 @@ vi.mock("@fairy/database", () => {
 });
 
 // FU-16：embed 边界整体 mock（真实 embed 由 embeddingClient 单测/真机覆盖，这里禁真实 API）。
-vi.mock("../memory/embeddingClient", () => ({
+vi.mock("../memory/embeddingClient.js", () => ({
   embedContent: vi.fn(),
 }));
 // 默认“无 embed 能力”→ 结构化路径；需要向量路径的用例在 it 内覆盖 mockResolvedValue。

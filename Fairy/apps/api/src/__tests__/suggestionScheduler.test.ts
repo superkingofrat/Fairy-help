@@ -3,17 +3,17 @@ import {
   shouldRunDaily,
   shouldRunThresholdCycle,
   startScheduler,
-} from "../services/suggestionScheduler";
-import { generateDailyReport, runThresholdCycle } from "../services/suggestionService";
+} from "../services/suggestionScheduler.js";
+import { generateDailyReport, runThresholdCycle } from "../services/suggestionService.js";
 
-vi.mock("../services/suggestionService", () => ({
+vi.mock("../services/suggestionService.js", () => ({
   DAILY_HOUR: 8,
   DETECTION_INTERVAL_MINUTES: 15,
   runThresholdCycle: vi.fn(),
   generateDailyReport: vi.fn(),
 }));
 
-vi.mock("../services/insightService", () => ({
+vi.mock("../services/insightService.js", () => ({
   toLocalDateKey: (date: Date) =>
     new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10),
 }));

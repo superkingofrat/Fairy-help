@@ -2,12 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@fairy/database";
 import type { Movie, Profile } from "@fairy/shared";
 import { DEV_USER_ID } from "@fairy/shared";
-import { recommendMovieTool } from "../tools/recommendMovieTool";
-import * as movieService from "../services/movieService";
-import * as profileService from "../services/profileService";
+import { recommendMovieTool } from "../tools/recommendMovieTool.js";
+import * as movieService from "../services/movieService.js";
+import * as profileService from "../services/profileService.js";
 
-vi.mock("../services/movieService");
-vi.mock("../services/profileService");
+vi.mock("../services/movieService.js");
+vi.mock("../services/profileService.js");
 // behaviorLogService 不 mock：经真实 appendQuietly → append → prisma.behaviorLog.create
 // 走完整链路，「日志写失败仍 success」才测得的是生产行为而非 mock 行为
 vi.mock("@fairy/database", () => ({

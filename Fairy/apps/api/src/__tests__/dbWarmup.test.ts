@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { warmUpDatabase, type WarmUpDatabaseOptions } from "../dbWarmup";
+import { warmUpDatabase, type WarmUpDatabaseOptions } from "../dbWarmup.js";
 
 function optionsWith(overrides: Partial<WarmUpDatabaseOptions> = {}): WarmUpDatabaseOptions {
   return {

@@ -1,7 +1,7 @@
 import { memoryExtractionSchema, type MemoryExtraction } from "@fairy/shared";
-import { sanitizeUserInput, tryChat } from "../agent/llmClient";
-import * as memoryService from "./memoryService";
-import * as profileService from "../services/profileService";
+import { sanitizeUserInput, tryChat } from "../agent/llmClient.js";
+import * as memoryService from "./memoryService.js";
+import * as profileService from "../services/profileService.js";
 
 // FU-14：记忆抽取——每轮对话完成后，LLM 从（用户消息 + Fairy 回复）抽取值得记住的要点。
 // 静默降级：LLM 不可用/超时/非法 JSON → 返回空数组，绝不抛错、不阻塞对话链路。

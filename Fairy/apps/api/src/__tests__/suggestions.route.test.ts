@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
-import { createApp } from "../app";
-import * as suggestionService from "../services/suggestionService";
+import { createApp } from "../app.js";
+import * as suggestionService from "../services/suggestionService.js";
 import type { Suggestion } from "@fairy/shared";
-import { authHeader } from "./helpers/auth";
+import { authHeader } from "./helpers/auth.js";
 
-vi.mock("../services/suggestionService");
+vi.mock("../services/suggestionService.js");
 
 const SUGGESTION_ID = "550e8400-e29b-41d4-a716-446655440000";
 

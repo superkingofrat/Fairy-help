@@ -4,7 +4,7 @@ import {
   getStoreInsightsOverview,
   localMidnight,
   toLocalDateKey,
-} from "../services/insightService";
+} from "../services/insightService.js";
 
 vi.mock("@fairy/database", () => ({
   prisma: {

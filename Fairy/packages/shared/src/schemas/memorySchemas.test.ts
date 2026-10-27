@@ -11,7 +11,7 @@ import {
   memoryCreateSchema,
   memoryUpdateSchema,
   memoryListFeedSchema,
-} from "./memorySchemas";
+} from "./memorySchemas.js";
 
 describe("memoryKindSchema", () => {
   it("accepts the three kinds", () => {

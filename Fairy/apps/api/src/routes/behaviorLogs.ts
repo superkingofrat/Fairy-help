@@ -1,8 +1,8 @@
 import { Router, type IRouter } from "express";
 import { behaviorLogQuerySchema } from "@fairy/shared";
-import { listBehaviorLogsHandler } from "../controllers/behaviorLogController";
-import { requireRole } from "../middleware/auth";
-import { validateQuery } from "../middleware/validateBody";
+import { listBehaviorLogsHandler } from "../controllers/behaviorLogController.js";
+import { requireRole } from "../middleware/auth.js";
+import { validateQuery } from "../middleware/validateBody.js";
 
 const router: IRouter = Router();
 

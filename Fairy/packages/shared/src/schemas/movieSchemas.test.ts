@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createMovieSchema, parseCreateMovieInput } from "./movieSchemas";
+import { createMovieSchema, parseCreateMovieInput } from "./movieSchemas.js";
 
 const validMovie = {
   title: "测试片",

@@ -2035,3 +2035,53 @@ Docker 冒烟的后续加固：给 CI 加一个并行 job 构建 api/web 两个�
 - 日志表保留策略（`behavior_logs` / `rentals`，需先定保留窗口）
 - `core.autocrlf=true` 导致 `pnpm format:check` 在本机全量假失败（158 个文件），加 `.gitattributes` 或关掉 autocrlf 恢复该门禁
 - FU-16 真实 embed 验收（待 `EMBEDDING_API_KEY`）
+
+---
+
+## Session 45: ESM 扩展名彻底迁移（NodeNext + 274 处 import 补 .js）
+
+### Summary
+
+把 Docker 冒烟时用 tsx loader 兜住的 ESM 解析问题彻底解决：Node 侧四个包迁移到 `moduleResolution: NodeNext`，274 处相对 import 补 `.js` 扩展名，api Dockerfile 的 CMD 回到纯粹的 `node apps/api/dist/index.js`——生产路径不再依赖任何 loader/转译器。
+
+### Main Changes
+
+- **四个 tsconfig**（`apps/api`、`packages/shared`、`packages/ai-sdk`、`packages/database`）各自覆盖 `module`/`moduleResolution` 为 `NodeNext`；根 tsconfig 保持 `Bundler`（Vite 打包 web 所需）
+- **115 个源文件**：274 处相对 import/export 补 `.js`；三个目录导入（`./schemas`、`./types`、`./providers`）改写为显式 `/index.js`；49 处测试文件里的 `vi.mock("...")` 与 `import("...")` 参数同样补扩展名
+- **`apps/api/Dockerfile`**：CMD 去掉 `--import tsx/dist/loader.mjs`
+- **`ARCHITECTURE.md`**：新增「Node 侧四包用 NodeNext、web 保持 Bundler」决策行；容器化行与「提交前本地验证」段同步更新
+
+### 关键实现决策
+
+- **只迁四个包、不迁 web**：web 由 Vite 打包，Bundler 解析下写 `./foo` 更自然；NodeNext 是「产物要被 node 执行」的要求，按需覆盖而不是全局改根配置——避免把 160 处 web import 也卷进来
+- **显式 `/index.js` 而非保留目录导入**：NodeNext 不允许无扩展名的目录解析，`./types/index.js` 在 Node ESM、tsc、Vite、vitest 四处都成立，没有第二种写法更省
+- **保留 P2002/错误抛出语义不变**：本次只改模块解析，不碰业务逻辑
+
+### 踩坑与教训
+
+- **普查脚本按「第一个导入方」解析相对路径，把文件误判成目录**：`./types` 在 `packages/shared/src` 下是目录（有 `index.ts`）、在 `packages/ai-sdk/src` 下是文件（`types.ts`），我的脚本只拿第一个用到该 specifier 的文件去解析，于是把 ai-sdk 的 4 处 `./types` 错改成 `./types/index.js`。**同一 specifier 在不同文件里含义不同，相对路径必须逐文件解析**。是 `tsc` 报 TS2307 发现的，不是我自己发现的
+- **codemod 正则只覆盖 `from`/`import` 声明，漏了 `vi.mock(...)` 与 `await import(...)`**：49 处测试文件参数全部漏掉，直到 `pnpm --filter "@fairy/api..." build` 报 TS2835 才补。教训：机械改写后要让编译器当验收器，而不是靠自己的复查脚本——我的复查脚本和普查脚本犯了同一个错（同样按第一个文件解析），两次都给出"全部处理完"的假信号
+- **改 `packages/*/src` 后必须先构建再 typecheck 下游**：api 的 typecheck 解析 `@fairy/shared` 的 `dist/`，陈旧产物会让它报一串 `has no exported member`（TripPoi/Movie/Mood…全缺），看起来像迁移破坏了导出，实际只是没重新构建。这个陷阱 ARCHITECTURE §10 早为「测试」记过，本次证明 typecheck 同样中招
+
+### Git Commits
+
+```
+<本次提交> refactor: migrate node-side packages to NodeNext imports   (117 files)
+```
+
+### Testing
+
+- [OK] 全仓 test 8/8：api 446 passed / 1 skipped、shared 128、ai-sdk 18、database 12（与迁移前逐包一致）
+- [OK] 全仓 typecheck 8/8、lint 8/8
+- [OK] 宿主机直跑构建产物：`PORT=4000 node --env-file=.env dist/index.js` → `dbWarmup connected`、`listening on port 4000`、`/health` 200、调度周期 `created: 0, skipped: 15` 且零 LLM 调用
+- [OK] 容器内验证：重建 api 镜像后 `PID 1` 命令行为 `node apps/api/dist/index.js`、`/health` 200、跨源登录 + 影片库 `total: 45`
+
+### Status
+
+[OK] **Completed**（待 PR 合并）
+
+### Next Steps
+
+- 日志表保留策略（`behavior_logs` / `rentals`，需先定保留窗口）
+- `core.autocrlf=true` 导致 `pnpm format:check` 在本机全量假失败，加 `.gitattributes` 或关掉 autocrlf 恢复该门禁
+- FU-16 真实 embed 验收（待 `EMBEDDING_API_KEY`）
