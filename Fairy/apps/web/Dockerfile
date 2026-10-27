@@ -1,10 +1,14 @@
-# syntax=docker/dockerfile:1
+# 故意不写 `# syntax=docker/dockerfile:1`：本文件只用标准 Dockerfile 语法，无需钉前端版本；
+# 写上会让 BuildKit 额外去 Docker Hub 拉 docker/dockerfile 前端镜像，在无法直连 Docker Hub 的
+# 网络（国内自托管常见）直接卡死。去掉后走 BuildKit 内置前端，构建零额外拉取。
 # 构建上下文是 monorepo 根目录 Fairy/：docker build -f apps/web/Dockerfile .
 FROM node:20-alpine AS builder
 
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 RUN apk add --no-cache openssl ca-certificates
 RUN corepack prepare pnpm@9.0.0 --activate
+# prepare --activate 只下载并设为默认版本，不在 PATH 上生成 shim；少了这行后续 RUN pnpm 全部 127
+RUN corepack enable
 
 WORKDIR /app
 

@@ -1,4 +1,6 @@
-# syntax=docker/dockerfile:1
+# 故意不写 `# syntax=docker/dockerfile:1`：本文件只用标准 Dockerfile 语法，无需钉前端版本；
+# 写上会让 BuildKit 额外去 Docker Hub 拉 docker/dockerfile 前端镜像，在无法直连 Docker Hub 的
+# 网络（国内自托管常见）直接卡死。去掉后走 BuildKit 内置前端，构建零额外拉取。
 # 构建上下文是 monorepo 根目录 Fairy/：docker build -f apps/api/Dockerfile .
 FROM node:20-alpine AS builder
 
@@ -6,6 +8,8 @@ ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 # prisma 的查询引擎在 alpine 上动态链接 openssl；tzdata 仅运行时需要
 RUN apk add --no-cache openssl ca-certificates
 RUN corepack prepare pnpm@9.0.0 --activate
+# prepare --activate 只下载并设为默认版本，不在 PATH 上生成 shim；少了这行后续 RUN pnpm 全部 127
+RUN corepack enable
 
 WORKDIR /app
 
@@ -50,4 +54,8 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/health || exit 1
 
-CMD ["node", "apps/api/dist/index.js"]
+# tsc 的 moduleResolution 是 Bundler，产物的相对 import 不带扩展名（`./app`），Node 原生 ESM
+# 解析不了（ERR_MODULE_NOT_FOUND）；api 包自身依赖 tsx，用它的 ESM loader 提供 Bundler 风格
+# 解析，构建产物即可被 node 直接跑。彻底方案是改 NodeNext + 全量补 .js 扩展名（约 274 处 import），
+# 属独立重构，不在本次容器化范围内
+CMD ["node", "--import", "./apps/api/node_modules/tsx/dist/loader.mjs", "apps/api/dist/index.js"]
